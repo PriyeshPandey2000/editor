@@ -88,6 +88,8 @@ Every node accepts:
 | `offsetX`, `offsetY` | `number` | `0` | Render-time translation on top of `x`/`y`, px; moves the drawn content without changing the layout box (the channel the slide animations drive). Subpixel values are kept. |
 | `width`, `height` | `number` | per element | Box size, px — see the table above. |
 | `keepAspectRatio` | `boolean` | absent | Locks the box to its authored proportions: resizing one bound (an editor handle, a layout row) drives the other so the ratio `width`:`height` has is kept — or, with neither authored, the ratio the box currently has. |
+| `constrainX` | `"left" \| "right" \| "center" \| "stretch" \| "scale"` | `"left"` | How the element follows its scene's frame when that frame is resized, horizontally — see below. |
+| `constrainY` | `"top" \| "bottom" \| "center" \| "stretch" \| "scale"` | `"top"` | The same vertically. |
 | `rotation` | `number` | `0` | Rotation in degrees. |
 | `scale` | `number` | `1` | Uniform scale about the box origin. Overrides `scaleX`/`scaleY` while set. |
 | `scaleX`, `scaleY` | `number` | `1` | Per-axis scale. |
@@ -101,6 +103,18 @@ Every node accepts:
 | `transition` | `TransitionSpec \| null` | none | Transition into the next clip; direct children of `<sequence>` only (see [transitions.md](./transitions.md)). |
 
 Props are animated by [`<keyframeTrack>`](./keyframes.md) children naming them; preset in/out effects are [`<animation>`](./animations.md) children. No prop takes keyframes inline.
+
+### Constraints
+
+`constrainX` and `constrainY` say what an element does when **the frame it sits in is resized** — a scene taken from 1920×1080 to 1080×1920, say. Nothing else reads them: a constraint moves nothing at the moment it is written, only the next time the frame changes size.
+
+| Value | `constrainX` | `constrainY` |
+| ----- | ------------ | ------------ |
+| `"left"` / `"top"` | Keeps its distance from the left edge — where an element with no constraint stays. | The same from the top edge. |
+| `"right"` / `"bottom"` | Keeps its distance from the right edge, so it travels with it. | The same from the bottom edge. |
+| `"center"` | Keeps its position relative to the middle of the frame. | The same vertically. |
+| `"stretch"` | Holds both margins, so the element is **resized** by the frame's width delta. | Holds the top and bottom margins, resizing its height. |
+| `"scale"` | Position and width take the frame's horizontal ratio, so the element keeps its share of the frame. | The same vertically. |
 
 ### Editor state
 
