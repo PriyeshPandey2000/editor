@@ -3,6 +3,9 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 import { ConstraintType } from "@diffusionstudio/runtime";
+import { HORIZONTAL_CONSTRAINTS, VERTICAL_CONSTRAINTS } from "@diffusionstudio/reconciler";
+
+import type { HorizontalConstraint, VerticalConstraint } from "@diffusionstudio/jsx";
 
 export type Constraint = {
   key: ConstraintType;
@@ -43,3 +46,21 @@ export const verticalConstraints: Constraint[] = [
   { key: ConstraintType.STRETCH, label: 'Top & bottom' },
   { key: ConstraintType.SCALE, label: 'Scale' },
 ];
+
+const HORIZONTAL_NAMES = new Map<ConstraintType, HorizontalConstraint>(
+  Object.entries(HORIZONTAL_CONSTRAINTS).map(([name, type]) => [type, name as HorizontalConstraint]),
+);
+
+const VERTICAL_NAMES = new Map<ConstraintType, VerticalConstraint>(
+  Object.entries(VERTICAL_CONSTRAINTS).map(([name, type]) => [type, name as VerticalConstraint]),
+);
+
+/** The anchor as the JSX spells it on the horizontal axis (`constrainX="right"`). */
+export function horizontalConstraintName(type: ConstraintType): HorizontalConstraint {
+  return HORIZONTAL_NAMES.get(type) ?? "left";
+}
+
+/** The same on the vertical axis (`constrainY="bottom"`). */
+export function verticalConstraintName(type: ConstraintType): VerticalConstraint {
+  return VERTICAL_NAMES.get(type) ?? "top";
+}

@@ -22,6 +22,19 @@ export type StrokeJoin = "miter" | "round" | "bevel";
 export type StrokeCap = "butt" | "round" | "square";
 
 /**
+ * How an element follows its scene's frame along one axis when that frame is
+ * resized: pinned to the near edge ("left"/"top", the default), to the far
+ * one ("right"/"bottom"), to the middle ("center"), to both edges at once
+ * ("stretch", which resizes the element to keep either margin), or to the
+ * frame's proportions ("scale", which moves and resizes it by the frame's
+ * ratio).
+ */
+export type HorizontalConstraint = "left" | "right" | "center" | "stretch" | "scale";
+
+/** The vertical axis of `HorizontalConstraint`. */
+export type VerticalConstraint = "top" | "bottom" | "center" | "stretch" | "scale";
+
+/**
  * How an element composites over what is below it: the canvas
  * `globalCompositeOperation` blend modes, camelCase. Default "sourceOver".
  */
@@ -221,6 +234,16 @@ type SizeProps = {
 };
 
 type TransformProps = PositionProps & OffsetProps & SizeProps & {
+  /**
+   * How the element follows its scene's frame when that frame is resized —
+   * horizontally, then vertically. They are read only against a frame that
+   * changes size, so a constraint moves nothing until the scene is resized;
+   * a `<sequence>` is not a frame of its own and its children are constrained
+   * to the frame the sequence sits in. Default "left" and "top", which pin
+   * the element where it is.
+   */
+  constrainX?: HorizontalConstraint;
+  constrainY?: VerticalConstraint;
   /** Rotation in degrees. */
   rotation?: number;
   /** Uniform scale about the box origin, 1 = natural size. Overrides `scaleX`/`scaleY` while set. */

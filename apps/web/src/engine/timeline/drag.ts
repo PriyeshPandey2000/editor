@@ -100,7 +100,7 @@ export function beginClipDrag(world: World, entity: Entity): void {
 
 /**
  * Places `entity` at where it started plus how far the pointer has come,
- * pulled to a snap if one is near.
+ * pulled to a snap if one is near, and never before the start of the scene.
  */
 export function applyClipDrag(
 	world: World,
@@ -109,14 +109,27 @@ export function applyClipDrag(
 	resolution: number,
 ): void {
 	const origin = entity.get(ClipDragOrigin)!;
-	const offset = pixelsToFrames(draggedPixels(surface), resolution);
 
-	// One snap for the whole drag, found from every clip in it, so clips
-	// dragged together stay the same distance apart.
+	const floor = -earliestDraggedStart(world);
+	const offset = Math.max(pixelsToFrames(draggedPixels(surface), resolution), floor);
+
+	// One snap for the whole drag, found from every clip in it — unless it
+	// would pull the drag back past the floor the pointer just hit.
 	const snap = findSnapDelta(world, resolution, offset);
-	if (snap) surface.snapX = framesToPixels(snap.frame, resolution);
+	const snapped = snap !== null && offset - snap.delta >= floor;
+	if (snapped) surface.snapX = framesToPixels(snap.frame, resolution);
 
-	moveEntityTo(world, entity, origin.start + offset - (snap?.delta ?? 0));
+	moveEntityTo(world, entity, origin.start + offset - (snapped ? snap.delta : 0));
+}
+
+/** Where the first clip of the drag in flight started, from the snapshots. */
+function earliestDraggedStart(world: World): number {
+	const origins = store(world, ClipDragOrigin);
+	let earliest = Number.POSITIVE_INFINITY;
+	for (const entity of world.query(NODES, ClipDragOrigin)) {
+		earliest = Math.min(earliest, origins.start[entity.id()] ?? 0);
+	}
+	return Number.isFinite(earliest) ? earliest : 0;
 }
 
 /** Notes where `entity`'s edges are, so a trim can be measured from them. */

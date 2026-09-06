@@ -25,6 +25,8 @@ import {
 	isGroupLike,
 	isSequence,
 	setPlayhead,
+	shuttlePlayback,
+	stopPlayback,
 	store,
 	togglePlayback,
 } from '@diffusionstudio/runtime';
@@ -183,6 +185,20 @@ function releaseHandTool(world: World): void {
 function toggleActivePlayback(world: World): void {
 	const scene = getActiveEntity(world);
 	if (scene) togglePlayback(world, scene);
+}
+
+/**
+ * J and L, the shuttle pair: each press runs the active scene faster the way
+ * it is already going, or turns it around at 1x. K parks it.
+ */
+const shuttle = (direction: 1 | -1) => (world: World): void => {
+	const scene = getActiveEntity(world);
+	if (scene) shuttlePlayback(world, scene, direction);
+};
+
+function stopActivePlayback(world: World): void {
+	const scene = getActiveEntity(world);
+	if (scene) stopPlayback(world, scene);
 }
 
 function onSpacePressed(world: World): void {
@@ -413,6 +429,9 @@ const PRESSED_SHORTCUTS: readonly Shortcut[] = [
 	{ keys: ['d', '!mod'], action: seekFrames(1) },
 	{ keys: ['w', '!mod'], action: seekSeconds(1) },
 	{ keys: ['s', '!mod'], action: seekSeconds(-1) },
+	{ keys: ['j', '!mod'], action: shuttle(-1) },
+	{ keys: ['k', '!mod'], action: stopActivePlayback },
+	{ keys: ['l', '!mod'], action: shuttle(1) },
 	{ keys: [']', '!mod'], action: restack('front') },
 	{ keys: ['[', '!mod'], action: restack('back') },
 	{ keys: ['\\', '!mod'], action: selectParents },
