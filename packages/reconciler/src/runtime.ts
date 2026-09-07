@@ -34,6 +34,7 @@ import {
 	setProp,
 	spread,
 	use,
+	useResolution,
 	useTicker,
 } from './renderer';
 
@@ -52,6 +53,7 @@ export const JSX_RUNTIME = {
 	setProp,
 	mergeProps,
 	use,
+	useResolution,
 	useTicker,
 	__inspect,
 };

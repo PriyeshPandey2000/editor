@@ -55,6 +55,20 @@ Imports resolve by category:
 - The module executes **inside the editor process**, unsandboxed. This is local tooling with a local trust model, the same trust as running the app itself. Only effects made through the JSX runtime are part of the document; anything else the module does is unsupported.
 - Solid's control flow (`<For>`, `<Show>`, `<Index>`, `<Switch>`) and primitives (`createSignal`, `createMemo`, …) are fully available. Control-flow components need their import (`import { For } from "solid-js"`); the compile says so by name when one is missing. See [lifecycle.md](./lifecycle.md) for what happens after mount.
 
+## Compile-time plugins (babel config)
+
+Some libraries ship a compile step of their own — [TypeGPU](https://typegpu.com)'s `'use gpu'` functions, for example, only work after its build plugin has run. A project may carry a standard babel config at its root (`babel.config.json`, `babel.config.js`, or `.babelrc`) for exactly this, and the compile folds its **plugins** into the pipeline:
+
+```json
+{ "plugins": ["unplugin-typegpu/babel"] }
+```
+
+Plugin names resolve from the project's own `node_modules`, so the library and its plugin are installed like any userland package (`npm i typegpu && npm i -D unplugin-typegpu`). The plugins run after the editor's own passes (id stamping, tag canonicalization) and before the JSX transform, so a plugin that rewrites JSX still feeds the compile — though elements it synthesizes carry no id and canvas edits to them cannot be written back.
+
+Only `plugins` is honored. `presets` would fight the fixed transform stack and are ignored with a console warning; other options (`sourceMaps`, `targets`, …) shape output the compiler owns and are ignored silently. A config that fails to evaluate — or names a plugin that is not installed — fails the compile with the reason. The config is read once per compile against the entry file, so per-file `overrides` apply project-wide. Prefer `babel.config.json`: edits to it apply on the next compile, while a `babel.config.js` is cached for the app's lifetime and needs a restart to pick up changes.
+
+[examples/10-typegpu.tsx](../../examples/10-typegpu.tsx) is a full project using this: TypeGPU shaders written in TypeScript, compiled through the project's babel config.
+
 ## Tag spelling
 
 Composition elements are **camelCase** intrinsics (`<rect>`, `<keyframeTrack>`, `<linearGradientPaint>`); the compile canonicalizes them to the components the renderer receives. Writing one PascalCase (`<Rect>`) is a compile error naming the tag you meant.

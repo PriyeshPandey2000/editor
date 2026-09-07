@@ -3,7 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 
-import { Active, AdjustmentLayer, Animation, AnimationPhase, AnimationType, appendChild, AssetId, Audio, Background, bindAsset, BlendMode, BlendModeType, Blur, Caption, CaptionAlign, CAPTION_PRESET_FILLS, CAPTION_PRESET_STYLES, CaptionType, Chars, ClipHeight, ClipsContent, Computed, CornerRadius, createEntity, DEFAULT_BACKGROUND, Color, ColorStop, Delay, Effect, EffectType, Expanded, FontStyle, FramePromises, FrameRate, Generating, GenerationRequest, getActiveEntity, Loop, LoadRequest, Geometry, GeometryType, getEntityTree, getParentEntity, getParentNode, Hidden, Host, IsMask, isText, ItemIndex, KeepAspectRatio, Keyframe, KeyframeTrack, MixedCornerRadius, Muted, Name, Offset, Opacity, Paint, PaintType, parseColor, PendingSource, PendingSync, Playback, PlaybackRate, Position, removeChild, RenderSurface, resizeEntity, Scale, ScaleMode, ScaleModeType, secondsToFrames, getAsset, getEntityChildren, Group, Sequential, Shader, Size, Stage, Root, Rotation, Scene, Selected, Shadow, Source, SourceError, SourceFrameRate, SourceModifiers, hasModifier, setCameraMatrix, setTimelineView, Stroke, StrokeCap, StrokeJoin, StrokeStyle, SyncRequest, TextAlign, TextBaseline, TextCase, TextRange, TextStyle, TranscriptionRequest, Transition, TransitionType, Trim, UniformScale, Volume, Workarea } from '@diffusionstudio/runtime';
+import { Active, AdjustmentLayer, Animation, AnimationPhase, AnimationType, appendChild, AssetId, Audio, Background, bindAsset, BlendMode, BlendModeType, Blur, Caption, CaptionAlign, CAPTION_PRESET_FILLS, CAPTION_PRESET_STYLES, CaptionType, Chars, ClipHeight, ClipsContent, Computed, CornerRadius, createEntity, DEFAULT_BACKGROUND, Color, ColorStop, Delay, Effect, EffectType, Expanded, FontStyle, FramePromises, FrameRate, Generating, GenerationRequest, getActiveEntity, Loop, LoadRequest, Geometry, GeometryType, getEntityTree, getParentEntity, getParentNode, Hidden, Host, IsMask, isText, ItemIndex, KeepAspectRatio, Keyframe, KeyframeTrack, MixedCornerRadius, Mode, Muted, Name, Offset, Opacity, Paint, PaintType, parseColor, PendingSource, PendingSync, Playback, PlaybackRate, Position, removeChild, RenderSurface, resizeEntity, Scale, ScaleMode, ScaleModeType, secondsToFrames, getAsset, getEntityChildren, Group, Sequential, Shader, Size, Stage, Root, Rotation, Scene, Selected, Shadow, Source, SourceError, SourceFrameRate, SourceModifiers, hasModifier, setCameraMatrix, setTimelineView, Stroke, StrokeCap, StrokeJoin, StrokeStyle, SyncRequest, TextAlign, TextBaseline, TextCase, TextRange, TextStyle, TranscriptionRequest, Transition, TransitionType, Trim, UniformScale, Volume, Workarea } from '@diffusionstudio/runtime';
 import { LOOP_ATTR, parseTime, SOURCE_ATTR } from '@diffusionstudio/jsx';
 import { createSignal } from 'solid-js';
 import { SVGElements } from 'solid-js/web';
@@ -386,6 +386,7 @@ export class RuntimeDocument implements ProjectDocument<SceneNode> {
 		};
 		root.add(Host);
 		root.set(Host, this.stage);
+		this.resolutionSignal[1](this.readResolution());
 	}
 
 	/**
@@ -1684,6 +1685,25 @@ export class RuntimeDocument implements ProjectDocument<SceneNode> {
 		return this.ticker[0]();
 	}
 
+	// The rasterization density behind `useResolution`: device pixels per
+	// composition pixel, camera zoom excluded — a constant 1 in the live
+	// editor, the export scale offline. Read into a signal alongside
+	// the ticker, so an encoder that learns its scale only after the mount
+	// still propagates it before the first frame is sampled.
+	private readonly resolutionSignal = createSignal(1);
+
+	public resolution(): number {
+		return this.resolutionSignal[0]();
+	}
+
+	// The value the resolution signal is fed with: the surface's pixel ratio
+	// only while exporting — a realtime world always reports 1, so a project
+	// never sees the display's pixel ratio.
+	private readResolution(): number {
+		if (this.world.get(Mode)?.value === 'realtime') return 1;
+		return this.world.get(RenderSurface)?.resolution ?? 1;
+	}
+
 	/**
 	 * The barrier behind `useTicker().hold`: a project's own async work, put
 	 * where the frames in flight wait for it — the same list the decoders push
@@ -1729,6 +1749,7 @@ export class RuntimeDocument implements ProjectDocument<SceneNode> {
 		const time = computed?.localTimeInSeconds ?? 0;
 		const delta = this.lastTickTime === null ? 0 : time - this.lastTickTime;
 		this.lastTickTime = time;
+		this.resolutionSignal[1](this.readResolution());
 		this.ticker[1]({
 			time,
 			frame: computed?.localTime ?? 0,

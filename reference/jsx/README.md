@@ -51,7 +51,7 @@ export default function Project() {
 | [captions.md](./captions.md) | `<captions>` and style presets |
 | [generate.md](./generate.md) | Declarative AI asset generation (`generate.*`) |
 | [variables.md](./variables.md) | `@inspect` variables: annotated consts as live inspector controls (number, color, text, font, boolean, select) |
-| [lifecycle.md](./lifecycle.md) | Mount lifecycle: always live, persisted + re-executed, `useTicker` |
+| [lifecycle.md](./lifecycle.md) | Mount lifecycle: always live, persisted + re-executed, `useTicker`, `useResolution` |
 | [errors.md](./errors.md) | Where each pipeline stage fails and with what effect |
 
 ## Pipeline

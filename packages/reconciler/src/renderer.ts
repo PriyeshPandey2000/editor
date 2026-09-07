@@ -5,7 +5,7 @@
 import { createContext, createMemo, useContext } from "solid-js";
 import { createRenderer } from "solid-js/universal";
 
-import type { JSX } from "solid-js";
+import type { Accessor, JSX } from "solid-js";
 import type { Ticker } from "@diffusionstudio/jsx";
 import type { ProjectDocument } from "./host";
 
@@ -111,6 +111,18 @@ export function useTicker(): Ticker {
     playing: createMemo(() => tick().playing),
     hold,
   };
+}
+
+/**
+ * The live `useResolution` — the host's rasterization density as a memo,
+ * a constant 1 where the host reports none: a project reading it in a
+ * document that never scales is not an error, everything there is drawn
+ * pixel for pixel.
+ */
+export function useResolution(): Accessor<number> {
+  const document = doc();
+  const read = document.resolution?.bind(document);
+  return createMemo(() => read?.() ?? 1);
 }
 
 /**

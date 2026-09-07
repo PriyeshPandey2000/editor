@@ -29,7 +29,7 @@ import type { SceneNode } from "@diffusionstudio/jsx";
 
 - The ref receives the element's **`SceneNode`**, as every ref does. `element` is the paint's backing canvas: on the geometry for a `<surface>` (whose surface is its intrinsic paint), on the paint sub-entity for a `<surfacePaint>`; null where the host has no DOM.
 - **Both SolidJS ref forms work.** The variable form `let surfaceRef: SceneNode | undefined;` + `ref={surfaceRef}` assigns the node when the element is created — read it in `onMount` or an effect, which run after the (synchronous) mount. The callback form `ref={(surface) => …}` runs **once**, when the element is created, inside the mount's reactive owner — `createEffect`, `onCleanup`, and [`useTicker`](./lifecycle.md#useticker) all work inside it.
-- The canvas is allocated with the element and **sized to the holder's `width`/`height`** in composition pixels. A same-size set is a no-op, so a `renderer.setSize` of your own is not clobbered; resize the bitmap yourself for higher resolution, since it is stretched into the box every frame either way, and an animated box scales pixels rather than re-rasterizing.
+- The canvas is allocated with the element and **sized to the holder's `width`/`height`** in composition pixels. A same-size set is a no-op, so a `renderer.setSize` of your own is not clobbered; resize the bitmap yourself for higher resolution, since it is stretched into the box every frame either way, and an animated box scales pixels rather than re-rasterizing. To follow the display's pixel ratio and the export scale, size it by [`useResolution`](#adapting-to-the-output-resolution).
 - Unlike [`<html>`](./html.md) no flagged browser API is needed, and the sampled pixels render in exports.
 
 ## Reactivity
@@ -83,6 +83,37 @@ onMount(() => {
 - **`preserveDrawingBuffer: true` is effectively required for WebGL** — by default the drawing buffer may be cleared after presentation, so the engine's per-frame sample can read back blank.
 - `renderer.setSize(w, h, false)` resizes the bitmap through three.js; the third argument skips CSS sizing, which is meaningless on a detached canvas.
 - Browsers cap live WebGL contexts per page (typically ~16, oldest evicted). One renderer is fine; don't give each of many paints its own GL context — share one renderer and copy frames out via `ImageBitmap` if you need many.
+
+## Adapting to the output resolution
+
+The bitmap is sampled in composition pixels, but the frame around it may rasterize denser: the live canvas draws at the display's pixel ratio, and an export's `resolution` setting scales the whole scene — a 960×540 surface in a 1080p export is a 2× upscale of the bitmap, and looks like one. Vector elements never notice (they rasterize through the scale); a surface holds pixels, so it has to provide them.
+
+[`useResolution`](./lifecycle.md#useresolution) is that scale, as a reactive accessor. Oversize the bitmap by it and draw at the same density, and the sample lands pixel for pixel in the output:
+
+```tsx
+const { time } = useTicker();
+const resolution = useResolution();
+let surfaceRef: SceneNode | undefined;
+
+createEffect(() => {
+  const el = surfaceRef!.element!;
+  const k = resolution();
+  // A same-size set is a no-op; a real change also resets the context state.
+  el.width = 400 * k;
+  el.height = 400 * k;
+  const ctx = el.getContext("2d")!;
+  ctx.setTransform(k, 0, 0, k, 0, 0); // keep drawing in composition pixels
+  ctx.clearRect(0, 0, 400, 400);
+  ctx.beginPath();
+  ctx.arc(200, 200, 60 + 40 * Math.sin(time() * Math.PI), 0, Math.PI * 2);
+  ctx.fillStyle = "#44dd88";
+  ctx.fill();
+});
+
+<surface width={400} height={400} ref={surfaceRef} />
+```
+
+Read the accessor **inside the effect that sizes and draws**: an export mounts the module before it configures its scale, so the first value is `1` and the correction arrives reactively before the first frame is sampled — a read at mount would miss it. For an external renderer the resize goes through its own API instead (`renderer.setSize(w * k, h * k, false)` for three.js, and a camera or transform keeping scene units in composition pixels); a WebGPU surface re-acquires its swapchain-bound resources after resizing, since the canvas texture changes size. Live, this also means retina-sharp previews — the cost is a bitmap `k²` the area, so a surface that should stay cheap can ignore the accessor and keep composition-size pixels.
 
 ## Props
 

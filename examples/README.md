@@ -20,9 +20,18 @@ dapi open ~/Projects/basics
 | [06-three.tsx](06-three.tsx) | three.js WebGL renderer owning a `<surface>`, glTF model loaded over the network |
 | [07-webgpu.tsx](07-webgpu.tsx) | raw WebGPU on a `<surface>`: a triangle whose colors cycle with composition time |
 | [08-shader-paint.tsx](08-shader-paint.tsx) | `<shaderPaint>` post-processing a `<video>`: WGSL chromatic aberration + vignette, uniforms patchable live |
+| [09-inspect-variables.tsx](09-inspect-variables.tsx) | `@inspect` variables: annotated top-level consts becoming sidebar controls, values written back into the source |
+| [10-typegpu.tsx](10-typegpu.tsx) | TypeGPU on a `<surface>`: shaders written in TypeScript (`'use gpu'`), compiled through the project's own [babel config](../reference/jsx/module.md#compile-time-plugins-babel-config) |
+| [11-redraw.tsx](11-redraw.tsx) | [Redraw](https://redraw.dev) on a `<surface>`: the docs' Hello World write-on stroke, a vendored-tarball package driven by composition time; the surface spans one animation cycle, `@inspect` variables tune it, and `useResolution` keeps it sharp at any export size |
 
 Requirements: `02-genai.tsx` consumes generation credits (results are cached per session);
 `01-basics.tsx`, `06-three.tsx`, and `08-shader-paint.tsx` fetch remote media.
+`10-typegpu.tsx` and `11-redraw.tsx` need packages installed in the project folder
+and a babel config next to the entry — the commands are in their header comments.
+`11-redraw.tsx` additionally needs the `redraw` tarball vendored into the project
+([Redraw is in technical preview](https://redraw.dev/docs/installation)).
 
 Typecheck with `tsc -p examples --noEmit` (part of `npm run check`). `06-three.tsx`
-needs `three` installed to typecheck; it is not a dependency of this repo.
+needs `three` installed to typecheck, `10-typegpu.tsx` needs `typegpu` and
+`@typegpu/noise`, and `11-redraw.tsx` needs `redraw` and `typegpu`; none of these
+are dependencies of this repo.

@@ -46,3 +46,19 @@ function hostOnly(name: string): never {
 export function useTicker(): Ticker {
   return hostOnly("useTicker");
 }
+
+/**
+ * Subscribes to the host's rasterization density: how many device pixels one
+ * composition pixel is drawn with, camera zoom excluded. `1` where nothing
+ * scales, the display's pixel ratio in the live editor, and the export's
+ * resolution factor while a scene encodes above (or below) its native size.
+ * What a `<surface>` reads to size its bitmap so hand-drawn pixels stay
+ * sharp at any output size.
+ *
+ * Reactive, not a constant: an offline mount starts at `1` and learns the
+ * real factor before the first frame is sampled, so read it inside the
+ * effect that sizes and draws rather than once at mount.
+ */
+export function useResolution(): Accessor<number> {
+  return hostOnly("useResolution");
+}

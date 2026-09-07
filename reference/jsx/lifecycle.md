@@ -50,6 +50,26 @@ The values respect play, pause, scrubbing, looping, and playback speed, which wa
 
 `useTicker` is host-bound: it only works inside a mounted project, and throws with a message saying so anywhere else.
 
+## `useResolution`
+
+The host's rasterization density, as one reactive accessor: how many device pixels one composition pixel is drawn with, camera zoom excluded.
+
+```tsx
+import { useResolution } from "@diffusionstudio/jsx";
+
+const resolution = useResolution();
+```
+
+| Context | Value |
+| ------- | ----- |
+| Live editor | The display's pixel ratio (2 on a retina screen) |
+| Export | The `resolution` setting's scale — 2 when a 960×540 scene encodes at 1080p |
+| Capture | The capture's scale, the same way |
+
+Vector content (shapes, text, gradients) rasterizes through this scale automatically and never needs it. It exists for **bitmaps a project draws itself** — a [`<surface>`](./surface-paint.md) whose canvas would otherwise be stretched from composition size into a larger output. Multiply the bitmap size by `resolution()` and draw at that density, and the sampled pixels stay sharp at any output size (see [surface-paint.md](./surface-paint.md#adapting-to-the-output-resolution)).
+
+It is an accessor, not a constant: an export mounts the module before it configures its scale, so the value starts at `1` and moves to the real factor before the first frame is sampled. Read it inside the effect that sizes and draws — a read at mount sees the initial value and never the correction. Like `useTicker` it is host-bound and throws outside a mounted project.
+
 ## `hold`
 
 An export or a capture does not photograph the live mount — it **mounts the module again**, in a world of its own, and starts sampling as soon as that render returns. So a project's own async work races the first frames: a mesh fetched in `onMount`, a WebGPU device, a `fetch` whose answer decides a layout. The picture on the canvas has been there for minutes; the one in the encoder is a few milliseconds old.

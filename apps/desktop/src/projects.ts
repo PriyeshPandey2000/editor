@@ -11,7 +11,7 @@ import { basename, dirname, isAbsolute, join, relative, resolve, sep } from "nod
 import { nanoid } from "nanoid";
 import { parse as parseYaml, stringify as stringifyYaml } from "yaml";
 
-import type { TransformOptions } from "@babel/core";
+import type { PluginItem, TransformOptions } from "@babel/core";
 import type { BuildOptions, Plugin } from "esbuild";
 
 import { isHeadless } from "./cli-server";
@@ -963,21 +963,32 @@ function preset(name: string): unknown {
   return loaded.default ?? loaded;
 }
 
-const babelOptions = (file: string, filename: string): TransformOptions => ({
+const babelOptions = (file: string, filename: string, projectPlugins: PluginItem[]): TransformOptions => ({
   filename,
   babelrc: false,
   configFile: false,
-  // Runs before the presets, which is what it needs: Solid's transform
-  // replaces the JSX trees this stamps.
-  plugins: [[sourcePlugin, { file }], canonicalizeTagsPlugin, [inspectPlugin, { file }]],
+  plugins: [[sourcePlugin, { file }], canonicalizeTagsPlugin, [inspectPlugin, { file }], ...projectPlugins],
   presets: [
     [preset("babel-preset-solid"), { generate: "universal", moduleName: RUNTIME_MODULE }],
     [preset("@babel/preset-typescript"), { onlyRemoveTypeImports: true }],
   ],
 });
 
+/**
+ * Plugins contributed by the project's own babel config (`babel.config.js` or `.babelrc` at the root).
+ */
+async function projectBabelPlugins(root: string, entry: string): Promise<PluginItem[]> {
+  const { loadPartialConfigAsync } = load<Babel>("@babel/core");
+  const partial = await loadPartialConfigAsync({ root, filename: join(root, entry), babelrc: true });
+  if (!partial?.hasFilesystemConfig()) return [];
+  if (partial.options.presets?.length) {
+    console.warn(`[projects] babel config in ${root}: presets are not supported here and were ignored`);
+  }
+  return partial.options.plugins ?? [];
+}
+
 /** Runs project sources (not node_modules) through Solid's universal JSX transform. */
-function solidLoader(root: string): Plugin {
+function solidLoader(root: string, projectPlugins: PluginItem[]): Plugin {
   const { transformAsync } = load<Babel>("@babel/core");
   return {
     name: "solid-universal",
@@ -990,7 +1001,7 @@ function solidLoader(root: string): Plugin {
         const source = await readFile(args.path, "utf8");
         // The project-relative name is half of every element's id, so it is
         // spelled the one way both directions of ./source spell it.
-        const result = await transformAsync(source, babelOptions(name.split(sep).join("/"), args.path));
+        const result = await transformAsync(source, babelOptions(name.split(sep).join("/"), args.path, projectPlugins));
         return { contents: result?.code ?? "", loader: "js" };
       });
     },
@@ -1017,12 +1028,22 @@ export async function compileProject(dir: string): Promise<CompileResult> {
   // esbuild resolves symlinks, so the loader has to match on real paths.
   const root = await realpath(dir);
 
+  // A config that fails to evaluate (or names a plugin that isn't installed)
+  // is the project's error, reported like any other compile failure.
+  let projectPlugins: PluginItem[];
+  try {
+    projectPlugins = await projectBabelPlugins(root, entry);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    return { ok: false, error: `Failed to load the project's babel config: ${message}` };
+  }
+
   try {
     const { build } = load<Esbuild>("esbuild");
     const result = await build({
       ...BUILD_OPTIONS,
       entryPoints: [join(root, entry)],
-      plugins: [solidLoader(root)],
+      plugins: [solidLoader(root, projectPlugins)],
     });
     return { ok: true, code: result.outputFiles![0]!.text };
   } catch (error) {
