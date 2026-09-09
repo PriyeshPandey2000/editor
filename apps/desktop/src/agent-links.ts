@@ -19,19 +19,10 @@ export type AgentVariant = {
   id: string;
   /**
    * Paths whose presence means this app can take a link on this machine:
-   * absolute, or home-relative when they do not start with a slash. A
-   * trailing `*` matches any entry of the parent directory with that prefix,
-   * which is how a versioned extension folder is found. Any one is enough.
+   * absolute, or home-relative when they do not start with a slash. Any one
+   * is enough.
    */
   markers: readonly string[];
-  /**
-   * Further paths, one of which must exist as well. For apps that are the
-   * whole condition on their own this is unset; an editor plus the extension
-   * that registers its handler needs both, and an extension folder left
-   * behind by an uninstalled editor is exactly the case that would otherwise
-   * offer a link nothing answers.
-   */
-  requires?: readonly string[];
   link(launch: AgentLaunch): string;
 };
 
@@ -131,23 +122,6 @@ export const AGENTS: readonly AgentTarget[] = [
         markers: ["/Applications/Cursor.app", "Applications/Cursor.app"],
         link: ({ prompt }) =>
           query("cursor://anysphere.cursor-deeplink/prompt", { text: prompt }),
-      },
-    ],
-  },
-  {
-    id: "vscode",
-    label: "VS Code",
-    folder: false,
-    variants: [
-      {
-        id: "vscode",
-        markers: [".vscode/extensions/anthropic.claude-code-*"],
-        requires: [
-          "/Applications/Visual Studio Code.app",
-          "Applications/Visual Studio Code.app",
-        ],
-        link: ({ prompt }) =>
-          query("vscode://anthropic.claude-code/open", { prompt }),
       },
     ],
   },

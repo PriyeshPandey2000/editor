@@ -40,7 +40,13 @@ import {
 import { Icon } from "@/components/ui/icon";
 import { projectRoute } from "@/hooks/use-project-route";
 import { store } from "@/init";
-import { connectAgents, launchAgent, listAgents, type AgentInfo } from "@/lib/agents";
+import {
+  agentIcon,
+  connectAgents,
+  launchAgent,
+  listAgents,
+  type AgentInfo,
+} from "@/lib/agents";
 import { track } from "@/lib/analytics";
 import { generateProjectName } from "@/lib/db";
 import { createStoredSignal } from "@/lib/store";
@@ -440,7 +446,7 @@ function AgentPicker(props: AgentPickerProps) {
           aria-label="Choose the coding agent"
           class="flex h-7 shrink-0 items-center rounded-md pl-0.5 pr-2 text-xs font-450 text-muted-foreground hover:bg-muted focus-ring"
         >
-          <AgentLogo />
+          <AgentLogo id={props.current?.id} />
           <span class="max-w-40 truncate">
             {props.current?.label ?? "No agent installed"}
           </span>
@@ -454,6 +460,7 @@ function AgentPicker(props: AgentPickerProps) {
                     disabled={!entry.available}
                     onSelect={() => props.onSelect(entry.id)}
                   >
+                    <Icon name={agentIcon(entry.id)} />
                     <span class="min-w-0 flex-1 truncate">{entry.label}</span>
                     <Show
                       when={entry.available}
@@ -478,11 +485,11 @@ function AgentPicker(props: AgentPickerProps) {
   );
 }
 
-/** Placeholder for the per-agent logos, which the icon set does not have yet. */
-function AgentLogo() {
+/** The agent's mark in the composer, in the same box the folder icon sits in. */
+function AgentLogo(props: { id?: string }) {
   return (
     <span class="grid size-6 shrink-0 place-items-center overflow-clip">
-      <Icon name="fx" />
+      <Icon name={agentIcon(props.id)} />
     </span>
   );
 }

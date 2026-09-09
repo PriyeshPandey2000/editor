@@ -2,9 +2,9 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-import { existsSync, readdirSync } from "node:fs";
+import { existsSync } from "node:fs";
 import { homedir } from "node:os";
-import { basename, dirname, isAbsolute, join } from "node:path";
+import { isAbsolute, join } from "node:path";
 
 import { AGENTS, agentLink, findAgent, pickVariant } from "./agent-links";
 
@@ -12,23 +12,12 @@ import type { AgentLaunch, AgentVariant } from "./agent-links";
 import type { AgentInfo } from "./main-channels";
 
 function markerExists(marker: string): boolean {
-  const path = isAbsolute(marker) ? marker : join(homedir(), marker);
-  if (!path.endsWith("*")) return existsSync(path);
-
-  // A prefix marker: some entry of the parent directory starts with it, which
-  // is what finds a folder whose name carries a version.
-  const prefix = basename(path).slice(0, -1);
-  try {
-    return readdirSync(dirname(path)).some((entry) => entry.startsWith(prefix));
-  } catch {
-    return false;
-  }
+  return existsSync(isAbsolute(marker) ? marker : join(homedir(), marker));
 }
 
 /** Whether this app is on this machine and can answer its link. */
 const variantAvailable = (variant: AgentVariant): boolean =>
-  variant.markers.some(markerExists) &&
-  (!variant.requires || variant.requires.some(markerExists));
+  variant.markers.some(markerExists);
 
 /**
  * Every agent we support, in the order they are offered, each saying whether

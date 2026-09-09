@@ -17,6 +17,23 @@ import type { AgentInfo } from "@desktop/main-channels";
 export type { AgentInfo };
 
 /**
+ * The icon file for each agent, by the id `agent-links.ts` gives it. Kept on
+ * this side because the icons are this app's assets: main knows the agents,
+ * the renderer knows what they look like. An id with no icon of its own —
+ * a newly added agent, most likely — falls back to a generic mark.
+ */
+const AGENT_ICONS: Record<string, string> = {
+  claude: "claude",
+  codex: "gpt-codex",
+  conductor: "conductor",
+  cursor: "cursor",
+};
+
+/** The icon name for `id`, for {@link Icon}. */
+export const agentIcon = (id: string | undefined): string =>
+  (id && AGENT_ICONS[id]) || "fx";
+
+/**
  * Every agent we support, most fitting first, each flagged with whether it is
  * installed here. Empty off the desktop, where there is none to reach.
  */

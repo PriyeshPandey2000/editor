@@ -58,9 +58,6 @@ describe("agentLink", () => {
     expect(link("cursor", "cursor", "cut the intro")).toBe(
       "cursor://anysphere.cursor-deeplink/prompt?text=Working%20directory%3A%20%2FUsers%2Fx%2FMovies%2FMy%20Film%0A%0Acut%20the%20intro",
     );
-    expect(link("vscode", "vscode", "cut the intro")).toBe(
-      "vscode://anthropic.claude-code/open?prompt=Working%20directory%3A%20%2FUsers%2Fx%2FMovies%2FMy%20Film%0A%0Acut%20the%20intro",
-    );
   });
 
   it("drops the params it has no value for", () => {
@@ -84,13 +81,6 @@ describe("agentLink", () => {
   it("counts the folder line against that cap", () => {
     const url = new URL(link("cursor", "cursor", "x".repeat(6000)));
     expect(url.searchParams.get("text")).toHaveLength(5000);
-  });
-
-  it("only asks for a second condition where one app is not the whole of it", () => {
-    // VS Code's handler comes from the extension, and the extension folder
-    // outlives the editor — so neither half alone is the agent being there.
-    expect(agent("vscode").variants[0].requires?.length).toBeGreaterThan(0);
-    expect(agent("claude").variants[0].requires).toBeUndefined();
   });
 
   it("gives every agent a unique id and every variant at least one marker", () => {
