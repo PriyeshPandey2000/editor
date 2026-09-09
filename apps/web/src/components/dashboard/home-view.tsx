@@ -42,7 +42,7 @@ import { projectRoute } from "@/hooks/use-project-route";
 import { store } from "@/init";
 import {
   agentIcon,
-  connectAgents,
+  ensureAgentSetup,
   launchAgent,
   listAgents,
   type AgentInfo,
@@ -199,7 +199,7 @@ export function DashboardHomeView() {
       // Before anything else: the agent is no use on this project without the
       // app's MCP server in its config, and it reads that config at startup —
       // so it has to be there before the link opens it.
-      await connectAgents();
+      await ensureAgentSetup();
 
       const project = await resolveTarget();
       if (!project) return;

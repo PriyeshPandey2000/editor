@@ -55,16 +55,20 @@ export async function launchAgent(
 }
 
 /**
- * Points the agents on this machine at this app's MCP server, unless one
- * already is. Without it the agent opens with the prompt but has no way to
- * touch the project, so this runs before the prompt is handed over rather
- * than at some quieter moment — and it throws when it cannot, because
- * carrying on would send the agent off without its tools.
+ * Brings this machine to the state the agent needs: its config pointing at
+ * this app's MCP server, the `dapi` CLI on PATH, and no stale skills left
+ * over from older builds. Main does the work (`setup.ts`) and every step is
+ * idempotent, so this runs before each handoff rather than at some quieter
+ * moment — the agent reads its config at startup, and the link is what
+ * starts it.
+ *
+ * It throws only when the MCP config could not be written, because that is
+ * the one failure that would send the agent off without its tools. The CLI
+ * is for the user's own shell, so its outcome is not this path's business.
  */
-export async function connectAgents(): Promise<void> {
+export async function ensureAgentSetup(): Promise<void> {
   if (!window.desktop) return;
-  if (await mainBridge.call(MAIN_CHANNELS.MCP_IS_REGISTERED, undefined)) return;
 
-  const result = await mainBridge.call(MAIN_CHANNELS.MCP_REGISTER, undefined);
-  if (result.status === "error") throw new Error(result.error);
+  const { mcp } = await mainBridge.call(MAIN_CHANNELS.SETUP_ENSURE, undefined);
+  if (mcp.status === "error") throw new Error(mcp.error);
 }

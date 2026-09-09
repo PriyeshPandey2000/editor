@@ -58,13 +58,12 @@ function targetAgents(): AgentTarget[] {
   return present.length > 0 ? present : [FALLBACK_TARGET];
 }
 
-/** True when at least one agent's config points at this app. */
-export function isMcpRegistered(): boolean {
-  const current = spec();
-  return AGENT_TARGETS.some((target) => {
-    const registered = readServer(readConfig(target), target.format);
-    return registered?.url === current.url || (current.command !== "" && registered?.command === current.command);
-  });
+/** Whether this agent's config already points at exactly what we would write. */
+function upToDate(target: AgentTarget, current: McpServerSpec): boolean {
+  const registered = readServer(readConfig(target), target.format);
+  if (!registered) return false;
+  const entry = target.entry(current);
+  return typeof entry.command === "string" ? registered.command === entry.command : registered.url === current.url;
 }
 
 export function registerMcp(): McpRegisterResult {
@@ -82,6 +81,10 @@ export function registerMcp(): McpRegisterResult {
   for (const target of targetAgents()) {
     if (needsBinary(target) && current.command === "") {
       failures.push(`${target.label}: needs the dapi binary, which this build does not have`);
+      continue;
+    }
+    if (upToDate(target, current)) {
+      agents.push(target.label);
       continue;
     }
     try {

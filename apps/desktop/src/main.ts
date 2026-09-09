@@ -12,8 +12,7 @@ import { updateElectronApp } from "update-electron-app";
 import { DapiServer } from "./dapi/server";
 import { enableHeadless, isHeadless } from "./headless";
 import { agentLaunchUrl, listAgents } from "./agent-detect";
-import { installCli, isCliInstalled } from "./cli-install";
-import { healMcpRegistrations, isMcpRegistered, registerMcp } from "./mcp-install";
+import { ensureSetup } from "./setup";
 import { trackInstall } from "./analytics";
 import { setupAppMenu } from "./menu";
 import { mainBridge } from "./main-manager";
@@ -293,10 +292,7 @@ if (app.requestSingleInstanceLock()) {
   });
   mainBridge.handle(MAIN_CHANNELS.APP_OPEN_EXTERNAL, ({ url }) => shell.openExternal(url));
   mainBridge.handle(MAIN_CHANNELS.APP_SHOW_IN_FOLDER, ({ path }) => shell.showItemInFolder(path));
-  mainBridge.handle(MAIN_CHANNELS.CLI_IS_INSTALLED, () => isCliInstalled());
-  mainBridge.handle(MAIN_CHANNELS.CLI_INSTALL, () => installCli());
-  mainBridge.handle(MAIN_CHANNELS.MCP_IS_REGISTERED, () => isMcpRegistered());
-  mainBridge.handle(MAIN_CHANNELS.MCP_REGISTER, () => registerMcp());
+  mainBridge.handle(MAIN_CHANNELS.SETUP_ENSURE, () => ensureSetup({ cli: "auto" }));
   mainBridge.handle(MAIN_CHANNELS.AUTH_GET_PENDING_CALLBACK, () =>
     takePendingDeepLink(MAIN_CHANNELS.AUTH_CALLBACK),
   );
@@ -396,7 +392,8 @@ if (app.requestSingleInstanceLock()) {
     if (url) deliverDeepLink(url);
 
     dapi.start();
-    healMcpRegistrations();
+    // Setup as far as it goes without a password prompt
+    ensureSetup({ cli: "skip" });
     trackInstall();
     createWindow(!isHiddenLaunch(process.argv));
   });

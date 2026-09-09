@@ -33,10 +33,7 @@ export const MAIN_CHANNELS = {
   APP_SHOW_IN_FOLDER: "app:show-in-folder",
   AUTH_GET_PENDING_CALLBACK: "auth:get-pending-callback",
   CHECKOUT_GET_PENDING_CALLBACK: "checkout:get-pending-callback",
-  CLI_IS_INSTALLED: "cli:is-installed",
-  CLI_INSTALL: "cli:install",
-  MCP_IS_REGISTERED: "mcp:is-registered",
-  MCP_REGISTER: "mcp:register",
+  SETUP_ENSURE: "setup:ensure",
   WINDOW_IS_FULLSCREEN: "window:is-fullscreen",
   WINDOW_CAPTURE: "window:capture",
   FILE_TRANSFER: "file:transfer",
@@ -141,6 +138,25 @@ export type McpRegisterResult =
     }
   | { status: "error"; error: string };
 
+/**
+ * What to do about the `dapi` symlink, the one setup step that needs an
+ * admin password: `skip` never asks, `auto` asks once and remembers a
+ * refusal, `force` asks because the user just asked for it.
+ */
+export type CliMode = "skip" | "auto" | "force";
+
+/** `present` was already linked; `skipped` was not attempted this run. */
+export type CliSetupResult = CliInstallResult | { status: "present" } | { status: "skipped" };
+
+// The state of this machine after `ensureSetup`: where each agent's config
+// points, what became of the CLI symlink, and which stale skill directories
+// were cleared out (usually none, after the first run that finds them).
+export type SetupResult = {
+  mcp: McpRegisterResult;
+  cli: CliSetupResult;
+  skills: string[];
+};
+
 export type { SourceEdit, WriteResult };
 
 export type MainChannel = (typeof MAIN_CHANNELS)[keyof typeof MAIN_CHANNELS];
@@ -168,10 +184,7 @@ export type MainRequestMap = {
     request: void;
     response: string | null;
   };
-  [MAIN_CHANNELS.CLI_IS_INSTALLED]: { request: void; response: boolean };
-  [MAIN_CHANNELS.CLI_INSTALL]: { request: void; response: CliInstallResult };
-  [MAIN_CHANNELS.MCP_IS_REGISTERED]: { request: void; response: boolean };
-  [MAIN_CHANNELS.MCP_REGISTER]: { request: void; response: McpRegisterResult };
+  [MAIN_CHANNELS.SETUP_ENSURE]: { request: void; response: SetupResult };
   [MAIN_CHANNELS.WINDOW_IS_FULLSCREEN]: { request: void; response: boolean };
   [MAIN_CHANNELS.WINDOW_CAPTURE]: { request: void; response: ScreenshotResult };
   [MAIN_CHANNELS.FILE_TRANSFER]: {
