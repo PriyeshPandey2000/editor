@@ -8,7 +8,8 @@ import { Icon } from "@/components/ui/icon";
 import { useAuth } from "@/context/auth";
 import { cx } from "@/lib/cva";
 import { trpc } from "@/lib/trpc";
-import { For, Show, children, createResource, type JSX } from "solid-js";
+import { For, Show, children, createMemo, createResource, onCleanup, type JSX } from "solid-js";
+import { projectCoverKey, readProjectCover } from "@/projects";
 import { Separator } from "../ui/separator";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
@@ -536,3 +537,33 @@ export function DashboardViewSection(props: DashboardViewSectionProps) {
   );
 }
 
+/** The saved cover of the project in `dir`, or nothing when it has none yet. */
+export function DashboardProjectThumbnail(props: { dir: string }) {
+  const [cover] = createResource(
+    () => projectCoverKey(props.dir),
+    () => readProjectCover(props.dir),
+  );
+
+  // The URL the last cover was under is released as this one takes its place.
+  const url = createMemo<string | null>((previous) => {
+    if (previous) URL.revokeObjectURL(previous);
+    const blob = cover();
+    return blob ? URL.createObjectURL(blob) : null;
+  }, null);
+
+  onCleanup(() => {
+    const current = url();
+    if (current) URL.revokeObjectURL(current);
+  });
+
+  return (
+    <Show when={url()}>
+      <img
+        src={url()!}
+        alt=""
+        class="h-full w-full object-cover"
+        draggable={false}
+      />
+    </Show>
+  );
+}

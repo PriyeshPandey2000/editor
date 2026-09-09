@@ -11,6 +11,7 @@ import type { FileHandle } from "node:fs/promises";
 import { updateElectronApp } from "update-electron-app";
 import { DapiServer } from "./dapi/server";
 import { enableHeadless, isHeadless } from "./headless";
+import { agentLaunchUrl, listAgents } from "./agent-detect";
 import { installCli, isCliInstalled } from "./cli-install";
 import { healMcpRegistrations, isMcpRegistered, registerMcp } from "./mcp-install";
 import { trackInstall } from "./analytics";
@@ -26,6 +27,7 @@ import {
   getProject,
   initProject,
   listProjects,
+  pickFolder,
   pickRoot,
   renameProject,
   resolveProject,
@@ -283,6 +285,12 @@ if (app.requestSingleInstanceLock()) {
     deliverDeepLink(url);
   });
 
+  mainBridge.handle(MAIN_CHANNELS.AGENTS_LIST, () => listAgents());
+  mainBridge.handle(MAIN_CHANNELS.AGENTS_OPEN, async ({ id, prompt, folder }) => {
+    const url = agentLaunchUrl(id, { prompt, folder });
+    if (!url) throw new Error(`No deep link for the agent "${id}".`);
+    await shell.openExternal(url);
+  });
   mainBridge.handle(MAIN_CHANNELS.APP_OPEN_EXTERNAL, ({ url }) => shell.openExternal(url));
   mainBridge.handle(MAIN_CHANNELS.APP_SHOW_IN_FOLDER, ({ path }) => shell.showItemInFolder(path));
   mainBridge.handle(MAIN_CHANNELS.CLI_IS_INSTALLED, () => isCliInstalled());
@@ -307,6 +315,7 @@ if (app.requestSingleInstanceLock()) {
   mainBridge.handle(MAIN_CHANNELS.HEADLESS_GET_MODE, () => isHeadless());
   mainBridge.handle(MAIN_CHANNELS.LOGS_GET, () => logBuffer);
   mainBridge.handle(MAIN_CHANNELS.PROJECTS_PICK_ROOT, () => pickRoot(mainWindow));
+  mainBridge.handle(MAIN_CHANNELS.PROJECTS_PICK_FOLDER, () => pickFolder(mainWindow));
   mainBridge.handle(MAIN_CHANNELS.PROJECTS_DEFAULT_ROOT, () => defaultRoot(mainWindow));
   mainBridge.handle(MAIN_CHANNELS.PROJECTS_LIST, ({ root }) => listProjects(root));
   mainBridge.handle(MAIN_CHANNELS.PROJECTS_GET, ({ dir }) => getProject(dir));

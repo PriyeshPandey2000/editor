@@ -27,6 +27,8 @@ export type MainWireChannel = (typeof MAIN_WIRE)[keyof typeof MAIN_WIRE];
 // answered by the renderer's handlers (apps/web/src/dapi).
 export const MAIN_CHANNELS = {
   // Renderer→Main requests
+  AGENTS_LIST: "agents:list",
+  AGENTS_OPEN: "agents:open",
   APP_OPEN_EXTERNAL: "app:open-external",
   APP_SHOW_IN_FOLDER: "app:show-in-folder",
   AUTH_GET_PENDING_CALLBACK: "auth:get-pending-callback",
@@ -45,6 +47,7 @@ export const MAIN_CHANNELS = {
   HEADLESS_GET_MODE: "headless:get-mode",
   LOGS_GET: "logs:get",
   PROJECTS_PICK_ROOT: "projects:pick-root",
+  PROJECTS_PICK_FOLDER: "projects:pick-folder",
   PROJECTS_DEFAULT_ROOT: "projects:default-root",
   PROJECTS_LIST: "projects:list",
   PROJECTS_GET: "projects:get",
@@ -102,8 +105,21 @@ export type ProjectInfo = {
 };
 
 export type CompileResult =
-  | { ok: true; code: string }
-  | { ok: false; error: string };
+  { ok: true; code: string } | { ok: false; error: string };
+
+/**
+ * A coding agent a prompt can be handed to over its deep link. Every agent
+ * we support is reported, installed or not — see `agent-links.ts` for the
+ * links themselves.
+ */
+export type AgentInfo = {
+  id: string;
+  label: string;
+  /** Whether its link can name the working directory itself. */
+  folder: boolean;
+  /** Whether an app that answers its link is on this machine. */
+  available: boolean;
+};
 
 // Outcome of linking the bundled dapi CLI into PATH. "cancelled" means the
 // user dismissed the macOS admin prompt — not an error, not installed.
@@ -117,7 +133,12 @@ export type CliInstallResult =
 // most of them got, `command` the stdio proxy the rest run (null when this
 // build has no dapi binary).
 export type McpRegisterResult =
-  | { status: "registered"; agents: string[]; url: string; command: string | null }
+  | {
+      status: "registered";
+      agents: string[];
+      url: string;
+      command: string | null;
+    }
   | { status: "error"; error: string };
 
 export type { SourceEdit, WriteResult };
@@ -127,13 +148,26 @@ export type MainChannel = (typeof MAIN_CHANNELS)[keyof typeof MAIN_CHANNELS];
 // Events fed by a `diffusion://` deep link. Main routes each link to exactly
 // one of these by its host, so auth and checkout never consume each other's.
 export type DeepLinkChannel =
-  | typeof MAIN_CHANNELS.AUTH_CALLBACK
-  | typeof MAIN_CHANNELS.CHECKOUT_CALLBACK;
+  typeof MAIN_CHANNELS.AUTH_CALLBACK | typeof MAIN_CHANNELS.CHECKOUT_CALLBACK;
 
 export type MainRequestMap = {
-  [MAIN_CHANNELS.APP_OPEN_EXTERNAL]: { request: { url: string }; response: void };
-  [MAIN_CHANNELS.AUTH_GET_PENDING_CALLBACK]: { request: void; response: string | null };
-  [MAIN_CHANNELS.CHECKOUT_GET_PENDING_CALLBACK]: { request: void; response: string | null };
+  [MAIN_CHANNELS.AGENTS_LIST]: { request: void; response: AgentInfo[] };
+  [MAIN_CHANNELS.AGENTS_OPEN]: {
+    request: { id: string; prompt: string; folder: string | null };
+    response: void;
+  };
+  [MAIN_CHANNELS.APP_OPEN_EXTERNAL]: {
+    request: { url: string };
+    response: void;
+  };
+  [MAIN_CHANNELS.AUTH_GET_PENDING_CALLBACK]: {
+    request: void;
+    response: string | null;
+  };
+  [MAIN_CHANNELS.CHECKOUT_GET_PENDING_CALLBACK]: {
+    request: void;
+    response: string | null;
+  };
   [MAIN_CHANNELS.CLI_IS_INSTALLED]: { request: void; response: boolean };
   [MAIN_CHANNELS.CLI_INSTALL]: { request: void; response: CliInstallResult };
   [MAIN_CHANNELS.MCP_IS_REGISTERED]: { request: void; response: boolean };
@@ -161,14 +195,36 @@ export type MainRequestMap = {
     response: void;
   };
   // Reveals a file or folder in the OS file manager (Finder on macOS).
-  [MAIN_CHANNELS.APP_SHOW_IN_FOLDER]: { request: { path: string }; response: void };
+  [MAIN_CHANNELS.APP_SHOW_IN_FOLDER]: {
+    request: { path: string };
+    response: void;
+  };
   [MAIN_CHANNELS.HEADLESS_GET_MODE]: { request: void; response: boolean };
   [MAIN_CHANNELS.LOGS_GET]: { request: void; response: LogEntry[] };
-  [MAIN_CHANNELS.PROJECTS_PICK_ROOT]: { request: void; response: string | null };
-  [MAIN_CHANNELS.PROJECTS_DEFAULT_ROOT]: { request: void; response: string | null };
-  [MAIN_CHANNELS.PROJECTS_LIST]: { request: { root: string }; response: ProjectInfo[] };
-  [MAIN_CHANNELS.PROJECTS_GET]: { request: { dir: string }; response: ProjectInfo | null };
-  [MAIN_CHANNELS.PROJECTS_INIT]: { request: { dir: string }; response: ProjectInfo };
+  [MAIN_CHANNELS.PROJECTS_PICK_ROOT]: {
+    request: void;
+    response: string | null;
+  };
+  [MAIN_CHANNELS.PROJECTS_PICK_FOLDER]: {
+    request: void;
+    response: string | null;
+  };
+  [MAIN_CHANNELS.PROJECTS_DEFAULT_ROOT]: {
+    request: void;
+    response: string | null;
+  };
+  [MAIN_CHANNELS.PROJECTS_LIST]: {
+    request: { root: string };
+    response: ProjectInfo[];
+  };
+  [MAIN_CHANNELS.PROJECTS_GET]: {
+    request: { dir: string };
+    response: ProjectInfo | null;
+  };
+  [MAIN_CHANNELS.PROJECTS_INIT]: {
+    request: { dir: string };
+    response: ProjectInfo;
+  };
   [MAIN_CHANNELS.PROJECTS_RESOLVE]: {
     request: { root: string; ref: string };
     response: ProjectInfo | null;
@@ -182,30 +238,63 @@ export type MainRequestMap = {
     request: { dir: string; displayName: string };
     response: ProjectInfo;
   };
-  [MAIN_CHANNELS.PROJECTS_DUPLICATE]: { request: { dir: string }; response: ProjectInfo };
+  [MAIN_CHANNELS.PROJECTS_DUPLICATE]: {
+    request: { dir: string };
+    response: ProjectInfo;
+  };
   [MAIN_CHANNELS.PROJECTS_DELETE]: { request: { dir: string }; response: void };
-  [MAIN_CHANNELS.PROJECTS_COMPILE]: { request: { dir: string }; response: CompileResult };
+  [MAIN_CHANNELS.PROJECTS_COMPILE]: {
+    request: { dir: string };
+    response: CompileResult;
+  };
   [MAIN_CHANNELS.PROJECTS_WRITE]: {
     request: { dir: string; edits: SourceEdit[] };
     response: WriteResult;
   };
   [MAIN_CHANNELS.PROJECTS_WATCH]: { request: { dir: string }; response: void };
-  [MAIN_CHANNELS.PROJECTS_UNWATCH]: { request: { dir: string }; response: void };
+  [MAIN_CHANNELS.PROJECTS_UNWATCH]: {
+    request: { dir: string };
+    response: void;
+  };
   // The asset manifest (`assets.yml`) as plain data; null when there is none.
-  [MAIN_CHANNELS.PROJECTS_MANIFEST_READ]: { request: { dir: string }; response: unknown };
-  [MAIN_CHANNELS.PROJECTS_MANIFEST_WRITE]: { request: { dir: string; manifest: unknown }; response: void };
+  [MAIN_CHANNELS.PROJECTS_MANIFEST_READ]: {
+    request: { dir: string };
+    response: unknown;
+  };
+  [MAIN_CHANNELS.PROJECTS_MANIFEST_WRITE]: {
+    request: { dir: string; manifest: unknown };
+    response: void;
+  };
   // The project's config: the `diffusion` field of its package.json, as
   // parsed (null when absent). The renderer owns its shape; see
   // `engine/project-config` in the web app.
-  [MAIN_CHANNELS.PROJECTS_CONFIG_READ]: { request: { dir: string }; response: unknown };
-  [MAIN_CHANNELS.PROJECTS_CONFIG_WRITE]: { request: { dir: string; config: unknown }; response: void };
+  [MAIN_CHANNELS.PROJECTS_CONFIG_READ]: {
+    request: { dir: string };
+    response: unknown;
+  };
+  [MAIN_CHANNELS.PROJECTS_CONFIG_WRITE]: {
+    request: { dir: string; config: unknown };
+    response: void;
+  };
   // Project file system, for the asset library. `source` is project-relative
   // or absolute; `path` is always project-relative. Writes stream through the
   // FILE_WRITE_* channels (which create parent directories).
-  [MAIN_CHANNELS.PROJECTS_FS_LIST]: { request: { dir: string; source: string }; response: FsEntry[] };
-  [MAIN_CHANNELS.PROJECTS_FS_STAT]: { request: { dir: string; source: string }; response: FsStat | null };
-  [MAIN_CHANNELS.PROJECTS_FS_REMOVE]: { request: { dir: string; path: string }; response: void };
-  [MAIN_CHANNELS.PROJECTS_FS_REAL_PATH]: { request: { dir: string; source: string }; response: string | null };
+  [MAIN_CHANNELS.PROJECTS_FS_LIST]: {
+    request: { dir: string; source: string };
+    response: FsEntry[];
+  };
+  [MAIN_CHANNELS.PROJECTS_FS_STAT]: {
+    request: { dir: string; source: string };
+    response: FsStat | null;
+  };
+  [MAIN_CHANNELS.PROJECTS_FS_REMOVE]: {
+    request: { dir: string; path: string };
+    response: void;
+  };
+  [MAIN_CHANNELS.PROJECTS_FS_REAL_PATH]: {
+    request: { dir: string; source: string };
+    response: string | null;
+  };
 };
 
 export type FsEntry = {

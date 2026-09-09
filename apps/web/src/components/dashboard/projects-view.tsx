@@ -22,7 +22,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { toast } from "somoto";
-import { For, Show, batch, createMemo, createResource, createSignal, onCleanup } from "solid-js";
+import { For, Show, batch, createMemo, createResource, createSignal } from "solid-js";
 import { useNavigate } from "@solidjs/router";
 
 import {
@@ -37,8 +37,10 @@ import {
   DashboardCardMeta,
   DashboardCardButton,
   DashboardCardPreview,
+  DashboardProjectThumbnail,
   DashboardViewSection,
 } from "./shared";
+import { formatEditedAt, parseTimestamp } from "./utils";
 import { DashboardSearchPanel } from "./search-bar";
 import { DashboardProjectsFolderBar } from "./projects-folder-bar";
 import { projectRoute } from "@/hooks/use-project-route";
@@ -52,9 +54,7 @@ import {
   isDesktop,
   listProjects,
   projectKey,
-  projectCoverKey,
   projectsRoot,
-  readProjectCover,
   renameProject,
   type ProjectInfo,
 } from "@/projects";
@@ -299,7 +299,7 @@ export function DashboardProjectsView() {
                   onDelete={() => setPendingDelete(project)}
                 >
                   <DashboardCardPreview>
-                    <ProjectThumbnail dir={project.dir} />
+                    <DashboardProjectThumbnail dir={project.dir} />
                   </DashboardCardPreview>
                   <div class="flex flex-col gap-1 px-2">
                     <div class="relative h-4 w-full">
@@ -389,36 +389,6 @@ export function DashboardProjectsView() {
   );
 }
 
-function ProjectThumbnail(props: { dir: string }) {
-  const [cover] = createResource(
-    () => projectCoverKey(props.dir),
-    () => readProjectCover(props.dir),
-  );
-
-  // The URL the last cover was under is released as this one takes its place.
-  const url = createMemo<string | null>((previous) => {
-    if (previous) URL.revokeObjectURL(previous);
-    const blob = cover();
-    return blob ? URL.createObjectURL(blob) : null;
-  }, null);
-
-  onCleanup(() => {
-    const current = url();
-    if (current) URL.revokeObjectURL(current);
-  });
-
-  return (
-    <Show when={url()}>
-      <img
-        src={url()!}
-        alt=""
-        class="h-full w-full object-cover"
-        draggable={false}
-      />
-    </Show>
-  );
-}
-
 const SORT_OPTIONS: Array<{ id: ProjectSortOption; label: string }> = [
   { id: "last-viewed", label: "Last modified" },
   { id: "alphabetical", label: "Alphabetical" },
@@ -426,31 +396,3 @@ const SORT_OPTIONS: Array<{ id: ProjectSortOption; label: string }> = [
 ];
 
 const MAX_VISIBLE_PROJECTS = 11;
-
-function parseTimestamp(value: string): number {
-  const parsed = Date.parse(value);
-  return Number.isNaN(parsed) ? 0 : parsed;
-}
-
-function formatEditedAt(modifiedAt: string): string {
-  const timestamp = parseTimestamp(modifiedAt);
-  if (!timestamp) return "Edited just now";
-
-  const elapsedMs = Date.now() - timestamp;
-  if (elapsedMs < 60_000) return "Edited just now";
-
-  const minutes = Math.floor(elapsedMs / 60_000);
-  if (minutes < 60) return `Edited ${minutes} minute${minutes === 1 ? "" : "s"} ago`;
-
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `Edited ${hours} hour${hours === 1 ? "" : "s"} ago`;
-
-  const days = Math.floor(hours / 24);
-  if (days < 30) return `Edited ${days} day${days === 1 ? "" : "s"} ago`;
-
-  const months = Math.floor(days / 30);
-  if (months < 12) return `Edited ${months} month${months === 1 ? "" : "s"} ago`;
-
-  const years = Math.floor(days / 365);
-  return `Edited ${years} year${years === 1 ? "" : "s"} ago`;
-}

@@ -190,6 +190,24 @@ export async function pickRoot(window: BrowserWindow | null): Promise<string | n
 }
 
 /**
+ * A folder to open as a single project, wherever it lives. Unlike `pickRoot`
+ * this leaves the projects root alone, and it does not vet the location: the
+ * folder goes through `initProject`, which asks about a synced one there.
+ */
+export async function pickFolder(window: BrowserWindow | null): Promise<string | null> {
+  const options: Electron.OpenDialogOptions = {
+    title: "Choose project folder",
+    defaultPath: app.getPath("videos"),
+    properties: ["openDirectory", "createDirectory"],
+  };
+
+  const { canceled, filePaths } = window
+    ? await dialog.showOpenDialog(window, options)
+    : await dialog.showOpenDialog(options);
+  return canceled ? null : filePaths[0] ?? null;
+}
+
+/**
  * The attribute macOS puts on a folder that a sync service owns. This is what
  * finding a synced folder comes down to: a synced Desktop or Documents is an
  * ordinary directory in the ordinary place — not a symlink, not a mount, and

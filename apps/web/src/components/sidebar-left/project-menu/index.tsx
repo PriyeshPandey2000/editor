@@ -34,7 +34,7 @@ export function ProjectMenu() {
 
   const handleOpenDashboard = () => {
     (document.activeElement as HTMLElement)?.blur?.();
-    navigate("/?dashboard=projects");
+    navigate("/");
   };
 
   const handleOpenAccount = () => {

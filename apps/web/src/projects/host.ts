@@ -72,6 +72,16 @@ export async function pickProjectsRoot(): Promise<string | null> {
 }
 
 /**
+ * Opens the native folder picker for a folder to open as a single project.
+ * Unlike `pickProjectsRoot` it changes nothing on its own — hand the path to
+ * `openProjectFolder`, which is what makes the folder a project.
+ */
+export async function pickProjectFolder(): Promise<string | null> {
+	if (!isDesktop()) return null;
+	return mainBridge.call(MAIN_CHANNELS.PROJECTS_PICK_FOLDER, undefined);
+}
+
+/**
  * The root to work against, waited for and — when there is none to wait for —
  * defaulted to. Null off the desktop, where there is no folder at all, and
  * when the user is asked where to put projects and declines to say.

@@ -10,6 +10,7 @@ import { DashboardAiCreditsView } from "@/components/dashboard/ai-credits-view";
 import { DashboardBillingView } from "@/components/dashboard/billing-view";
 import { DashboardGetDesktopApp } from "@/components/dashboard/get-desktop-app";
 import { DashboardHelpView } from "@/components/dashboard/help-view";
+import { DashboardHomeView } from "@/components/dashboard/home-view";
 import { DashboardProjectsView } from "@/components/dashboard/projects-view";
 import { DashboardSettingsView } from "@/components/dashboard/settings-view";
 import { DashboardSidebarHeader, DashboardSidebarNav, DashboardSidebarUser, DashboardSidebarItem } from "@/components/dashboard/sidebar";
@@ -19,6 +20,7 @@ import { useFullscreenState } from "@/hooks/use-fullscreen-state";
 import type { DashboardView } from "@/components/dashboard/types";
 
 const DASHBOARD_VIEWS: readonly DashboardView[] = [
+  "home",
   "projects",
   "templates",
   "ai-credits",
@@ -31,7 +33,7 @@ const DASHBOARD_VIEWS: readonly DashboardView[] = [
 
 function parseView(value: string | string[] | undefined): DashboardView {
   const raw = Array.isArray(value) ? value[0] : value;
-  return DASHBOARD_VIEWS.find((v) => v === raw) ?? "projects";
+  return DASHBOARD_VIEWS.find((v) => v === raw) ?? "home";
 }
 
 export function DashboardPage() {
@@ -58,6 +60,7 @@ export function DashboardPage() {
             </>
           }
         >
+          <DashboardSidebarItem active={view() === "home"} onClick={() => setView("home")} icon="home" label="Home" />
           <DashboardSidebarItem active={view() === "projects"} onClick={() => setView("projects")} icon="diffusion-project-file" label="Projects" />
         </DashboardSidebarNav>
         <DashboardSidebarUser active={view() === "account"} onClick={() => setView("account")} />
@@ -67,6 +70,9 @@ export function DashboardPage() {
 
       <section class="flex min-h-0 flex-1 flex-col bg-overlay-soft">
         <Switch>
+          <Match when={view() === "home"}>
+            <DashboardHomeView />
+          </Match>
           <Match when={view() === "projects"}>
             <DashboardProjectsView />
           </Match>
