@@ -27,8 +27,6 @@ export type MainWireChannel = (typeof MAIN_WIRE)[keyof typeof MAIN_WIRE];
 // answered by the renderer's handlers (apps/web/src/dapi).
 export const MAIN_CHANNELS = {
   // Renderer→Main requests
-  AGENTS_LIST: "agents:list",
-  AGENTS_OPEN: "agents:open",
   APP_OPEN_EXTERNAL: "app:open-external",
   APP_SHOW_IN_FOLDER: "app:show-in-folder",
   AUTH_GET_PENDING_CALLBACK: "auth:get-pending-callback",
@@ -105,20 +103,6 @@ export type ProjectInfo = {
 export type CompileResult =
   { ok: true; code: string } | { ok: false; error: string };
 
-/**
- * A coding agent a prompt can be handed to over its deep link. Every agent
- * we support is reported, installed or not — see `agent-links.ts` for the
- * links themselves.
- */
-export type AgentInfo = {
-  id: string;
-  label: string;
-  /** Whether its link can name the working directory itself. */
-  folder: boolean;
-  /** Whether an app that answers its link is on this machine. */
-  available: boolean;
-};
-
 // Outcome of linking the bundled dapi CLI into PATH. "cancelled" means the
 // user dismissed the macOS admin prompt — not an error, not installed.
 export type CliInstallResult =
@@ -174,16 +158,6 @@ export type DeepLinkChannel =
   typeof MAIN_CHANNELS.AUTH_CALLBACK | typeof MAIN_CHANNELS.CHECKOUT_CALLBACK;
 
 export type MainRequestMap = {
-  [MAIN_CHANNELS.AGENTS_LIST]: { request: void; response: AgentInfo[] };
-  [MAIN_CHANNELS.AGENTS_OPEN]: {
-    request: {
-      id: string;
-      prompt: string;
-      folder: string | null;
-      attachments?: string[];
-    };
-    response: void;
-  };
   [MAIN_CHANNELS.APP_OPEN_EXTERNAL]: {
     request: { url: string };
     response: void;

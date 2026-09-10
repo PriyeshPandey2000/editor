@@ -11,7 +11,6 @@ import type { FileHandle } from "node:fs/promises";
 import { updateElectronApp } from "update-electron-app";
 import { DapiServer } from "./dapi/server";
 import { enableHeadless, isHeadless } from "./headless";
-import { agentLaunchUrl, listAgents } from "./agent-detect";
 import { ensureSetup, setupStatus, verifySetup } from "./setup";
 import { trackInstall } from "./analytics";
 import { refreshAppMenu, setupAppMenu } from "./menu";
@@ -284,12 +283,6 @@ if (app.requestSingleInstanceLock()) {
     deliverDeepLink(url);
   });
 
-  mainBridge.handle(MAIN_CHANNELS.AGENTS_LIST, () => listAgents());
-  mainBridge.handle(MAIN_CHANNELS.AGENTS_OPEN, async ({ id, prompt, folder, attachments }) => {
-    const url = agentLaunchUrl(id, { prompt, folder, attachments });
-    if (!url) throw new Error(`No deep link for the agent "${id}".`);
-    await shell.openExternal(url);
-  });
   mainBridge.handle(MAIN_CHANNELS.APP_OPEN_EXTERNAL, ({ url }) => shell.openExternal(url));
   mainBridge.handle(MAIN_CHANNELS.APP_SHOW_IN_FOLDER, ({ path }) => shell.showItemInFolder(path));
   mainBridge.handle(MAIN_CHANNELS.SETUP_ENSURE, ({ cli }) => ensureSetup(cli));

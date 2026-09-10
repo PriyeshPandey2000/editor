@@ -29,7 +29,7 @@ import { Icon } from "@/components/ui/icon";
 import { RemoveButton } from "@/components/ui/remove-button";
 import { projectRoute } from "@/hooks/use-project-route";
 import { store } from "@/init";
-import { agentIcon, listAgents, type AgentInfo } from "@/lib/agents";
+import { AGENTS, agentIcon, type AgentInfo } from "@/lib/agents";
 import { track } from "@/lib/analytics";
 import { generateProjectName } from "@/lib/db";
 import { createStoredSignal } from "@/lib/store";
@@ -122,17 +122,15 @@ export function DashboardHomeView() {
     projectsRoot,
     () => listProjects(),
   );
-  const [agents] = createResource(listAgents, { initialValue: [] });
-
   // The agent outlives the session, so the next prompt goes where the last one
-  // did — unless that agent is not installed here, in which case the best one
-  // that is becomes what the button shows and what submitting uses.
+  // did — unless that one is not installed, in which case the first that is
+  // becomes what the button shows and what submitting uses.
   const [preferredAgent, setPreferredAgent] = createStoredSignal(
     store.define<string | null>("home.agent", null),
   );
 
   const agent = createMemo(() => {
-    const usable = agents().filter((entry) => entry.available);
+    const usable = AGENTS.filter((entry) => entry.installed);
     return (
       usable.find((entry) => entry.id === preferredAgent()) ?? usable[0] ?? null
     );
@@ -429,7 +427,6 @@ export function DashboardHomeView() {
 
               <div class="flex min-h-4 items-center justify-between">
                 <AgentPicker
-                  agents={agents()}
                   current={agent()}
                   onSelect={(id) => setPreferredAgent(id)}
                 />
@@ -523,73 +520,59 @@ export function DashboardHomeView() {
 }
 
 type AgentPickerProps = {
-  agents: readonly AgentInfo[];
   current: AgentInfo | null;
   onSelect: (id: string) => void;
 };
 
 /**
- * Which agent the prompt goes to. Every agent we support is listed, and the
- * ones with nothing on this machine to answer their link are shown disabled
- * rather than left out: a list that says what else this works with reads
- * better than one that silently varies from machine to machine, and a deep
- * link to an app that is not installed opens nothing at all.
- *
- * Off the desktop there is no list to show, only the reason there is none.
+ * Which agent the prompt goes to. Every agent in {@link AGENTS} is listed,
+ * and the ones not marked installed are shown disabled rather than left out,
+ * so the list says what else this works with.
  */
 function AgentPicker(props: AgentPickerProps) {
   return (
-    <Show
-      when={props.agents.length > 0}
-      fallback={
-        <p class="flex h-7 items-center px-2 text-xs text-muted-foreground">
-          No coding agent found
-        </p>
-      }
-    >
-      <DropdownMenu placement="bottom-start">
-        <DropdownMenuTrigger
-          as="button"
-          type="button"
-          aria-label="Choose the coding agent"
-          class="flex h-7 shrink-0 items-center rounded-md pl-0.5 pr-2 text-xs font-450 text-muted-foreground hover:bg-muted focus-ring"
-        >
-          <AgentLogo id={props.current?.id} />
-          <span class="max-w-40 truncate">
-            {props.current?.label ?? "No agent installed"}
-          </span>
-        </DropdownMenuTrigger>
-        <DropdownMenuPortal>
-          <DropdownMenuContent class="w-50">
-            <DropdownMenuGroup>
-              <For each={props.agents}>
-                {(entry) => (
-                  <DropdownMenuItem
-                    disabled={!entry.available}
-                    onSelect={() => props.onSelect(entry.id)}
+    <DropdownMenu placement="bottom-start">
+      <DropdownMenuTrigger
+        as="button"
+        type="button"
+        aria-label="Choose the coding agent"
+        class="flex h-7 shrink-0 items-center rounded-md pl-0.5 pr-2 text-xs font-450 text-muted-foreground hover:bg-muted focus-ring"
+      >
+        <AgentLogo id={props.current?.id} />
+        <span class="max-w-40 truncate">
+          {props.current?.label ?? "No agent installed"}
+        </span>
+      </DropdownMenuTrigger>
+      <DropdownMenuPortal>
+        <DropdownMenuContent class="w-50">
+          <DropdownMenuGroup>
+            <For each={AGENTS}>
+              {(entry) => (
+                <DropdownMenuItem
+                  disabled={!entry.installed}
+                  onSelect={() => props.onSelect(entry.id)}
+                >
+                  <Icon name={agentIcon(entry.id)} />
+                  <span class="min-w-0 flex-1 truncate">{entry.label}</span>
+                  <Show
+                    when={entry.installed}
+                    fallback={
+                      <span class="shrink-0 text-[10px] text-muted-foreground">
+                        Not installed
+                      </span>
+                    }
                   >
-                    <Icon name={agentIcon(entry.id)} />
-                    <span class="min-w-0 flex-1 truncate">{entry.label}</span>
-                    <Show
-                      when={entry.available}
-                      fallback={
-                        <span class="shrink-0 text-[10px] text-muted-foreground">
-                          Not installed
-                        </span>
-                      }
-                    >
-                      <Show when={entry.id === props.current?.id}>
-                        <Icon name="confirm-check" class="size-6" />
-                      </Show>
+                    <Show when={entry.id === props.current?.id}>
+                      <Icon name="confirm-check" class="size-6" />
                     </Show>
-                  </DropdownMenuItem>
-                )}
-              </For>
-            </DropdownMenuGroup>
-          </DropdownMenuContent>
-        </DropdownMenuPortal>
-      </DropdownMenu>
-    </Show>
+                  </Show>
+                </DropdownMenuItem>
+              )}
+            </For>
+          </DropdownMenuGroup>
+        </DropdownMenuContent>
+      </DropdownMenuPortal>
+    </DropdownMenu>
   );
 }
 

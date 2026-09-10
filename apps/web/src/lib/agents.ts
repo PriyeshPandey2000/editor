@@ -2,59 +2,36 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// Renderer side of handing a prompt to a coding agent. The agents, their deep
-// links, and which are installed all live in main (`agent-links.ts` and
-// `agent-detect.ts`); this is the wrapper the dashboard calls.
-//
-// Off the desktop build there is no agent to reach and no config to write, so
-// the list comes back empty and the connect step is a no-op.
+// The coding agents the dashboard offers. Nothing is detected: the list, and
+// which of them counts as installed, is fixed here.
 
 import { MAIN_CHANNELS } from "@desktop/main-channels";
 import { mainBridge } from "@/lib/ipc";
 
-import type { AgentInfo } from "@desktop/main-channels";
+/** A coding agent the home view's picker offers. */
+export type AgentInfo = {
+  /** Stable id — what the picker remembers the user's choice as. */
+  id: string;
+  label: string;
+  /** Whether the picker offers it, or lists it as not installed. */
+  installed: boolean;
+};
 
-export type { AgentInfo };
+/** Every agent we support, in the order they are offered. */
+export const AGENTS: readonly AgentInfo[] = [
+  { id: "claude", label: "Claude Code", installed: true },
+  { id: "codex", label: "Codex", installed: false },
+];
 
-/**
- * The icon file for each agent, by the id `agent-links.ts` gives it. Kept on
- * this side because the icons are this app's assets: main knows the agents,
- * the renderer knows what they look like. An id with no icon of its own —
- * a newly added agent, most likely — falls back to a generic mark.
- */
+/** The icon file for each agent, for {@link Icon}. */
 const AGENT_ICONS: Record<string, string> = {
   claude: "claude",
   codex: "gpt-codex",
-  conductor: "conductor",
-  cursor: "cursor",
 };
 
-/** The icon name for `id`, for {@link Icon}. */
+/** The icon name for `id`, falling back to a generic mark. */
 export const agentIcon = (id: string | undefined): string =>
   (id && AGENT_ICONS[id]) || "fx";
-
-/**
- * Every agent we support, most fitting first, each flagged with whether it is
- * installed here. Empty off the desktop, where there is none to reach.
- */
-export async function listAgents(): Promise<AgentInfo[]> {
-  if (!window.desktop) return [];
-  return mainBridge.call(MAIN_CHANNELS.AGENTS_LIST, undefined);
-}
-
-/**
- * Opens the agent's app with `prompt` in its composer, and — where the link
- * can say so — `folder` as the working directory. Dropped files and folders
- * go along as absolute paths, named at the end of the prompt. The agent comes
- * to the front and leaves the prompt unsent: the user reads it and presses
- * enter.
- */
-export async function launchAgent(
-  id: string,
-  launch: { prompt: string; folder: string | null; attachments?: string[] },
-): Promise<void> {
-  await mainBridge.call(MAIN_CHANNELS.AGENTS_OPEN, { id, ...launch });
-}
 
 /**
  * Brings this machine to the state the agent needs: its config pointing at
