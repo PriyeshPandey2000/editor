@@ -91,24 +91,18 @@ const RECENT_COLUMNS = 5;
 /** Recent projects the target menu offers before it gets unwieldy. */
 const MENU_PROJECTS = 8;
 
-/** The half of the placeholder that stays put; the rest is typed after it. */
-const PROMPT_PREFIX = "Ask Diffusion Studio to";
 
-/** The edits the placeholder types its way through, one line at a time. */
+/** The edits the placeholder cycles through, one whole line at a time. */
 const PROMPT_EXAMPLES = [
-  "cut this interview down to 90 seconds",
-  "add subtitles to every clip",
-  "remove the silences from this recording",
-  "grade the beach footage warmer",
-  "animate a lower third for each speaker",
-  "reframe the edit to 9:16 for social",
-  "drop b-roll over the voiceover",
+  "Turn this footage into a polished YouTube video. Add readable captions and an attention-grabbing graphic in the opening to give viewers a strong visual hook.",
+  "Can you pull the best 30-second moment from https://youtu.be/MtQ0qxyf-Ds and make a vertical version for social?",
+  "In three bullets, explain what starts the conflict. Include timestamps. https://youtu.be/aqz-KE-bpKQ",
+  "Name three recurring locations and give one visual cue that distinguishes each. https://youtu.be/dQw4w9WgXcQ",
 ];
 
-/** Milliseconds a typed character, an erased one, and a finished line take. */
-const TYPE_MS = 42;
-const ERASE_MS = 22;
-const HOLD_MS = 2200;
+/** Milliseconds a line takes to fade in or out, and how long it stays readable. */
+const FADE_MS = 500;
+const HOLD_MS = 2400;
 
 export function DashboardHomeView() {
   const navigate = useNavigate();
@@ -128,7 +122,7 @@ export function DashboardHomeView() {
 
   // Only worth animating while the field is empty — the placeholder is not on
   // screen behind text the user has typed.
-  const placeholder = createTypedPlaceholder(() => prompt().length === 0);
+  const placeholder = createFadingPlaceholder(() => prompt().length === 0);
 
   const [projects, { refetch: refetchProjects }] = createResource(
     projectsRoot,
@@ -426,16 +420,29 @@ export function DashboardHomeView() {
                 </div>
               </Show>
 
-              <textarea
-                value={prompt()}
-                onInput={(event) => setPrompt(event.currentTarget.value)}
-                onKeyDown={handleKeyDown}
-                onKeyUp={(event) => event.stopPropagation()}
-                placeholder={placeholder()}
-                aria-label="Describe the edit you want"
-                rows={2}
-                class="max-h-60 min-h-12 w-full resize-none overflow-auto bg-transparent p-1 text-[12px] leading-5 text-foreground outline-none placeholder:text-muted-foreground selection:bg-selection selection:text-selection-foreground"
-              />
+              <div class="grid">
+                <Show when={prompt().length === 0}>
+                  <span
+                    aria-hidden="true"
+                    class="pointer-events-none [grid-area:1/1] whitespace-pre-wrap break-words p-1 text-[12px] leading-5 text-muted-foreground transition-opacity ease-in-out"
+                    style={{ "transition-duration": `${FADE_MS}ms` }}
+                    classList={{ "opacity-0": !placeholder.visible() }}
+                  >
+                    {placeholder.line()}
+                  </span>
+                </Show>
+
+                <textarea
+                  value={prompt()}
+                  onInput={(event) => setPrompt(event.currentTarget.value)}
+                  onKeyDown={handleKeyDown}
+                  onKeyUp={(event) => event.stopPropagation()}
+                  aria-label="Describe the edit you want"
+                  aria-placeholder={placeholder.line()}
+                  rows={2}
+                  class="[grid-area:1/1] max-h-60 min-h-12 w-full resize-none overflow-auto bg-transparent p-1 text-[12px] leading-5 text-foreground outline-none selection:bg-selection selection:text-selection-foreground"
+                />
+              </div>
 
               <div class="flex min-h-4 items-center justify-between">
                 <AgentPicker
@@ -612,63 +619,52 @@ function AgentLogo(props: { id?: string }) {
   );
 }
 
-/** An example with the trailing dots the typing works its way through too. */
-function fullLine(index: number): string {
-  return `${PROMPT_EXAMPLES[index]}...`;
-}
-
-/** `Ask Diffusion Studio to cut this`, however far the typing has got. */
-function composePlaceholder(typed: string): string {
-  return typed ? `${PROMPT_PREFIX} ${typed}` : PROMPT_PREFIX;
-}
-
 /**
- * The composer's placeholder: {@link PROMPT_PREFIX} stands still while the
- * rest types itself through {@link PROMPT_EXAMPLES} — a line arrives a
- * character at a time, trailing dots and all, holds long enough to be read,
- * erases, and the next one follows. It stops whenever `active` goes false, and for anyone who asked the
- * system for less motion it settles on the first line and stays there.
+ * The composer's placeholder, cycling through {@link PROMPT_EXAMPLES}: each
+ * prompt fades in whole, however many lines it wraps to, holds long enough
+ * to be read, fades out, and the next one follows. It pauses whenever `active` goes false, and for anyone who asked
+ * the system for less motion it settles on the first line and stays there.
  */
-function createTypedPlaceholder(active: () => boolean) {
+function createFadingPlaceholder(active: () => boolean) {
+  const [index, setIndex] = createSignal(0);
+  const line = () => PROMPT_EXAMPLES[index()];
+
   if (
     isServer ||
     window.matchMedia("(prefers-reduced-motion: reduce)").matches
   ) {
-    return () => composePlaceholder(fullLine(0));
+    return { line, visible: () => true };
   }
 
-  const [text, setText] = createSignal("");
-  let line = 0;
-  let erasing = false;
+  const [visible, setVisible] = createSignal(false);
   let timer: ReturnType<typeof setTimeout> | undefined;
 
   const step = () => {
-    const shown = text();
-    const full = fullLine(line);
-
-    if (!erasing && shown.length < full.length) {
-      setText(full.slice(0, shown.length + 1));
-      timer = setTimeout(step, TYPE_MS);
-    } else if (!erasing) {
-      erasing = true;
-      timer = setTimeout(step, HOLD_MS);
-    } else if (shown.length > 0) {
-      setText(shown.slice(0, -1));
-      timer = setTimeout(step, ERASE_MS);
+    if (visible()) {
+      setVisible(false);
+      timer = setTimeout(step, FADE_MS);
     } else {
-      erasing = false;
-      line = (line + 1) % PROMPT_EXAMPLES.length;
-      timer = setTimeout(step, TYPE_MS);
+      setIndex((current) => (current + 1) % PROMPT_EXAMPLES.length);
+      setVisible(true);
+      timer = setTimeout(step, FADE_MS + HOLD_MS);
     }
   };
 
   createEffect(() => {
     clearTimeout(timer);
-    if (active()) timer = setTimeout(step, TYPE_MS);
+    setVisible(false);
+    if (!active()) return;
+
+    // The span mounts at opacity 0 first, so its first line fades in like
+    // the rest instead of appearing in one go.
+    timer = setTimeout(() => {
+      setVisible(true);
+      timer = setTimeout(step, FADE_MS + HOLD_MS);
+    }, 50);
   });
   onCleanup(() => clearTimeout(timer));
 
-  return () => composePlaceholder(text());
+  return { line, visible };
 }
 
 type AttachmentTileProps = {

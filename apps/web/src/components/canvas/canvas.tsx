@@ -10,7 +10,6 @@ import { droppedFiles, importFiles } from "@/engine/asset-actions";
 import { Toolbar } from "./toolbar";
 import { DrawOverlay } from "./draw-overlay";
 import { DesktopAppBanner } from "./desktop-app-banner";
-import { McpSetupBanner } from "./mcp-setup-banner";
 import { toast } from "somoto"
 import { SceneInitOverlay } from "./scene-init-overlay";
 import { ASSET_DRAG_TYPE } from "@/components/sidebar-left/folder-item";
@@ -78,7 +77,6 @@ export function Canvas() {
       >
         <Toolbar />
         <DesktopAppBanner />
-        <McpSetupBanner />
         <DrawOverlay />
         <SceneInitOverlay />
         <EngineCanvas />
