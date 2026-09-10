@@ -12,9 +12,9 @@
 import { MAIN_CHANNELS } from "@desktop/main-channels";
 import { mainBridge } from "@/lib/ipc";
 
-import type { AgentInfo } from "@desktop/main-channels";
+import type { AgentInfo, SetupResult, SetupStatus } from "@desktop/main-channels";
 
-export type { AgentInfo };
+export type { AgentInfo, SetupResult, SetupStatus };
 
 /**
  * The icon file for each agent, by the id `agent-links.ts` gives it. Kept on
@@ -69,6 +69,36 @@ export async function launchAgent(
 export async function ensureAgentSetup(): Promise<void> {
   if (!window.desktop) return;
 
-  const { mcp } = await mainBridge.call(MAIN_CHANNELS.SETUP_ENSURE, undefined);
+  const { mcp } = await mainBridge.call(MAIN_CHANNELS.SETUP_ENSURE, {});
   if (mcp.status === "error") throw new Error(mcp.error);
+}
+
+/**
+ * The same steps as {@link ensureAgentSetup}, for a user who asked for them
+ * by name rather than by sending a prompt: the CLI symlink is offered again
+ * even after an earlier refusal, and the whole result comes back so the
+ * caller can say what was done.
+ */
+export async function connectAgents(): Promise<SetupResult> {
+  if (!window.desktop) throw new Error("Connecting agents needs the desktop app");
+
+  const result = await mainBridge.call(MAIN_CHANNELS.SETUP_ENSURE, { cli: "force" });
+  if (result.mcp.status === "error") throw new Error(result.mcp.error);
+  return result;
+}
+
+/**
+ * What setup would find on this machine, without doing any of it.
+ */
+export async function agentSetupStatus(): Promise<SetupStatus | null> {
+  if (!window.desktop) return null;
+  return mainBridge.call(MAIN_CHANNELS.SETUP_STATUS, undefined);
+}
+
+/**
+ * Whether `status` leaves anything worth offering to do.
+ */
+export function setupPending(status: SetupStatus | null | undefined): boolean {
+  if (!status) return false;
+  return !status.mcp || status.cli === "missing";
 }

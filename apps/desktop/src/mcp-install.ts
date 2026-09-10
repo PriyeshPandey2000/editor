@@ -66,6 +66,16 @@ function upToDate(target: AgentTarget, current: McpServerSpec): boolean {
   return typeof entry.command === "string" ? registered.command === entry.command : registered.url === current.url;
 }
 
+/**
+ * Whether every agent config this machine needs already points at this build.
+ */
+export function mcpRegistered(): boolean {
+  const current = spec();
+  const reachable = targetAgents()
+    .filter((target) => !(needsBinary(target) && current.command === ""));
+  return reachable.length > 0 && reachable.every((target) => upToDate(target, current));
+}
+
 export function registerMcp(): McpRegisterResult {
   // A quarantined first launch runs from a translocated read-only mount whose
   // path won't survive the next launch — registering it would dangle.

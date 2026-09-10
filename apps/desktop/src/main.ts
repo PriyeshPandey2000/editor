@@ -12,7 +12,7 @@ import { updateElectronApp } from "update-electron-app";
 import { DapiServer } from "./dapi/server";
 import { enableHeadless, isHeadless } from "./headless";
 import { agentLaunchUrl, listAgents } from "./agent-detect";
-import { ensureSetup } from "./setup";
+import { ensureSetup, setupStatus, verifySetup } from "./setup";
 import { trackInstall } from "./analytics";
 import { setupAppMenu } from "./menu";
 import { mainBridge } from "./main-manager";
@@ -292,7 +292,8 @@ if (app.requestSingleInstanceLock()) {
   });
   mainBridge.handle(MAIN_CHANNELS.APP_OPEN_EXTERNAL, ({ url }) => shell.openExternal(url));
   mainBridge.handle(MAIN_CHANNELS.APP_SHOW_IN_FOLDER, ({ path }) => shell.showItemInFolder(path));
-  mainBridge.handle(MAIN_CHANNELS.SETUP_ENSURE, () => ensureSetup({ cli: "auto" }));
+  mainBridge.handle(MAIN_CHANNELS.SETUP_ENSURE, ({ cli }) => ensureSetup({ cli }));
+  mainBridge.handle(MAIN_CHANNELS.SETUP_STATUS, () => setupStatus());
   mainBridge.handle(MAIN_CHANNELS.AUTH_GET_PENDING_CALLBACK, () =>
     takePendingDeepLink(MAIN_CHANNELS.AUTH_CALLBACK),
   );
@@ -392,8 +393,7 @@ if (app.requestSingleInstanceLock()) {
     if (url) deliverDeepLink(url);
 
     dapi.start();
-    // Setup as far as it goes without a password prompt
-    ensureSetup({ cli: "skip" });
+    verifySetup();
     trackInstall();
     createWindow(!isHiddenLaunch(process.argv));
   });

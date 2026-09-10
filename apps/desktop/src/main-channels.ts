@@ -34,6 +34,7 @@ export const MAIN_CHANNELS = {
   AUTH_GET_PENDING_CALLBACK: "auth:get-pending-callback",
   CHECKOUT_GET_PENDING_CALLBACK: "checkout:get-pending-callback",
   SETUP_ENSURE: "setup:ensure",
+  SETUP_STATUS: "setup:status",
   WINDOW_IS_FULLSCREEN: "window:is-fullscreen",
   WINDOW_CAPTURE: "window:capture",
   FILE_TRANSFER: "file:transfer",
@@ -157,6 +158,12 @@ export type SetupResult = {
   skills: string[];
 };
 
+export type SetupStatus = {
+  /** Every agent config on this machine points at this build's MCP server. */
+  mcp: boolean;
+  cli: "present" | "missing" | "declined" | "unavailable";
+};
+
 export type { SourceEdit, WriteResult };
 
 export type MainChannel = (typeof MAIN_CHANNELS)[keyof typeof MAIN_CHANNELS];
@@ -184,7 +191,11 @@ export type MainRequestMap = {
     request: void;
     response: string | null;
   };
-  [MAIN_CHANNELS.SETUP_ENSURE]: { request: void; response: SetupResult };
+  [MAIN_CHANNELS.SETUP_ENSURE]: {
+    request: { cli?: CliMode };
+    response: SetupResult;
+  };
+  [MAIN_CHANNELS.SETUP_STATUS]: { request: void; response: SetupStatus };
   [MAIN_CHANNELS.WINDOW_IS_FULLSCREEN]: { request: void; response: boolean };
   [MAIN_CHANNELS.WINDOW_CAPTURE]: { request: void; response: ScreenshotResult };
   [MAIN_CHANNELS.FILE_TRANSFER]: {

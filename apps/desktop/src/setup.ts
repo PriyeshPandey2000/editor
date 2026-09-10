@@ -7,10 +7,10 @@ import { existsSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
 import { installCli, isCliInstalled } from "./cli-install";
-import { healMcpRegistrations, registerMcp } from "./mcp-install";
+import { healMcpRegistrations, mcpRegistered, registerMcp } from "./mcp-install";
 import { pruneLegacySkills } from "./skills-cleanup";
 
-import type { CliMode, CliSetupResult, SetupResult } from "./main-channels";
+import type { CliMode, CliSetupResult, SetupResult, SetupStatus } from "./main-channels";
 
 // Linking the CLI needs an admin password, so a refusal has to be
 // remembered: asking again on the next handoff is how a prompt turns into
@@ -64,4 +64,28 @@ export async function ensureSetup({ cli = "auto" }: { cli?: CliMode } = {}): Pro
   healMcpRegistrations();
   const mcp = registerMcp();
   return { mcp, cli: await ensureCli(cli), skills };
+}
+
+/**
+ * The launch pass. It repairs entries this app already owns.
+ */
+export function verifySetup(): SetupStatus {
+  pruneLegacySkills();
+  healMcpRegistrations();
+  return setupStatus();
+}
+
+/** What the CLI half of setup would find, without asking for a password. */
+function cliStatus(): SetupStatus["cli"] {
+  if (isCliInstalled()) return "present";
+  if (!app.isPackaged) return "unavailable";
+  return existsSync(declinedPath()) ? "declined" : "missing";
+}
+
+/**
+ * Whether the agent configs already point at this build, and where the `dapi`
+ * symlink stands.
+ */
+export function setupStatus(): SetupStatus {
+  return { mcp: mcpRegistered(), cli: cliStatus() };
 }
