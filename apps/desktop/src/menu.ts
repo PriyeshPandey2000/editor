@@ -6,6 +6,7 @@ import { app, dialog, Menu } from "electron";
 import type { MenuItemConstructorOptions } from "electron";
 
 import { CLI_LINK_PATH } from "./cli-install";
+import { registeredAgents, unregisterMcp } from "./mcp-install";
 import { ensureSetup } from "./setup";
 
 import type { CliSetupResult } from "./main-channels";
@@ -30,7 +31,7 @@ function cliDetail(result: CliSetupResult): string | null {
 // the CLI by name, so this is the one caller that asks for the password
 // again after a previous refusal.
 async function connectAgentsFromMenu() {
-  const { mcp, cli, skills } = await ensureSetup({ cli: "force" });
+  const { mcp, cli, skills } = await ensureSetup("force");
 
   if (mcp.status === "error") {
     await dialog.showMessageBox({
@@ -53,6 +54,65 @@ async function connectAgentsFromMenu() {
     message: "Your agents are connected.",
     detail: detail.join("\n\n"),
   });
+  refreshAppMenu();
+}
+
+// The inverse of the item above: takes the app's MCP entry back out of every
+// agent config that has one. Reversible from the same menu, so a plain
+// confirm is enough; the item is only shown while there is something to undo.
+async function disconnectAgentsFromMenu() {
+  const agents = registeredAgents();
+  if (agents.length === 0) {
+    refreshAppMenu();
+    return;
+  }
+
+  const { response } = await dialog.showMessageBox({
+    type: "question",
+    message: "Disconnect your agents?",
+    detail: [
+      `Diffusion Studio will be removed from the MCP configuration of ${agents.join(", ")}. Restart the agent to pick it up.`,
+      "The dapi command line tool stays installed. Sending a prompt to an agent from the dashboard connects it again.",
+    ].join("\n\n"),
+    buttons: ["Disconnect", "Cancel"],
+    defaultId: 0,
+    cancelId: 1,
+  });
+  if (response !== 0) return;
+
+  const result = unregisterMcp();
+  refreshAppMenu();
+
+  if (result.agents.length === 0) {
+    await dialog.showMessageBox({
+      type: "error",
+      message: "Could not disconnect your agents.",
+      detail: result.failures.join("\n"),
+    });
+    return;
+  }
+
+  await dialog.showMessageBox({
+    type: result.failures.length > 0 ? "warning" : "info",
+    message: "Your agents are disconnected.",
+    detail: [
+      `Disconnected: ${result.agents.join(", ")}. Restart the agent to pick it up.`,
+      result.failures.length > 0 ? `Could not update:\n${result.failures.join("\n")}` : null,
+    ].filter((line): line is string => line !== null).join("\n\n"),
+  });
+}
+
+const DISCONNECT_ITEM_ID = "disconnect-agents";
+
+/**
+ * Re-reads the agent configs and shows or hides "Disconnect Agents…" to
+ * match. Called after anything that writes those configs — the two menu
+ * items, and setup runs the renderer asks for — so the menu never offers to
+ * undo a connection that is not there.
+ */
+export function refreshAppMenu() {
+  const item = Menu.getApplicationMenu()?.getMenuItemById(DISCONNECT_ITEM_ID);
+  if (item) item.visible = registeredAgents().length > 0;
 }
 
 export function setupAppMenu() {
@@ -67,6 +127,12 @@ export function setupAppMenu() {
         {
           label: "Connect Agents…",
           click: connectAgentsFromMenu,
+        },
+        {
+          id: DISCONNECT_ITEM_ID,
+          label: "Disconnect Agents…",
+          visible: registeredAgents().length > 0,
+          click: disconnectAgentsFromMenu,
         },
         { type: "separator" },
         { role: "services" },

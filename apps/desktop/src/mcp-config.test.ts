@@ -3,7 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 import { describe, expect, it } from "vitest";
-import { AGENT_TARGETS, readServer, upsertServer } from "./mcp-config";
+import { AGENT_TARGETS, readServer, removeServer, upsertServer } from "./mcp-config";
 
 const spec = {
   url: "http://127.0.0.1:3274/mcp",
@@ -75,6 +75,24 @@ describe("json configs", () => {
     expect(readServer("", "json")).toBeNull();
     expect(JSON.parse(upsertServer("  \n", "json", { url: spec.url }))).toEqual({ mcpServers: { diffusion: { url: spec.url } } });
   });
+
+  it("removes our entry and nothing else", () => {
+    const before = JSON.stringify({
+      numStartups: 12,
+      mcpServers: { other: { command: "x", args: [] }, diffusion: { type: "http", url: spec.url } },
+    });
+    const after = removeServer(before, "json");
+    expect(after).not.toBeNull();
+    expect(JSON.parse(after as string)).toEqual({ numStartups: 12, mcpServers: { other: { command: "x", args: [] } } });
+    expect(readServer(after, "json")).toBeNull();
+  });
+
+  it("has nothing to remove from a config without our entry", () => {
+    expect(removeServer(null, "json")).toBeNull();
+    expect(removeServer("", "json")).toBeNull();
+    expect(removeServer(JSON.stringify({ mcpServers: { other: { url: "u" } } }), "json")).toBeNull();
+    expect(removeServer("{ not json", "json")).toBeNull();
+  });
 });
 
 describe("toml configs (codex)", () => {
@@ -107,5 +125,21 @@ describe("toml configs (codex)", () => {
 
   it("reads nothing from a config without our table", () => {
     expect(readServer('model = "o3"\n', "toml")).toBeNull();
+    expect(removeServer('model = "o3"\n', "toml")).toBeNull();
+  });
+
+  it("removes our table from the end of a config", () => {
+    const before = 'model = "o3"\n\n[mcp_servers.other]\ncommand = "x"\n';
+    const connected = upsertServer(before, "toml", { url: spec.url });
+    expect(removeServer(connected, "toml")).toBe(before);
+  });
+
+  it("removes our table from between others without leaving a gap", () => {
+    const before = 'model = "o3"\n\n[mcp_servers.diffusion]\nurl = "u"\n\n[mcp_servers.other]\ncommand = "x"\n';
+    expect(removeServer(before, "toml")).toBe('model = "o3"\n\n[mcp_servers.other]\ncommand = "x"\n');
+  });
+
+  it("empties a config that held only our table", () => {
+    expect(removeServer(upsertServer(null, "toml", { url: spec.url }), "toml")).toBe("");
   });
 });

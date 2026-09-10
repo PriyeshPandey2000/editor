@@ -12,10 +12,13 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 import { MCP_URL } from "@diffusionstudio/dapi/socket";
-import { AGENT_TARGETS, FALLBACK_TARGET, readServer, upsertServer } from "./mcp-config";
+import { AGENT_TARGETS, FALLBACK_TARGET, readServer, removeServer, upsertServer } from "./mcp-config";
 
 import type { AgentTarget, McpServerSpec } from "./mcp-config";
 import type { McpRegisterResult } from "./main-channels";
+
+/** What `unregisterMcp` did: the agents whose entry was removed, and the configs it could not rewrite. */
+export type McpUnregisterResult = { agents: string[]; failures: string[] };
 
 // The dev workflow links the workspace build into Homebrew's bin
 // (`symlink:create` in apps/cli); that is the binary a dev build registers.
@@ -113,6 +116,41 @@ export function registerMcp(): McpRegisterResult {
     url: current.url,
     command: current.command === "" ? null : `${current.command} ${current.args.join(" ")}`,
   };
+}
+
+/**
+ * The agents whose config carries our entry right now, whatever it points
+ * at: this is what "Disconnect Agents" has to undo, so unlike `targetAgents`
+ * it looks at every config we know, not only the agents that are installed.
+ */
+export function registeredAgents(): string[] {
+  return AGENT_TARGETS
+    .filter((target) => readServer(readConfig(target), target.format) !== null)
+    .map((target) => target.label);
+}
+
+/**
+ * Takes our entry out of every agent config that has one. The inverse of
+ * `registerMcp`, and just as narrow: other servers in the same file, the
+ * `dapi` symlink, and the app's own state are all left alone. The next
+ * handoff from the dashboard registers again — disconnecting is for a user
+ * who wants the agent to stop seeing the app until then.
+ */
+export function unregisterMcp(): McpUnregisterResult {
+  const agents: string[] = [];
+  const failures: string[] = [];
+  for (const target of AGENT_TARGETS) {
+    const text = readConfig(target);
+    const next = removeServer(text, target.format);
+    if (next === null) continue;
+    try {
+      writeConfig(target, next);
+      agents.push(target.label);
+    } catch (e) {
+      failures.push(`${target.label} (${target.config}): ${(e as Error).message}`);
+    }
+  }
+  return { agents, failures };
 }
 
 /**

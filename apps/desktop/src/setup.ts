@@ -11,6 +11,7 @@ import { healMcpRegistrations, mcpRegistered, registerMcp } from "./mcp-install"
 import { pruneLegacySkills } from "./skills-cleanup";
 
 import type { CliMode, CliSetupResult, SetupResult, SetupStatus } from "./main-channels";
+import { refreshAppMenu } from "./menu";
 
 // Linking the CLI needs an admin password, so a refusal has to be
 // remembered: asking again on the next handoff is how a prompt turns into
@@ -59,11 +60,15 @@ async function ensureCli(mode: CliMode): Promise<CliSetupResult> {
  * handoff (asks once, then respects a refusal), `force` when the user asked
  * for it by name.
  */
-export async function ensureSetup({ cli = "auto" }: { cli?: CliMode } = {}): Promise<SetupResult> {
+export async function ensureSetup(mode: CliMode = "auto"): Promise<SetupResult> {
   const skills = pruneLegacySkills();
   healMcpRegistrations();
+
   const mcp = registerMcp();
-  return { mcp, cli: await ensureCli(cli), skills };
+  const cli = await ensureCli(mode);
+
+  refreshAppMenu();
+  return { mcp, cli, skills };
 }
 
 /**

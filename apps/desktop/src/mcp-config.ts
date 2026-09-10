@@ -71,6 +71,16 @@ export function upsertServer(text: string | null, format: AgentTarget["format"],
   return format === "toml" ? upsertToml(text, entry) : upsertJson(text, entry);
 }
 
+/**
+ * The config with our entry taken out, everything else untouched; null when
+ * the file has no entry of ours (or cannot be parsed), so there is nothing
+ * to write back. Other servers and unrelated keys stay as they were.
+ */
+export function removeServer(text: string | null, format: AgentTarget["format"]): string | null {
+  if (readServer(text, format) === null) return null;
+  return format === "toml" ? removeToml(text as string) : removeJson(text as string);
+}
+
 /** Where our entry currently points, whatever keys the agent spells it with; null when there is none. */
 export type Registered = { url?: string; command?: string };
 
@@ -104,6 +114,13 @@ function upsertJson(text: string | null, entry: ServerEntry): string {
   const config = parseJson(text);
   const servers = typeof config.mcpServers === "object" && config.mcpServers !== null ? config.mcpServers : {};
   config.mcpServers = { ...servers, [SERVER_NAME]: entry };
+  return `${JSON.stringify(config, null, 2)}\n`;
+}
+
+function removeJson(text: string): string {
+  const config = parseJson(text);
+  const { [SERVER_NAME]: _ours, ...servers } = config.mcpServers ?? {};
+  config.mcpServers = servers;
   return `${JSON.stringify(config, null, 2)}\n`;
 }
 
@@ -143,6 +160,13 @@ function upsertToml(text: string | null, entry: ServerEntry): string {
   if (TOML_TABLE.test(current)) return current.replace(TOML_TABLE, table);
   const separator = current === "" || current.endsWith("\n\n") ? "" : current.endsWith("\n") ? "\n" : "\n\n";
   return `${current}${separator}${table}`;
+}
+
+// Drops our table, then the blank lines it used to sit between so the file
+// does not end in (or contain) a growing gap after a connect/disconnect cycle.
+function removeToml(text: string): string {
+  const rest = text.replace(TOML_TABLE, "").replace(/\n{3,}/g, "\n\n").trimEnd();
+  return rest === "" ? "" : `${rest}\n`;
 }
 
 function readToml(text: string): Record<string, unknown> | null {
