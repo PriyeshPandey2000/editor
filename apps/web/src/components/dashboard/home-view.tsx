@@ -29,13 +29,7 @@ import { Icon } from "@/components/ui/icon";
 import { RemoveButton } from "@/components/ui/remove-button";
 import { projectRoute } from "@/hooks/use-project-route";
 import { store } from "@/init";
-import {
-  agentIcon,
-  ensureAgentSetup,
-  launchAgent,
-  listAgents,
-  type AgentInfo,
-} from "@/lib/agents";
+import { agentIcon, listAgents, type AgentInfo } from "@/lib/agents";
 import { track } from "@/lib/analytics";
 import { generateProjectName } from "@/lib/db";
 import { createStoredSignal } from "@/lib/store";
@@ -157,7 +151,7 @@ export function DashboardHomeView() {
     return "Choose project";
   };
 
-  const canSubmit = () => prompt().trim().length > 0 && !!agent() && !busy();
+  const canSubmit = () => prompt().trim().length > 0 && !busy();
 
   const handlePickFolder = async () => {
     try {
@@ -191,32 +185,21 @@ export function DashboardHomeView() {
     if (!canSubmit()) return;
 
     if (!isDesktop()) {
-      toast.error("Handing a prompt to a coding agent needs the desktop app");
+      toast.error("Projects on disk are only available in the desktop app");
       return;
     }
 
-    const text = prompt().trim();
-    const chosen = agent()!;
     const paths = attachments().flatMap((entry) => (entry.path ? [entry.path] : []));
     setBusy(true);
 
     try {
-      // Before anything else: the agent is no use on this project without the
-      // app's MCP server in its config, and it reads that config at startup —
-      // so it has to be there before the link opens it.
-      await ensureAgentSetup();
-
+      // For now the prompt only picks the project: nothing is handed to the
+      // agent and no CLI or MCP setup runs. The project is opened as is.
       const project = await resolveTarget();
       if (!project) return;
 
-      await launchAgent(chosen.id, {
-        prompt: text,
-        folder: project.dir,
-        attachments: paths,
-      });
-
       track("home_prompt_sent", {
-        agent: chosen.id,
+        agent: agent()?.id ?? null,
         target: target().kind,
         attachments: paths.length,
       });
@@ -226,7 +209,7 @@ export function DashboardHomeView() {
       refetchProjects();
       navigate(projectRoute(projectKey(project)));
     } catch (e) {
-      toast.error("Could not hand the prompt over", {
+      toast.error("Could not open the project", {
         description: (e as Error).message,
       });
     } finally {
