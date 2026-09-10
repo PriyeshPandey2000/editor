@@ -5,10 +5,11 @@
 import { app, dialog, Menu } from "electron";
 import type { MenuItemConstructorOptions } from "electron";
 
-import { CLI_LINK_PATH } from "./cli-install";
-import { registeredAgents, unregisterMcp } from "./mcp-install";
-import { ensureSetup } from "./setup";
+import { CLI_LINK_PATH, isCliLinked } from "./cli-install";
+import { registeredAgents } from "./mcp-install";
+import { disconnectSetup, ensureSetup, setupConnected } from "./setup";
 
+import type { CliUninstallResult } from "./cli-install";
 import type { CliSetupResult } from "./main-channels";
 
 /** The line the dialog gets about the CLI, or null when there is nothing to say. */
@@ -54,15 +55,30 @@ async function connectAgentsFromMenu() {
     message: "Your agents are connected.",
     detail: detail.join("\n\n"),
   });
-  refreshAppMenu();
+}
+
+/** The line the disconnect dialog gets about the CLI, or null when there was nothing to remove. */
+function cliRemovalDetail(result: CliUninstallResult): string | null {
+  switch (result.status) {
+    case "removed":
+      return `The dapi command line tool was removed from ${CLI_LINK_PATH}.`;
+    case "cancelled":
+      return `The dapi command line tool is still at ${CLI_LINK_PATH} — the admin prompt was dismissed.`;
+    case "error":
+      return `The dapi command line tool could not be removed: ${result.error}`;
+    case "absent":
+      return null;
+  }
 }
 
 // The inverse of the item above: takes the app's MCP entry back out of every
-// agent config that has one. Reversible from the same menu, so a plain
-// confirm is enough; the item is only shown while there is something to undo.
+// agent config that has one, and the dapi link off PATH. Reversible from the
+// same menu, so a plain confirm is enough; the item is only shown while
+// there is something to undo.
 async function disconnectAgentsFromMenu() {
   const agents = registeredAgents();
-  if (agents.length === 0) {
+  const linked = isCliLinked();
+  if (agents.length === 0 && !linked) {
     refreshAppMenu();
     return;
   }
@@ -71,33 +87,40 @@ async function disconnectAgentsFromMenu() {
     type: "question",
     message: "Disconnect your agents?",
     detail: [
-      `Diffusion Studio will be removed from the MCP configuration of ${agents.join(", ")}. Restart the agent to pick it up.`,
-      "The dapi command line tool stays installed. Sending a prompt to an agent from the dashboard connects it again.",
-    ].join("\n\n"),
+      agents.length > 0 ? `Diffusion Studio will be removed from the MCP configuration of ${agents.join(", ")}. Restart the agent to pick it up.` : null,
+      linked ? `The dapi command line tool will be removed from ${CLI_LINK_PATH}, which needs your admin password.` : null,
+      "Sending a prompt to an agent from the dashboard connects it again.",
+    ].filter((line): line is string => line !== null).join("\n\n"),
     buttons: ["Disconnect", "Cancel"],
     defaultId: 0,
     cancelId: 1,
   });
   if (response !== 0) return;
 
-  const result = unregisterMcp();
-  refreshAppMenu();
+  const { mcp, cli } = await disconnectSetup();
 
-  if (result.agents.length === 0) {
+  const failed = [
+    ...mcp.failures,
+    cli.status === "error" ? cli.error : null,
+  ].filter((line): line is string => line !== null);
+  const undone = mcp.agents.length > 0 || cli.status === "removed";
+
+  if (!undone) {
     await dialog.showMessageBox({
-      type: "error",
-      message: "Could not disconnect your agents.",
-      detail: result.failures.join("\n"),
+      type: cli.status === "cancelled" ? "info" : "error",
+      message: "Your agents were not disconnected.",
+      detail: [cliRemovalDetail(cli), ...mcp.failures].filter((line): line is string => line !== null).join("\n\n"),
     });
     return;
   }
 
   await dialog.showMessageBox({
-    type: result.failures.length > 0 ? "warning" : "info",
+    type: failed.length > 0 || cli.status === "cancelled" ? "warning" : "info",
     message: "Your agents are disconnected.",
     detail: [
-      `Disconnected: ${result.agents.join(", ")}. Restart the agent to pick it up.`,
-      result.failures.length > 0 ? `Could not update:\n${result.failures.join("\n")}` : null,
+      mcp.agents.length > 0 ? `Disconnected: ${mcp.agents.join(", ")}. Restart the agent to pick it up.` : null,
+      cliRemovalDetail(cli),
+      mcp.failures.length > 0 ? `Could not update:\n${mcp.failures.join("\n")}` : null,
     ].filter((line): line is string => line !== null).join("\n\n"),
   });
 }
@@ -105,14 +128,14 @@ async function disconnectAgentsFromMenu() {
 const DISCONNECT_ITEM_ID = "disconnect-agents";
 
 /**
- * Re-reads the agent configs and shows or hides "Disconnect Agents…" to
- * match. Called after anything that writes those configs — the two menu
+ * Re-reads what setup left on this machine and shows or hides "Disconnect
+ * Agents…" to match. Called after anything that changes it — the two menu
  * items, and setup runs the renderer asks for — so the menu never offers to
  * undo a connection that is not there.
  */
 export function refreshAppMenu() {
   const item = Menu.getApplicationMenu()?.getMenuItemById(DISCONNECT_ITEM_ID);
-  if (item) item.visible = registeredAgents().length > 0;
+  if (item) item.visible = setupConnected();
 }
 
 export function setupAppMenu() {
@@ -131,7 +154,7 @@ export function setupAppMenu() {
         {
           id: DISCONNECT_ITEM_ID,
           label: "Disconnect Agents…",
-          visible: registeredAgents().length > 0,
+          visible: setupConnected(),
           click: disconnectAgentsFromMenu,
         },
         { type: "separator" },

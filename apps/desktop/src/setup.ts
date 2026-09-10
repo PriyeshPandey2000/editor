@@ -6,11 +6,13 @@ import { app } from "electron";
 import { existsSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
-import { installCli, isCliInstalled } from "./cli-install";
-import { healMcpRegistrations, mcpRegistered, registerMcp } from "./mcp-install";
+import { installCli, isCliInstalled, isCliLinked, uninstallCli } from "./cli-install";
+import { healMcpRegistrations, mcpRegistered, registerMcp, registeredAgents, unregisterMcp } from "./mcp-install";
 import { pruneLegacySkills } from "./skills-cleanup";
 
 import type { CliMode, CliSetupResult, SetupResult, SetupStatus } from "./main-channels";
+import type { CliUninstallResult } from "./cli-install";
+import type { McpUnregisterResult } from "./mcp-install";
 import { refreshAppMenu } from "./menu";
 
 // Linking the CLI needs an admin password, so a refusal has to be
@@ -69,6 +71,34 @@ export async function ensureSetup(mode: CliMode = "auto"): Promise<SetupResult> 
 
   refreshAppMenu();
   return { mcp, cli, skills };
+}
+
+/** What `disconnectSetup` did to each half of what `ensureSetup` put in place. */
+export type DisconnectResult = { mcp: McpUnregisterResult; cli: CliUninstallResult };
+
+/**
+ * Whether there is anything for `disconnectSetup` to undo: an agent config
+ * pointing at the app, or the `dapi` link on PATH.
+ */
+export function setupConnected(): boolean {
+  return registeredAgents().length > 0 || isCliLinked();
+}
+
+/**
+ * The inverse of `ensureSetup`: takes the app out of every agent config and
+ * the `dapi` link off PATH. The configs go first because they never prompt;
+ * the link comes second because it does, and a dismissed prompt should not
+ * leave the agents half-disconnected. A removed link is remembered as a
+ * refusal, so the next handoff does not immediately ask to put it back —
+ * only "Connect Agents…" does.
+ */
+export async function disconnectSetup(): Promise<DisconnectResult> {
+  const mcp = unregisterMcp();
+  const cli = await uninstallCli();
+  if (cli.status === "removed") rememberDecline(true);
+
+  refreshAppMenu();
+  return { mcp, cli };
 }
 
 /**
