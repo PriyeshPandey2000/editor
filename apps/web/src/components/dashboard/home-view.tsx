@@ -52,14 +52,14 @@ import {
 } from "@/projects";
 
 import { DeleteProjectDialog } from "./delete-project-dialog";
+import { DashboardProjectCard } from "./project-card";
 import {
   DashboardCardButton,
   DashboardCardMeta,
   DashboardCardPreview,
-  DashboardProjectThumbnail,
   createBackgroundClickHandler,
 } from "./shared";
-import { formatEditedAt, parseTimestamp } from "./utils";
+import { parseTimestamp } from "./utils";
 
 /**
  * Where the prompt lands: a project chosen from the recents, a folder chosen
@@ -508,21 +508,15 @@ export function DashboardHomeView() {
             </DashboardCardButton>
             <For each={recentProjects().slice(0, RECENT_COLUMNS - 1)}>
               {(project) => (
-                <DashboardCardButton
+                <DashboardProjectCard
+                  project={project}
                   active={selectedProject() === project.dir}
-                  onClick={() => setSelectedProject(project.dir)}
-                  onDoubleClick={() => openProject(project)}
-                  onEscape={() => setSelectedProject(null)}
+                  onSelect={() => setSelectedProject(project.dir)}
+                  onDeselect={() => setSelectedProject(null)}
+                  onOpen={() => openProject(project)}
                   onDelete={() => setPendingDelete(project)}
-                >
-                  <DashboardCardPreview>
-                    <DashboardProjectThumbnail dir={project.dir} />
-                  </DashboardCardPreview>
-                  <DashboardCardMeta
-                    title={project.displayName}
-                    subtitle={formatEditedAt(project.modifiedAt)}
-                  />
-                </DashboardCardButton>
+                  onChanged={refetchProjects}
+                />
               )}
             </For>
           </div>

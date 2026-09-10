@@ -3,17 +3,8 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 import { generateProjectName } from "@/lib/db";
-import {
-  ContextMenu,
-  ContextMenuContent,
-  ContextMenuItem,
-  ContextMenuPortal,
-  ContextMenuSeparator,
-  ContextMenuTrigger,
-} from "@/components/ui/context-menu";
-import { TextField, TextFieldInput } from "@/components/ui/text-field";
 import { toast } from "somoto";
-import { For, Show, batch, createMemo, createResource, createSignal } from "solid-js";
+import { For, createMemo, createResource, createSignal } from "solid-js";
 import { useNavigate } from "@solidjs/router";
 
 import {
@@ -28,11 +19,11 @@ import {
   DashboardCardMeta,
   DashboardCardButton,
   DashboardCardPreview,
-  DashboardProjectThumbnail,
   DashboardViewSection,
 } from "./shared";
 import { DeleteProjectDialog } from "./delete-project-dialog";
-import { formatEditedAt, parseTimestamp } from "./utils";
+import { DashboardProjectCard } from "./project-card";
+import { parseTimestamp } from "./utils";
 import { DashboardSearchPanel } from "./search-bar";
 import { DashboardProjectsFolderBar } from "./projects-folder-bar";
 import { projectRoute } from "@/hooks/use-project-route";
@@ -40,13 +31,11 @@ import { Icon } from "../ui/icon";
 import { track } from "@/lib/analytics";
 import {
   createProject,
-  duplicateProject,
   ensureProjectsRoot,
   isDesktop,
   listProjects,
   projectKey,
   projectsRoot,
-  renameProject,
   type ProjectInfo,
 } from "@/projects";
 
@@ -60,8 +49,6 @@ export function DashboardProjectsView() {
   const [selectedProject, setSelectedProject] = createSignal<string | null>(null);
   const [creating, setCreating] = createSignal(false);
   const [pendingDelete, setPendingDelete] = createSignal<ProjectInfo | null>(null);
-  const [renamingProject, setRenamingProject] = createSignal<string | null>(null);
-  const [renameDraft, setRenameDraft] = createSignal("");
 
   const selectedSortOption = () =>
     SORT_OPTIONS.find((option) => option.id === sort()) ?? SORT_OPTIONS[0];
@@ -95,89 +82,13 @@ export function DashboardProjectsView() {
   });
 
   const openProject = (project: ProjectInfo) => {
-    if (renamingProject() === project.dir) return;
-
     track('project_opened');
     navigate(projectRoute(projectKey(project)));
-  };
-
-  const startRenaming = (project: ProjectInfo) => {
-    batch(() => {
-      setRenameDraft(project.displayName);
-      setRenamingProject(project.dir);
-    });
   };
 
   const handleDeleted = (project: ProjectInfo) => {
     setSelectedProject((current) => (current === project.dir ? null : current));
     refetchProjects();
-  };
-
-  const handleDuplicate = async (project: ProjectInfo) => {
-    try {
-      await duplicateProject(project.dir);
-      track('project_duplicated');
-      refetchProjects();
-    } catch (e) {
-      toast.error("Failed to duplicate project", { description: (e as Error).message });
-    }
-  };
-
-  const handleRenameInput = (event: InputEvent & { currentTarget: HTMLInputElement }) => {
-    setRenameDraft(event.currentTarget.value);
-  };
-
-  // The input mounts from a context-menu selection, which restores focus to
-  // the trigger on close — so the input must claim focus itself, after that.
-  const handleRenameInputRef = (el: HTMLInputElement) => {
-    queueMicrotask(() => {
-      el.focus();
-      el.select();
-    });
-  };
-
-  const handleBlurRenameInput = () => {
-    batch(() => {
-      setRenamingProject(null);
-      setRenameDraft("");
-    });
-    refetchProjects();
-  };
-
-  const handleKeyDownRenameInput = async (event: KeyboardEvent, project: ProjectInfo) => {
-    const input = event.currentTarget as HTMLInputElement;
-    const trimmedName = renameDraft()?.trim() ?? "";
-
-    if (event.key === "Escape") {
-      refetchProjects();
-      setRenamingProject(null);
-      setRenameDraft("");
-
-      event.preventDefault();
-      event.stopPropagation();
-      input.blur();
-    }
-
-    if (event.key == "Enter") {
-      event.preventDefault();
-      event.stopPropagation();
-
-      // The folder moves with the name, so the list is refetched below
-      // rather than patched: every path in it has just changed.
-      if (trimmedName.length > 0 && project.dir === renamingProject()) {
-        try {
-          await renameProject(project.dir, trimmedName);
-        } catch (e) {
-          toast.error("Failed to rename project", { description: (e as Error).message });
-        }
-      }
-
-      refetchProjects();
-      setRenamingProject(null);
-      setRenameDraft("");
-
-      input.blur();
-    };
   };
 
   // New project is the one card a single click still acts on, so a double
@@ -254,74 +165,15 @@ export function DashboardProjectsView() {
         </DashboardCardButton>
         <For each={sortedProjects().slice(0, MAX_VISIBLE_PROJECTS)}>
           {(project) => (
-            <ContextMenu
-              modal={false}
-              onOpenChange={(open) => {
-                if (open) setSelectedProject(project.dir);
-              }}
-            >
-              <ContextMenuTrigger as="div" class="contents">
-                <DashboardCardButton
-                  active={selectedProject() === project.dir}
-                  onClick={() => setSelectedProject(project.dir)}
-                  onDoubleClick={() => openProject(project)}
-                  onEscape={() => setSelectedProject(null)}
-                  onDelete={() => setPendingDelete(project)}
-                >
-                  <DashboardCardPreview>
-                    <DashboardProjectThumbnail dir={project.dir} />
-                  </DashboardCardPreview>
-                  <div class="flex flex-col gap-1 px-2">
-                    <div class="relative h-4 w-full">
-                      <Show
-                        when={renamingProject() === project.dir}
-                        fallback={
-                          <p class="min-w-0 truncate text-xs text-foreground">
-                            {project.displayName}
-                          </p>
-                        }
-                      >
-                        <TextField class="contents">
-                          <TextFieldInput
-                            uiSize="compact"
-                            type="text"
-                            ref={handleRenameInputRef}
-                            value={renameDraft()}
-                            onInput={handleRenameInput}
-                            onBlur={handleBlurRenameInput}
-                            onKeyDown={(e: KeyboardEvent) => handleKeyDownRenameInput(e, project)}
-                            placeholder="Project name"
-                            aria-label="Project name"
-                            class="absolute inset-x-0 top-1/2 h-5 w-full -translate-y-1/2 border border-ring bg-input px-1 py-0 ring-1 ring-inset ring-ring"
-                          />
-                        </TextField>
-                      </Show>
-                    </div>
-                    <p class="min-w-0 truncate text-xs text-muted-foreground">
-                      {formatEditedAt(project.modifiedAt)}
-                    </p>
-                  </div>
-                </DashboardCardButton>
-              </ContextMenuTrigger>
-              <ContextMenuPortal>
-                <ContextMenuContent class="w-45 gap-0">
-                  <ContextMenuItem onSelect={() => openProject(project)}>
-                    Open
-                  </ContextMenuItem>
-                  <ContextMenuSeparator class="my-2" />
-                  <ContextMenuItem onSelect={() => startRenaming(project)}>
-                    Rename
-                  </ContextMenuItem>
-                  <ContextMenuItem onSelect={() => handleDuplicate(project)}>
-                    Duplicate
-                  </ContextMenuItem>
-                  <ContextMenuSeparator class="my-2" />
-                  <ContextMenuItem onSelect={() => setPendingDelete(project)}>
-                    Delete
-                  </ContextMenuItem>
-                </ContextMenuContent>
-              </ContextMenuPortal>
-            </ContextMenu>
+            <DashboardProjectCard
+              project={project}
+              active={selectedProject() === project.dir}
+              onSelect={() => setSelectedProject(project.dir)}
+              onDeselect={() => setSelectedProject(null)}
+              onOpen={() => openProject(project)}
+              onDelete={() => setPendingDelete(project)}
+              onChanged={refetchProjects}
+            />
           )}
         </For>
       </DashboardViewSection>
