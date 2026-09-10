@@ -2,7 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-import { forgetProjectBundle, generateProjectName } from "@/lib/db";
+import { generateProjectName } from "@/lib/db";
 import {
   ContextMenu,
   ContextMenuContent,
@@ -12,15 +12,6 @@ import {
   ContextMenuTrigger,
 } from "@/components/ui/context-menu";
 import { TextField, TextFieldInput } from "@/components/ui/text-field";
-import { Button } from "@/components/ui/button";
-import {
-  AlertDialog,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
 import { toast } from "somoto";
 import { For, Show, batch, createMemo, createResource, createSignal } from "solid-js";
 import { useNavigate } from "@solidjs/router";
@@ -40,6 +31,7 @@ import {
   DashboardProjectThumbnail,
   DashboardViewSection,
 } from "./shared";
+import { DeleteProjectDialog } from "./delete-project-dialog";
 import { formatEditedAt, parseTimestamp } from "./utils";
 import { DashboardSearchPanel } from "./search-bar";
 import { DashboardProjectsFolderBar } from "./projects-folder-bar";
@@ -48,7 +40,6 @@ import { Icon } from "../ui/icon";
 import { track } from "@/lib/analytics";
 import {
   createProject,
-  deleteProject,
   duplicateProject,
   ensureProjectsRoot,
   isDesktop,
@@ -69,7 +60,6 @@ export function DashboardProjectsView() {
   const [selectedProject, setSelectedProject] = createSignal<string | null>(null);
   const [creating, setCreating] = createSignal(false);
   const [pendingDelete, setPendingDelete] = createSignal<ProjectInfo | null>(null);
-  const [deleting, setDeleting] = createSignal(false);
   const [renamingProject, setRenamingProject] = createSignal<string | null>(null);
   const [renameDraft, setRenameDraft] = createSignal("");
 
@@ -118,29 +108,9 @@ export function DashboardProjectsView() {
     });
   };
 
-  const handleDelete = async (project: ProjectInfo) => {
-    try {
-      await deleteProject(project.dir);
-      forgetProjectBundle(project.id);
-      track('project_deleted');
-      setSelectedProject((current) => (current === project.dir ? null : current));
-      refetchProjects();
-    } catch (e) {
-      toast.error("Failed to delete project", { description: (e as Error).message });
-    }
-  };
-
-  const confirmDelete = async () => {
-    const project = pendingDelete();
-    if (!project || deleting()) return;
-
-    setDeleting(true);
-    try {
-      await handleDelete(project);
-    } finally {
-      setDeleting(false);
-      setPendingDelete(null);
-    }
+  const handleDeleted = (project: ProjectInfo) => {
+    setSelectedProject((current) => (current === project.dir ? null : current));
+    refetchProjects();
   };
 
   const handleDuplicate = async (project: ProjectInfo) => {
@@ -357,34 +327,11 @@ export function DashboardProjectsView() {
       </DashboardViewSection>
       <DashboardProjectsFolderBar />
 
-      <AlertDialog
-        open={pendingDelete() !== null}
-        onOpenChange={(open) => {
-          if (!open && !deleting()) setPendingDelete(null);
-        }}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete project</AlertDialogTitle>
-            <AlertDialogDescription>
-              {`"${pendingDelete()?.displayName ?? ""}" will be moved to the Trash. `}
-              You can restore it from there until the Trash is emptied.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <Button
-              variant="secondary"
-              disabled={deleting()}
-              onClick={() => setPendingDelete(null)}
-            >
-              Cancel
-            </Button>
-            <Button variant="destructive" disabled={deleting()} onClick={confirmDelete}>
-              {deleting() ? "Deleting..." : "Delete"}
-            </Button>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <DeleteProjectDialog
+        project={pendingDelete()}
+        onClose={() => setPendingDelete(null)}
+        onDeleted={handleDeleted}
+      />
     </DashboardSearchPanel>
   );
 }

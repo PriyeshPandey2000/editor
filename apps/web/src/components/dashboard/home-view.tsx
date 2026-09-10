@@ -22,7 +22,6 @@ import {
   createResource,
   createSignal,
   onCleanup,
-  type JSX,
 } from "solid-js";
 import { isServer } from "solid-js/web";
 import { toast } from "somoto";
@@ -62,11 +61,13 @@ import {
   type ProjectInfo,
 } from "@/projects";
 
+import { DeleteProjectDialog } from "./delete-project-dialog";
 import {
   DashboardCardButton,
   DashboardCardMeta,
   DashboardCardPreview,
   DashboardProjectThumbnail,
+  createBackgroundClickHandler,
 } from "./shared";
 import { formatEditedAt, parseTimestamp } from "./utils";
 
@@ -230,13 +231,17 @@ export function DashboardHomeView() {
     void handleSubmit();
   };
 
-  // Only the grid's own background clears the selection — a click that landed
-  // on a card is that card's to handle.
-  const clearSelection: JSX.EventHandlerUnion<HTMLDivElement, MouseEvent> = (
-    event,
-  ) => {
-    if (event.target !== event.currentTarget) return;
-    setSelectedProject(null);
+  // Anything outside a card clears the selection — the grid's gaps, the space
+  // around it, and the composer above it. A click on a card is that card's.
+  const clearSelection = createBackgroundClickHandler(() =>
+    setSelectedProject(null),
+  );
+
+  const [pendingDelete, setPendingDelete] = createSignal<ProjectInfo | null>(null);
+
+  const handleDeleted = (project: ProjectInfo) => {
+    setSelectedProject((current) => (current === project.dir ? null : current));
+    refetchProjects();
   };
 
   const openProject = (project: ProjectInfo) => {
@@ -271,7 +276,10 @@ export function DashboardHomeView() {
 
   return (
     <>
-      <div class="flex min-h-0 flex-1 flex-col overflow-y-auto">
+      <div
+        class="flex min-h-0 flex-1 flex-col overflow-y-auto"
+        onClick={clearSelection}
+      >
         <div class="flex flex-1 flex-col items-center justify-center gap-6.5 px-6 py-8 pt-[15%]">
           <h1 class="w-full text-center text-5xl leading-normal font-450 tracking-[0.0864px] text-muted-foreground">
             What should we edit?
@@ -377,7 +385,6 @@ export function DashboardHomeView() {
           </div>
           <div
             data-slot="card-grid"
-            onClick={clearSelection}
             class="grid grid-cols-5 items-start gap-x-0.5 gap-y-3 px-4 pb-4"
           >
             <DashboardCardButton onClick={handleCreateProject}>
@@ -396,6 +403,7 @@ export function DashboardHomeView() {
                   onClick={() => setSelectedProject(project.dir)}
                   onDoubleClick={() => openProject(project)}
                   onEscape={() => setSelectedProject(null)}
+                  onDelete={() => setPendingDelete(project)}
                 >
                   <DashboardCardPreview>
                     <DashboardProjectThumbnail dir={project.dir} />
@@ -410,6 +418,12 @@ export function DashboardHomeView() {
           </div>
         </div>
       </div>
+
+      <DeleteProjectDialog
+        project={pendingDelete()}
+        onClose={() => setPendingDelete(null)}
+        onDeleted={handleDeleted}
+      />
     </>
   );
 }

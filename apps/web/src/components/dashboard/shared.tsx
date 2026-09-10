@@ -8,10 +8,21 @@ import { Icon } from "@/components/ui/icon";
 import { useAuth } from "@/context/auth";
 import { cx } from "@/lib/cva";
 import { trpc } from "@/lib/trpc";
-import { For, Show, children, createMemo, createResource, onCleanup, type JSX } from "solid-js";
+import {
+  For,
+  Show,
+  children,
+  createMemo,
+  createResource,
+  onCleanup,
+  type JSX,
+} from "solid-js";
 import { projectCoverKey, readProjectCover } from "@/projects";
 import { Separator } from "../ui/separator";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { track } from "@/lib/analytics";
+import { forgetProjectBundle } from "@/lib/db";
+import { deleteProject, type ProjectInfo } from "@/projects";
 
 
 type DashboardLabelValueProps = {
@@ -442,6 +453,7 @@ export function DashboardCardButton(props: DashboardCardButtonProps) {
 
   return (
     <div
+      data-slot="card-button"
       role="button"
       tabIndex={0}
       onClick={props.onClick}
@@ -500,6 +512,31 @@ export function DashboardCardMeta(props: DashboardCardMetaProps) {
   );
 }
 
+/**
+ * A click handler for whatever surrounds a grid of {@link DashboardCardButton}s:
+ * anything that did not land on a card is the background, and clears the
+ * selection. Cards keep their own clicks.
+ */
+export function createBackgroundClickHandler(onCLick: () => void): JSX.EventHandlerUnion<HTMLDivElement, MouseEvent> {
+  return (event) => {
+    const target = event.target as HTMLElement | null;
+    if (target?.closest('[data-slot="card-button"]')) return;
+
+    onCLick();
+  };
+}
+
+/**
+ * Moves `project` to the Trash, and drops the bundle we were holding for it —
+ * the folder is gone, so the cached copy of it is stale.
+ */
+export async function trashProject(project: ProjectInfo): Promise<void> {
+  await deleteProject(project.dir);
+  forgetProjectBundle(project.id);
+  track("project_deleted");
+}
+
+
 type DashboardViewSectionProps = {
   title: string;
   controls: JSX.Element;
@@ -509,12 +546,9 @@ type DashboardViewSectionProps = {
 };
 
 export function DashboardViewSection(props: DashboardViewSectionProps) {
-  const handleClick: JSX.EventHandlerUnion<HTMLDivElement, MouseEvent> = (event) => {
-    const target = event.target as HTMLElement;
-    if (target !== event.currentTarget && target.dataset.slot !== "card-grid") return;
-
-    props.onBackgroundClick?.();
-  };
+  const handleClick = createBackgroundClickHandler(() =>
+    props.onBackgroundClick?.(),
+  );
 
   return (
     <div class={cx("flex min-h-0 flex-1 flex-col gap-3 pt-4", props.class)}>
