@@ -26,6 +26,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Icon } from "@/components/ui/icon";
+import { RemoveButton } from "@/components/ui/remove-button";
 import { projectRoute } from "@/hooks/use-project-route";
 import { store } from "@/init";
 import {
@@ -413,7 +414,7 @@ export function DashboardHomeView() {
                 {/* The remove buttons overhang the tiles' corners, and a
                     scrolling row clips at its edge — so the row pads for them
                     and pulls itself back up by the same amount. */}
-                <div class="-mt-2 flex w-full items-start gap-2 overflow-x-auto pt-2 pr-2">
+                <div class="-mt-2.5 flex w-full items-start gap-2 overflow-x-auto pt-2.5 pr-2.5">
                   <For each={attachments()}>
                     {(entry) => (
                       <AttachmentTile
@@ -690,7 +691,7 @@ type AttachmentTileProps = {
 function AttachmentTile(props: AttachmentTileProps) {
   return (
     <div class="group relative size-10 shrink-0" title={props.attachment.name}>
-      <div class="grid size-full place-items-center overflow-hidden rounded-md bg-input text-muted-foreground">
+      <div class="grid size-full place-items-center overflow-hidden rounded-lg bg-input text-muted-foreground">
         <Show
           when={props.attachment.kind === "folder"}
           fallback={
@@ -702,16 +703,11 @@ function AttachmentTile(props: AttachmentTileProps) {
           <Icon name="navigation.folder" class="size-6" />
         </Show>
       </div>
-      <button
-        type="button"
-        aria-label={`Remove ${props.attachment.name}`}
-        class="absolute -right-2 -top-2 z-10 grid size-5 place-items-center opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100"
+      <RemoveButton
+        label={`Remove ${props.attachment.name}`}
+        class="absolute -right-2.5 -top-2.5 z-10 opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100"
         onClick={props.onRemove}
-      >
-        <div class="flex size-4 items-center justify-center overflow-hidden rounded-full border border-border bg-background">
-          <Icon name="close-remove-small" class="size-5 min-h-5 min-w-5" />
-        </div>
-      </button>
+      />
     </div>
   );
 }
