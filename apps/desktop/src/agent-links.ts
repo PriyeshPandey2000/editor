@@ -2,11 +2,20 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-/** What the user is handing over: the prompt, and the folder to work in. */
+/**
+ * What the user is handing over: the prompt, the folder to work in, and the
+ * files and folders dropped into the composer alongside it.
+ */
 export type AgentLaunch = {
   prompt: string;
   /** Absolute path of the project folder, or null when there is none. */
   folder: string | null;
+  /**
+   * Absolute paths of dropped files and folders. No link can carry these on
+   * its own, so they are named at the end of the prompt — the agent reads
+   * them from disk like anything else it is pointed at.
+   */
+  attachments?: readonly string[];
 };
 
 /**
@@ -138,6 +147,12 @@ const MAX_PROMPT = 5000;
 const folderLine = (folder: string): string =>
   `Working directory: ${folder}\n\n`;
 
+/** The block listing the dropped files and folders, one path a line. */
+const attachmentsBlock = (paths: readonly string[]): string =>
+  paths.length
+    ? `\n\nAttachments:\n${paths.map((path) => `- ${path}`).join("\n")}`
+    : "";
+
 /** The first variant `available` accepts, or null when none is reachable. */
 export const pickVariant = (
   agent: AgentTarget,
@@ -151,8 +166,9 @@ export function agentLink(
 ): string {
   const prefix =
     !agent.folder && launch.folder ? folderLine(launch.folder) : "";
+  const suffix = attachmentsBlock(launch.attachments ?? []);
   return variant.link({
-    prompt: `${prefix}${launch.prompt}`.slice(0, MAX_PROMPT),
+    prompt: `${prefix}${launch.prompt}${suffix}`.slice(0, MAX_PROMPT),
     folder: agent.folder ? launch.folder : null,
   });
 }

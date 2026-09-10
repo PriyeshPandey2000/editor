@@ -2,17 +2,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// The dashboard's landing view: a prompt, the folder it is about, and the
-// coding agent it goes to. Submitting does three things in order — connects
-// the agents to this app's MCP server if none is connected yet, settles on a
-// project folder (a chosen one, a picked folder, or a fresh project under the
-// application folder), then opens the agent's own app on that folder with the
-// prompt in its composer. The editor follows into the project.
-//
-// The agent is opened over its deep link, in the foreground, with the prompt
-// left unsent: the user sees what is being asked and sends it themselves. See
-// `@/lib/agents` and `agent-links.ts` in the desktop app.
-
 import { useNavigate } from "@solidjs/router";
 import {
   For,
@@ -82,6 +71,19 @@ type PromptTarget =
   | { kind: "project"; project: ProjectInfo }
   | { kind: "folder"; dir: string };
 
+/**
+ * A file or folder dropped onto the composer. Only what the tile and the
+ * handoff need: the name to label it, the kind and extension to draw it, and
+ * the path to send — null off the desktop, where the browser will not say
+ * where a dropped file lives.
+ */
+type PromptAttachment = {
+  key: string;
+  name: string;
+  kind: "file" | "folder";
+  path: string | null;
+};
+
 /** Cards that fit the one row the design gives recents, the new one included. */
 const RECENT_COLUMNS = 5;
 
@@ -116,6 +118,12 @@ export function DashboardHomeView() {
     null,
   );
   const [busy, setBusy] = createSignal(false);
+  const [attachments, setAttachments] = createSignal<PromptAttachment[]>([]);
+
+  // Drag events fire on every child the pointer crosses, so the overlay is
+  // held up by a count of nested enters rather than the last event seen.
+  let dragCounter = 0;
+  const [isDragging, setIsDragging] = createSignal(false);
 
   // Only worth animating while the field is empty — the placeholder is not on
   // screen behind text the user has typed.
@@ -194,6 +202,7 @@ export function DashboardHomeView() {
 
     const text = prompt().trim();
     const chosen = agent()!;
+    const paths = attachments().flatMap((entry) => (entry.path ? [entry.path] : []));
     setBusy(true);
 
     try {
@@ -205,10 +214,19 @@ export function DashboardHomeView() {
       const project = await resolveTarget();
       if (!project) return;
 
-      await launchAgent(chosen.id, { prompt: text, folder: project.dir });
+      await launchAgent(chosen.id, {
+        prompt: text,
+        folder: project.dir,
+        attachments: paths,
+      });
 
-      track("home_prompt_sent", { agent: chosen.id, target: target().kind });
+      track("home_prompt_sent", {
+        agent: chosen.id,
+        target: target().kind,
+        attachments: paths.length,
+      });
       setPrompt("");
+      setAttachments([]);
       setTarget({ kind: "new" });
       refetchProjects();
       navigate(projectRoute(projectKey(project)));
@@ -219,6 +237,48 @@ export function DashboardHomeView() {
     } finally {
       setBusy(false);
     }
+  };
+
+  const handleDragOver = (event: DragEvent) => {
+    event.preventDefault();
+    event.stopPropagation();
+  };
+
+  const handleDragEnter = (event: DragEvent) => {
+    event.preventDefault();
+    event.stopPropagation();
+    dragCounter++;
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (event: DragEvent) => {
+    event.preventDefault();
+    event.stopPropagation();
+    dragCounter--;
+    if (dragCounter <= 0) {
+      dragCounter = 0;
+      setIsDragging(false);
+    }
+  };
+
+  const handleDrop = (event: DragEvent) => {
+    event.preventDefault();
+    event.stopPropagation();
+    dragCounter = 0;
+    setIsDragging(false);
+
+    const dropped = droppedAttachments(event);
+    if (dropped.length === 0) return;
+
+    // The same file dropped twice is one attachment, not two tiles.
+    setAttachments((current) => {
+      const known = new Set(current.map((entry) => entry.key));
+      return [...current, ...dropped.filter((entry) => !known.has(entry.key))];
+    });
+  };
+
+  const removeAttachment = (key: string) => {
+    setAttachments((current) => current.filter((entry) => entry.key !== key));
   };
 
   // Enter sends, shift+enter breaks the line — and the dashboard's global
@@ -342,7 +402,29 @@ export function DashboardHomeView() {
               </DropdownMenu>
             </div>
 
-            <div class="z-10 flex w-149 flex-col gap-2 rounded-[20px] border border-border bg-accent p-2 focus-within:border-border-input">
+            <div
+              class="relative z-10 flex w-149 flex-col gap-2 rounded-[20px] border border-border bg-accent p-2 focus-within:border-border-input"
+              onDragOver={handleDragOver}
+              onDragEnter={handleDragEnter}
+              onDragLeave={handleDragLeave}
+              onDrop={handleDrop}
+            >
+              <Show when={attachments().length > 0}>
+                {/* The remove buttons overhang the tiles' corners, and a
+                    scrolling row clips at its edge — so the row pads for them
+                    and pulls itself back up by the same amount. */}
+                <div class="-mt-2 flex w-full items-start gap-2 overflow-x-auto pt-2 pr-2">
+                  <For each={attachments()}>
+                    {(entry) => (
+                      <AttachmentTile
+                        attachment={entry}
+                        onRemove={() => removeAttachment(entry.key)}
+                      />
+                    )}
+                  </For>
+                </div>
+              </Show>
+
               <textarea
                 value={prompt()}
                 onInput={(event) => setPrompt(event.currentTarget.value)}
@@ -373,6 +455,33 @@ export function DashboardHomeView() {
                   </Show>
                 </button>
               </div>
+
+              <Show when={isDragging()}>
+                <div class="absolute inset-0 z-20 overflow-hidden rounded-[20px] border border-primary bg-background p-2">
+                  <div class="absolute inset-0 rounded-[20px] bg-muted" />
+                  <div class="relative flex size-full items-center justify-center gap-1 rounded-xl">
+                    <svg
+                      aria-hidden="true"
+                      class="pointer-events-none absolute inset-[0.5px] size-[calc(100%-1px)] overflow-visible text-border-input opacity-15"
+                    >
+                      <rect
+                        width="100%"
+                        height="100%"
+                        rx="12"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="1"
+                        stroke-dasharray="8 4"
+                        shape-rendering="crispEdges"
+                      />
+                    </svg>
+                    <Icon name="attachment" class="size-6 text-muted-foreground" />
+                    <span class="text-xs font-450 text-muted-foreground">
+                      Drop files or folders here
+                    </span>
+                  </div>
+                </div>
+              </Show>
             </div>
           </div>
         </div>
@@ -565,6 +674,82 @@ function createTypedPlaceholder(active: () => boolean) {
   onCleanup(() => clearTimeout(timer));
 
   return () => composePlaceholder(text());
+}
+
+type AttachmentTileProps = {
+  attachment: PromptAttachment;
+  onRemove(): void;
+};
+
+/**
+ * One dropped file or folder: a grey square with a folder mark, or the file's
+ * type in the middle. There is no thumbnail to show — nothing is loaded — so
+ * the name is in the tooltip and the remove button appears on hover, as it
+ * does on the generation composer's reference images.
+ */
+function AttachmentTile(props: AttachmentTileProps) {
+  return (
+    <div class="group relative size-10 shrink-0" title={props.attachment.name}>
+      <div class="grid size-full place-items-center overflow-hidden rounded-md bg-input text-muted-foreground">
+        <Show
+          when={props.attachment.kind === "folder"}
+          fallback={
+            <span class="max-w-9 truncate px-0.5 text-[9px] font-500 uppercase tracking-wide">
+              {fileType(props.attachment.name)}
+            </span>
+          }
+        >
+          <Icon name="navigation.folder" class="size-6" />
+        </Show>
+      </div>
+      <button
+        type="button"
+        aria-label={`Remove ${props.attachment.name}`}
+        class="absolute -right-2 -top-2 z-10 grid size-5 place-items-center opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100"
+        onClick={props.onRemove}
+      >
+        <div class="flex size-4 items-center justify-center overflow-hidden rounded-full border border-border bg-background">
+          <Icon name="close-remove-small" class="size-5 min-h-5 min-w-5" />
+        </div>
+      </button>
+    </div>
+  );
+}
+
+/** `MP4` for `clip.mp4`, `FILE` for a name with no extension to speak of. */
+function fileType(name: string): string {
+  const dot = name.lastIndexOf(".");
+  const ext = dot > 0 ? name.slice(dot + 1) : "";
+  return ext && ext.length <= 8 ? ext : "FILE";
+}
+
+/**
+ * The files and folders in a drop, in the order they were dragged. Folders
+ * are told apart through the entry API, the only thing a drop says about a
+ * directory; the path comes from the desktop shell, which is the only one
+ * that knows it. Nothing is opened or read.
+ */
+function droppedAttachments(event: DragEvent): PromptAttachment[] {
+  const items = Array.from(event.dataTransfer?.items ?? []);
+  const result: PromptAttachment[] = [];
+
+  for (const item of items) {
+    if (item.kind !== "file") continue;
+    const entry = item.webkitGetAsEntry?.();
+    const file = item.getAsFile();
+    if (!file) continue;
+
+    const path = window.desktop?.getPathForFile(file) || null;
+    const name = entry?.name || file.name;
+    result.push({
+      key: path ?? `${name}:${file.size}:${file.lastModified}`,
+      name,
+      kind: entry?.isDirectory ? "folder" : "file",
+      path,
+    });
+  }
+
+  return result;
 }
 
 /** The last segment of a path, for naming a folder the user picked. */

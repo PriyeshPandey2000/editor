@@ -44,12 +44,14 @@ export async function listAgents(): Promise<AgentInfo[]> {
 
 /**
  * Opens the agent's app with `prompt` in its composer, and — where the link
- * can say so — `folder` as the working directory. The agent comes to the
- * front and leaves the prompt unsent: the user reads it and presses enter.
+ * can say so — `folder` as the working directory. Dropped files and folders
+ * go along as absolute paths, named at the end of the prompt. The agent comes
+ * to the front and leaves the prompt unsent: the user reads it and presses
+ * enter.
  */
 export async function launchAgent(
   id: string,
-  launch: { prompt: string; folder: string | null },
+  launch: { prompt: string; folder: string | null; attachments?: string[] },
 ): Promise<void> {
   await mainBridge.call(MAIN_CHANNELS.AGENTS_OPEN, { id, ...launch });
 }

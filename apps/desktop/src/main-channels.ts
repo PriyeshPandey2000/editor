@@ -176,7 +176,12 @@ export type DeepLinkChannel =
 export type MainRequestMap = {
   [MAIN_CHANNELS.AGENTS_LIST]: { request: void; response: AgentInfo[] };
   [MAIN_CHANNELS.AGENTS_OPEN]: {
-    request: { id: string; prompt: string; folder: string | null };
+    request: {
+      id: string;
+      prompt: string;
+      folder: string | null;
+      attachments?: string[];
+    };
     response: void;
   };
   [MAIN_CHANNELS.APP_OPEN_EXTERNAL]: {

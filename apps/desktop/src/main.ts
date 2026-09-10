@@ -285,8 +285,8 @@ if (app.requestSingleInstanceLock()) {
   });
 
   mainBridge.handle(MAIN_CHANNELS.AGENTS_LIST, () => listAgents());
-  mainBridge.handle(MAIN_CHANNELS.AGENTS_OPEN, async ({ id, prompt, folder }) => {
-    const url = agentLaunchUrl(id, { prompt, folder });
+  mainBridge.handle(MAIN_CHANNELS.AGENTS_OPEN, async ({ id, prompt, folder, attachments }) => {
+    const url = agentLaunchUrl(id, { prompt, folder, attachments });
     if (!url) throw new Error(`No deep link for the agent "${id}".`);
     await shell.openExternal(url);
   });

@@ -83,6 +83,29 @@ describe("agentLink", () => {
     expect(url.searchParams.get("text")).toHaveLength(5000);
   });
 
+  it("names dropped files and folders at the end of the prompt", () => {
+    const target = agent("claude");
+    const variant = pickVariant(target, (entry) => entry.id === "claude-code")!;
+    const url = new URL(
+      agentLink(target, variant, {
+        prompt: "cut the intro",
+        folder: null,
+        attachments: ["/Users/x/clip.mp4", "/Users/x/b-roll"],
+      }),
+    );
+    expect(url.searchParams.get("q")).toBe(
+      "cut the intro\n\nAttachments:\n- /Users/x/clip.mp4\n- /Users/x/b-roll",
+    );
+  });
+
+  it("adds nothing for an empty attachment list", () => {
+    const target = agent("claude");
+    const variant = pickVariant(target, (entry) => entry.id === "claude-code")!;
+    expect(
+      agentLink(target, variant, { prompt: "hello", folder: null, attachments: [] }),
+    ).toBe("claude-cli://open?q=hello");
+  });
+
   it("gives every agent a unique id and every variant at least one marker", () => {
     expect(new Set(AGENTS.map((a) => a.id)).size).toBe(AGENTS.length);
     for (const a of AGENTS) {
