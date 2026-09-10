@@ -65,32 +65,48 @@ export function DashboardSidebarHeader() {
   );
 }
 
+/**
+ * Stands in for the header when the sidebar has none. On the macOS desktop
+ * build it clears the traffic lights (hiddenInset title bar), except in
+ * fullscreen where they are gone.
+ */
+export function DashboardSidebarTopSpacer() {
+  return <div class="h-4 shrink-0 [[data-platform=darwin]:not([data-fullscreen=true])_&]:h-12" />;
+}
+
 type DashboardSidebarNavProps = {
   children: JSX.Element;
-  footer: JSX.Element;
 };
 
+/** The scrolling middle of the sidebar: stacked sections, then empty space. */
 export function DashboardSidebarNav(props: DashboardSidebarNavProps) {
   return (
     <div class="flex min-h-0 flex-1 flex-col gap-2 px-3">
-      <div class="flex shrink-0 flex-col">
-        <div class="flex h-8 shrink-0 items-center px-1">
-          <p class="text-xs text-muted-foreground">
-            Get Started
-          </p>
-        </div>
-        {props.children}
-      </div>
+      {props.children}
       <div class="min-h-0 flex-1" />
-      <div class="flex shrink-0 flex-col">
-        {props.footer}
-      </div>
+    </div>
+  );
+}
+
+type DashboardSidebarSectionProps = {
+  title?: string;
+  children: JSX.Element;
+};
+
+export function DashboardSidebarSection(props: DashboardSidebarSectionProps) {
+  return (
+    <div class="flex shrink-0 flex-col">
+      <Show when={props.title}>
+        <div class="flex h-8 shrink-0 items-center px-1">
+          <p class="text-xs text-muted-foreground">{props.title}</p>
+        </div>
+      </Show>
+      {props.children}
     </div>
   );
 }
 
 type DashboardSidebarUserProps = {
-  active: boolean;
   onClick: () => void;
 };
 
@@ -113,12 +129,11 @@ export function DashboardSidebarUser(props: DashboardSidebarUserProps) {
         type="button"
         onClick={props.onClick}
         class="flex w-full items-center gap-2 rounded-md p-2 text-left hover:bg-accent focus-ring"
-        classList={{ "bg-accent": props.active }}
       >
         <Show
           when={avatarUrl()}
           fallback={
-            <div class="grid size-8 shrink-0 place-items-center rounded-full bg-input text-xs text-foreground">
+            <div class="grid size-8 shrink-0 place-items-center rounded-full bg-accent text-xs text-foreground">
               {initial()}
             </div>
           }
@@ -139,6 +154,7 @@ export function DashboardSidebarUser(props: DashboardSidebarUserProps) {
             {planLabel()}
           </span>
         </div>
+        <Icon name="settings" class="size-6 shrink-0 text-muted-foreground" />
       </button>
     </div>
   );
