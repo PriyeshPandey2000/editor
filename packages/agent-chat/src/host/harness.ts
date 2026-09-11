@@ -15,6 +15,7 @@ import type {
   PendingRequest,
   Question,
   RequestResponse,
+  ToolImage,
   TurnStatus,
 } from "../protocol";
 import type { HostEnv } from "./env";
@@ -64,6 +65,44 @@ export function truncateDetail(text: string | undefined): string | undefined {
   if (text === undefined) return undefined;
   if (text.length <= DETAIL_MAX) return text;
   return text.slice(0, DETAIL_MAX) + "…";
+}
+
+/**
+ * The largest image (as base64) kept per tool result, and how many. Images
+ * ride inline in the transcript, which is replayed whenever a chat opens,
+ * so a capture is fine but a wall of full-size renders is not.
+ */
+export const IMAGE_MAX = 512 * 1024;
+export const IMAGES_MAX = 8;
+
+/**
+ * Splits a tool result's parts into the text shown and the images kept:
+ * text parts join with newlines, images within the cap ride along, and
+ * anything else (or an image over the cap) leaves a `[type]` marker.
+ */
+export function collectResult(parts: Array<{ type: string; text?: string; source?: unknown }>): { output?: string; images?: ToolImage[] } {
+  const lines: string[] = [];
+  const images: ToolImage[] = [];
+  for (const part of parts) {
+    if (part.type === "text") {
+      lines.push(part.text ?? "");
+      continue;
+    }
+    const image = part.type === "image" ? base64Image(part.source) : null;
+    if (image && image.data.length <= IMAGE_MAX && images.length < IMAGES_MAX) {
+      images.push(image);
+      continue;
+    }
+    lines.push(`[${part.type}]`);
+  }
+  const output = truncateDetail(lines.join("\n").trim() || undefined);
+  return { ...(output ? { output } : {}), ...(images.length ? { images } : {}) };
+}
+
+function base64Image(source: unknown): ToolImage | null {
+  if (!source || typeof source !== "object") return null;
+  const { type, media_type: mediaType, data } = source as Record<string, unknown>;
+  return type === "base64" && typeof mediaType === "string" && typeof data === "string" ? { mediaType, data } : null;
 }
 
 export function newItemId(prefix: string): string {

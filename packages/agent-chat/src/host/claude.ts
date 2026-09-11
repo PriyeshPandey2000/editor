@@ -13,7 +13,7 @@ import { query } from "@anthropic-ai/claude-agent-sdk";
 
 import { HARNESS_LABELS } from "../protocol";
 import { compareVersions, parseVersion, resolveBinary, resolveClaudeExecutable, runOnce } from "./env";
-import { QuestionBox, newItemId, summarizeInput, toolTitle, truncateDetail } from "./harness";
+import { QuestionBox, collectResult, newItemId, summarizeInput, toolTitle, truncateDetail } from "./harness";
 
 import type {
   CanUseTool,
@@ -457,13 +457,13 @@ class ClaudeSession implements HarnessSession {
           if (block.type !== "tool_result") continue;
           const started = turn.tools.get(block.tool_use_id);
           if (!started) continue;
-          const output = typeof block.content === "string"
-            ? block.content
-            : (block.content ?? []).map((part) => (part.type === "text" ? part.text : `[${part.type}]`)).join("\n");
+          const result = typeof block.content === "string"
+            ? { ...(block.content ? { output: truncateDetail(block.content) } : {}) }
+            : collectResult(block.content ?? []);
           const item: Extract<Item, { kind: "tool" }> = {
             ...started,
             status: block.is_error ? "failed" : "done",
-            ...(output ? { output: truncateDetail(output) } : {}),
+            ...result,
           };
           turn.tools.delete(block.tool_use_id);
           turn.emit({ type: "item.completed", item });

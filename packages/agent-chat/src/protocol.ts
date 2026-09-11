@@ -42,11 +42,13 @@ export type ChatSummary = {
 
 export type ToolStatus = "running" | "done" | "failed";
 
+export type ToolImage = { mediaType: string; data: string };
+
 export type Item =
   | { id: string; kind: "user"; text: string; attachments?: string[] }
   | { id: string; kind: "assistant"; text: string }
   | { id: string; kind: "reasoning"; text: string }
-  | { id: string; kind: "tool"; name: string; title: string; detail?: string; output?: string; status: ToolStatus }
+  | { id: string; kind: "tool"; name: string; title: string; detail?: string; output?: string; images?: ToolImage[]; status: ToolStatus }
   | { id: string; kind: "question"; questions: Question[]; answers: Record<string, string[]> | null }
   | { id: string; kind: "notice"; level: "info" | "error"; text: string };
 

@@ -65,7 +65,7 @@ export function ReasoningItem(props: { item: Of<"reasoning">; active?: boolean }
 
 export function ToolItem(props: { item: Of<"tool"> }) {
   const [open, setOpen] = createSignal(false);
-  const expandable = () => !!(props.item.detail || props.item.output);
+  const expandable = () => !!(props.item.detail || props.item.output || props.item.images?.length);
   return (
     <div class="pr-0.5">
       <button
@@ -104,6 +104,16 @@ export function ToolItem(props: { item: Of<"tool"> }) {
               {props.item.output}
             </pre>
           </Show>
+          <For each={props.item.images}>
+            {(image) => (
+              <img
+                src={`data:${image.mediaType};base64,${image.data}`}
+                alt={`${props.item.title} result`}
+                class="max-h-60 max-w-full self-start rounded-md border border-border object-contain"
+                loading="lazy"
+              />
+            )}
+          </For>
         </div>
       </Show>
     </div>
