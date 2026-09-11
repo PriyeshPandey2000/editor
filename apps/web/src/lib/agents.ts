@@ -10,22 +10,20 @@ export type AgentInfo = {
   /** Stable id — what the picker remembers the user's choice as. */
   id: string;
   label: string;
+  /** The icon file, for {@link Icon}. */
+  icon: string;
   /** Whether the picker offers it, or lists it as not installed. */
   installed: boolean;
 };
 
 /** Every agent we support, in the order they are offered. */
 export const AGENTS: readonly AgentInfo[] = [
-  { id: "claude", label: "Claude Code", installed: true },
-  { id: "codex", label: "Codex", installed: false },
+  { id: "fable-5.1", label: "Fable 5.1", icon: "claude-code", installed: true },
+  { id: "opus-5", label: "Opus 5", icon: "claude-code", installed: true },
+  { id: "gpt-6-astra", label: "GPT-6 Astra", icon: "codex", installed: true },
+  { id: "gpt-5.6-sol", label: "GPT-5.6 Sol", icon: "codex", installed: true },
 ];
 
-/** The icon file for each agent, for {@link Icon}. */
-const AGENT_ICONS: Record<string, string> = {
-  claude: "claude",
-  codex: "gpt-codex",
-};
-
-/** The icon name for `id`, falling back to a generic mark. */
-export const agentIcon = (id: string | undefined): string =>
-  (id && AGENT_ICONS[id]) || "fx";
+/** The icon name for `agent`, falling back to a generic mark. */
+export const agentIcon = (agent: AgentInfo | null | undefined): string =>
+  agent?.icon ?? "fx";

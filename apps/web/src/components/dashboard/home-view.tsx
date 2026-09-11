@@ -538,7 +538,7 @@ function AgentPicker(props: AgentPickerProps) {
         aria-label="Choose the coding agent"
         class="flex h-7 shrink-0 items-center rounded-md pl-0.5 pr-2 text-xs font-450 text-muted-foreground hover:bg-muted focus-ring"
       >
-        <AgentLogo id={props.current?.id} />
+        <AgentLogo agent={props.current} />
         <span class="max-w-40 truncate">
           {props.current?.label ?? "No agent installed"}
         </span>
@@ -552,7 +552,7 @@ function AgentPicker(props: AgentPickerProps) {
                   disabled={!entry.installed}
                   onSelect={() => props.onSelect(entry.id)}
                 >
-                  <Icon name={agentIcon(entry.id)} />
+                  <Icon name={agentIcon(entry)} />
                   <span class="min-w-0 flex-1 truncate">{entry.label}</span>
                   <Show
                     when={entry.installed}
@@ -577,10 +577,10 @@ function AgentPicker(props: AgentPickerProps) {
 }
 
 /** The agent's mark in the composer, in the same box the folder icon sits in. */
-function AgentLogo(props: { id?: string }) {
+function AgentLogo(props: { agent: AgentInfo | null }) {
   return (
     <span class="grid size-6 shrink-0 place-items-center overflow-clip">
-      <Icon name={agentIcon(props.id)} />
+      <Icon name={agentIcon(props.agent)} />
     </span>
   );
 }
