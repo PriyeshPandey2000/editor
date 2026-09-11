@@ -92,7 +92,7 @@ export function DashboardPage() {
           <Show
             when={settingsNavOpen()}
             fallback={
-              <DashboardSidebarSection title="Get Started">
+              <DashboardSidebarSection>
                 <DashboardSidebarItem active={view() === "home"} onClick={() => setView("home")} icon="home" label="Home" />
                 <DashboardSidebarItem active={view() === "projects"} onClick={() => setView("projects")} icon="diffusion-project-file" label="Projects" />
               </DashboardSidebarSection>
