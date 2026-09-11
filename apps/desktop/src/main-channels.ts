@@ -62,6 +62,7 @@ export const MAIN_CHANNELS = {
   PROJECTS_FS_STAT: "projects:fs-stat",
   PROJECTS_FS_REMOVE: "projects:fs-remove",
   PROJECTS_FS_REAL_PATH: "projects:fs-real-path",
+  AGENT_CHAT_ENDPOINT: "agent-chat:endpoint",
 
   // Main→Renderer events
   AUTH_CALLBACK: "auth:callback",
@@ -242,6 +243,12 @@ export type MainRequestMap = {
   [MAIN_CHANNELS.PROJECTS_FS_REAL_PATH]: {
     request: { dir: string; source: string };
     response: string | null;
+  };
+  // Where the agent chat host listens (`ws://127.0.0.1:PORT/?token=…`); null
+  // while it is starting or restarting. The only desktop IPC the chat uses.
+  [MAIN_CHANNELS.AGENT_CHAT_ENDPOINT]: {
+    request: void;
+    response: { url: string } | null;
   };
 };
 

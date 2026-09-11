@@ -10,6 +10,7 @@ import { randomUUID } from "node:crypto";
 import type { FileHandle } from "node:fs/promises";
 import { updateElectronApp } from "update-electron-app";
 import { DapiServer } from "./dapi/server";
+import { agentChatEndpoint, deleteProjectChats, startAgentChat, stopAgentChat } from "./agent-chat";
 import { enableHeadless } from "./headless";
 import { pruneLegacySkills } from "./skills-cleanup";
 import { trackInstall } from "./analytics";
@@ -296,6 +297,7 @@ if (app.requestSingleInstanceLock()) {
     return { png: new Uint8Array(png.buffer, png.byteOffset, png.byteLength), width, height };
   });
   mainBridge.handle(MAIN_CHANNELS.LOGS_GET, () => logBuffer);
+  mainBridge.handle(MAIN_CHANNELS.AGENT_CHAT_ENDPOINT, () => agentChatEndpoint());
   mainBridge.handle(MAIN_CHANNELS.PROJECTS_PICK_ROOT, () => pickRoot(mainWindow));
   mainBridge.handle(MAIN_CHANNELS.PROJECTS_PICK_FOLDER, () => pickFolder(mainWindow));
   mainBridge.handle(MAIN_CHANNELS.PROJECTS_DEFAULT_ROOT, () => defaultRoot(mainWindow));
@@ -308,7 +310,7 @@ if (app.requestSingleInstanceLock()) {
   );
   mainBridge.handle(MAIN_CHANNELS.PROJECTS_RENAME, ({ dir, displayName }) => renameProject(dir, displayName));
   mainBridge.handle(MAIN_CHANNELS.PROJECTS_DUPLICATE, ({ dir }) => duplicateProject(dir));
-  mainBridge.handle(MAIN_CHANNELS.PROJECTS_DELETE, ({ dir }) => deleteProject(dir));
+  mainBridge.handle(MAIN_CHANNELS.PROJECTS_DELETE, ({ dir }) => deleteProject(dir).then(deleteProjectChats));
   mainBridge.handle(MAIN_CHANNELS.PROJECTS_COMPILE, ({ dir }) => compileProject(dir));
   mainBridge.handle(MAIN_CHANNELS.PROJECTS_WRITE, ({ dir, edits }) => writeProject(dir, edits));
   mainBridge.handle(MAIN_CHANNELS.PROJECTS_WATCH, ({ dir }, event) =>
@@ -378,6 +380,15 @@ if (app.requestSingleInstanceLock()) {
     if (url) deliverDeepLink(url);
 
     dapi.start();
+    // The chat's sessions get the MCP server by URL; `?client=chat` keeps the
+    // app from switching into remote-controlled mode for them (see dapi/http).
+    dapi.mcpUrl().then((url) =>
+      startAgentChat({
+        dataDir: join(app.getPath("userData"), "agent-chat"),
+        mcpUrl: url ? `${url}?client=chat` : null,
+        version: app.getVersion(),
+      }),
+    );
     pruneLegacySkills();
     trackInstall();
     createWindow(!isHiddenLaunch(process.argv));
@@ -385,6 +396,7 @@ if (app.requestSingleInstanceLock()) {
 
   app.on("before-quit", () => {
     unwatchAll();
+    stopAgentChat();
     dapi.stop();
   });
 

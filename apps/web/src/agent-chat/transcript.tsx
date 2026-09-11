@@ -1,0 +1,42 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+// The messages, top-anchored like a document and pinned to the bottom once
+// they overflow: the end of the streaming text stays right above the
+// composer, a wheel-up lets go, scrolling back near the bottom pins again.
+
+import { For, createEffect, createSignal, on } from "solid-js";
+
+import type { Item } from "@diffusionstudio/agent-chat";
+
+import { ChatItem } from "./items";
+import { createStickToBottom } from "./stick-to-bottom";
+
+type TranscriptProps = {
+  items: Item[];
+  /** Bumped by the panel after every send, to pin the view to the end. */
+  sendCount: number;
+  /** Changes with the chat, so a newly opened one starts at its end. */
+  chatKey: string;
+  /** A turn is running: the last item is where the agent is right now. */
+  running: boolean;
+};
+
+export function Transcript(props: TranscriptProps) {
+  const [scrollEl, setScrollEl] = createSignal<HTMLDivElement>();
+  const stick = createStickToBottom(scrollEl, { initial: "instant" });
+
+  createEffect(on(() => props.sendCount, (count) => count > 0 && void stick.scrollToBottom(), { defer: true }));
+  createEffect(on(() => props.chatKey, () => void stick.scrollToBottom({ animation: "instant" }), { defer: true }));
+
+  return (
+    <div ref={setScrollEl} class="min-h-0 flex-1 overflow-y-auto overflow-x-hidden">
+      <div class="flex flex-col gap-2 px-4 pb-2 pt-4">
+        <For each={props.items}>
+          {(item, index) => <ChatItem item={item} active={props.running && index() === props.items.length - 1} />}
+        </For>
+      </div>
+    </div>
+  );
+}

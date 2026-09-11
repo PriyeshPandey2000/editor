@@ -2,8 +2,9 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-import { Show, createMemo, createSignal } from "solid-js";
+import { Show, createMemo, createSignal, onMount } from "solid-js";
 import { Canvas } from "@/components/canvas";
+import { RightSidebar, rightSidebarWidth } from "@/agent-chat";
 import { Timeline, Layers } from "@/components/timeline";
 import { Soundboard, Inspector } from "@/components/sidebar-right";
 import { FloatingProjectHeader, SidebarLeft } from "@/components/sidebar-left";
@@ -181,13 +182,26 @@ export function EditorPage() {
     });
   });
 
+  // The right column follows the sidebar's tab (264 px on Editor, 320 px on
+  // Chat) and animates between the two — except on load, where the stored
+  // tab is read before first paint and the transition only comes on after
+  // the first frame. Toggling `uiVisible` changes the track count, which
+  // Chromium does not interpolate, so that still snaps as before.
+  const [animateColumns, setAnimateColumns] = createSignal(false);
+  onMount(() => {
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    requestAnimationFrame(() => requestAnimationFrame(() => setAnimateColumns(true)));
+  });
+
   const timelineStyles = createMemo(() => {
     if (!uiVisible()) return;
 
     const height = timelineMinimized() ? RULER_HEIGHT : timelineHeight();
 
     return {
+      'grid-template-columns': `264px 1px 1fr 1px ${rightSidebarWidth()}px`,
       'grid-template-rows': `1fr 1px ${height}px`,
+      ...(animateColumns() ? { transition: 'grid-template-columns 200ms ease-out' } : {}),
     };
   });
 
@@ -222,7 +236,6 @@ export function EditorPage() {
     <div
       class="bg-sidebar h-screen w-full overflow-hidden grid"
       classList={{
-        'grid-cols-[264px_1px_1fr_1px_264px]': uiVisible(),
         'grid-cols-[1fr]': !uiVisible(),
         'grid-rows-[1fr]': !uiVisible(),
       }}
@@ -238,7 +251,7 @@ export function EditorPage() {
       <Canvas />
       <Show when={uiVisible()}>
         <div class="bg-border-strong" />
-        <Inspector />
+        <RightSidebar editor={() => <Inspector />} />
       </Show>
       <Show when={uiVisible()}>
         <div class="col-span-full bg-border-strong relative">

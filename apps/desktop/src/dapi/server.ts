@@ -50,6 +50,7 @@ export class DapiServer {
   private server: Server | null = null;
   private connected = false;
   private instructionsText: string | null = null;
+  private httpReady: Promise<boolean> = Promise.resolve(false);
 
   constructor(deps: DapiServerDeps) {
     this.deps = deps;
@@ -83,7 +84,18 @@ export class DapiServer {
     });
     // A taken port is the one way this fails; the socket keeps the CLI and
     // `dapi mcp` working meanwhile, so it is logged, not fatal.
-    this.http.start().catch((error: Error) => console.error(`[dapi] cannot serve MCP at ${this.url}: ${error.message}`));
+    this.httpReady = this.http.start().then(
+      () => true,
+      (error: Error) => {
+        console.error(`[dapi] cannot serve MCP at ${this.url}: ${error.message}`);
+        return false;
+      },
+    );
+  }
+
+  /** The HTTP URL once it is being served; null when the port could not be bound. */
+  async mcpUrl(): Promise<string | null> {
+    return (await this.httpReady) ? this.url : null;
   }
 
   stop(): void {

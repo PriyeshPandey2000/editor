@@ -1,0 +1,38 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+/* A highlight sweeping through muted text: what a row shows while the
+   agent is thinking or a tool is running. Settles on plain muted text for
+   anyone who asked the system for less motion. */
+
+.agent-shimmer {
+  color: transparent;
+  background-image: linear-gradient(
+    90deg,
+    var(--muted-foreground) 0%,
+    var(--muted-foreground) 35%,
+    var(--foreground) 50%,
+    var(--muted-foreground) 65%,
+    var(--muted-foreground) 100%
+  );
+  background-size: 200% 100%;
+  background-position: 100% 0;
+  -webkit-background-clip: text;
+  background-clip: text;
+  animation: agent-shimmer 1.6s linear infinite;
+}
+
+@keyframes agent-shimmer {
+  to {
+    background-position: -100% 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .agent-shimmer {
+    animation: none;
+    background-image: none;
+    color: var(--muted-foreground);
+  }
+}

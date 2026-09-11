@@ -26,13 +26,21 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Icon } from "@/components/ui/icon";
-import { RemoveButton } from "@/components/ui/remove-button";
+import {
+  AttachmentTile,
+  DropOverlay,
+  ModelPicker,
+  attachmentPaths,
+  createDropZone,
+  currentModel,
+  mergeAttachments,
+  setStoredModel,
+  startChat,
+  type Attachment,
+} from "@/agent-chat";
 import { projectRoute } from "@/hooks/use-project-route";
-import { store } from "@/init";
-import { AGENTS, agentIcon, type AgentInfo } from "@/lib/agents";
 import { track } from "@/lib/analytics";
 import { generateProjectName } from "@/lib/db";
-import { createStoredSignal } from "@/lib/store";
 import {
   createProject,
   ensureProjectsRoot,
@@ -66,19 +74,6 @@ type PromptTarget =
   | { kind: "project"; project: ProjectInfo }
   | { kind: "folder"; dir: string };
 
-/**
- * A file or folder dropped onto the composer. Only what the tile and the
- * handoff need: the name to label it, the kind and extension to draw it, and
- * the path to send — null off the desktop, where the browser will not say
- * where a dropped file lives.
- */
-type PromptAttachment = {
-  key: string;
-  name: string;
-  kind: "file" | "folder";
-  path: string | null;
-};
-
 /** Cards that fit the one row the design gives recents, the new one included. */
 const RECENT_COLUMNS = 5;
 
@@ -107,12 +102,9 @@ export function DashboardHomeView() {
     null,
   );
   const [busy, setBusy] = createSignal(false);
-  const [attachments, setAttachments] = createSignal<PromptAttachment[]>([]);
+  const [attachments, setAttachments] = createSignal<Attachment[]>([]);
 
-  // Drag events fire on every child the pointer crosses, so the overlay is
-  // held up by a count of nested enters rather than the last event seen.
-  let dragCounter = 0;
-  const [isDragging, setIsDragging] = createSignal(false);
+  const drop = createDropZone((dropped) => setAttachments((current) => mergeAttachments(current, dropped)));
 
   // Only worth animating while the field is empty — the placeholder is not on
   // screen behind text the user has typed.
@@ -122,19 +114,10 @@ export function DashboardHomeView() {
     projectsRoot,
     () => listProjects(),
   );
-  // The agent outlives the session, so the next prompt goes where the last one
-  // did — unless that one is not installed, in which case the first that is
-  // becomes what the button shows and what submitting uses.
-  const [preferredAgent, setPreferredAgent] = createStoredSignal(
-    store.define<string | null>("home.agent", null),
-  );
-
-  const agent = createMemo(() => {
-    const usable = AGENTS.filter((entry) => entry.installed);
-    return (
-      usable.find((entry) => entry.id === preferredAgent()) ?? usable[0] ?? null
-    );
-  });
+  // The model is shared with the chat panel and remembered across sessions;
+  // the picker is fed by the agent host's probes, so what it offers is what
+  // is installed and signed in.
+  const model = createMemo(() => currentModel());
 
   const recentProjects = createMemo(() =>
     [...(projects() ?? [])].sort(
@@ -149,7 +132,7 @@ export function DashboardHomeView() {
     return "Choose project";
   };
 
-  const canSubmit = () => prompt().trim().length > 0 && !busy();
+  const canSubmit = () => prompt().trim().length > 0 && !busy() && model() !== null;
 
   const handlePickFolder = async () => {
     try {
@@ -187,20 +170,25 @@ export function DashboardHomeView() {
       return;
     }
 
-    const paths = attachments().flatMap((entry) => (entry.path ? [entry.path] : []));
+    const paths = attachmentPaths(attachments());
+    const ref = model();
+    if (!ref) return;
+    const text = prompt();
     setBusy(true);
 
     try {
-      // For now the prompt only picks the project: nothing is handed to the
-      // agent and no CLI or MCP setup runs. The project is opened as is.
       const project = await resolveTarget();
       if (!project) return;
 
       track("home_prompt_sent", {
-        agent: agent()?.id ?? null,
+        agent: `${ref.harness}/${ref.model}`,
         target: target().kind,
         attachments: paths.length,
       });
+      // The chat starts before the page switches: the host has the turn as
+      // soon as it answers, and the editor lands with the reply streaming.
+      // On failure the text survives as the project's draft (see startChat).
+      await startChat({ project, text, attachments: paths, model: ref });
       setPrompt("");
       setAttachments([]);
       setTarget({ kind: "new" });
@@ -213,44 +201,6 @@ export function DashboardHomeView() {
     } finally {
       setBusy(false);
     }
-  };
-
-  const handleDragOver = (event: DragEvent) => {
-    event.preventDefault();
-    event.stopPropagation();
-  };
-
-  const handleDragEnter = (event: DragEvent) => {
-    event.preventDefault();
-    event.stopPropagation();
-    dragCounter++;
-    setIsDragging(true);
-  };
-
-  const handleDragLeave = (event: DragEvent) => {
-    event.preventDefault();
-    event.stopPropagation();
-    dragCounter--;
-    if (dragCounter <= 0) {
-      dragCounter = 0;
-      setIsDragging(false);
-    }
-  };
-
-  const handleDrop = (event: DragEvent) => {
-    event.preventDefault();
-    event.stopPropagation();
-    dragCounter = 0;
-    setIsDragging(false);
-
-    const dropped = droppedAttachments(event);
-    if (dropped.length === 0) return;
-
-    // The same file dropped twice is one attachment, not two tiles.
-    setAttachments((current) => {
-      const known = new Set(current.map((entry) => entry.key));
-      return [...current, ...dropped.filter((entry) => !known.has(entry.key))];
-    });
   };
 
   const removeAttachment = (key: string) => {
@@ -380,10 +330,10 @@ export function DashboardHomeView() {
 
             <div
               class="relative z-10 flex w-149 flex-col gap-2 rounded-[20px] border border-border bg-accent p-2 focus-within:border-border-input"
-              onDragOver={handleDragOver}
-              onDragEnter={handleDragEnter}
-              onDragLeave={handleDragLeave}
-              onDrop={handleDrop}
+              onDragOver={drop.onDragOver}
+              onDragEnter={drop.onDragEnter}
+              onDragLeave={drop.onDragLeave}
+              onDrop={drop.onDrop}
             >
               <Show when={attachments().length > 0}>
                 {/* The remove buttons overhang the tiles' corners, and a
@@ -426,10 +376,7 @@ export function DashboardHomeView() {
               </div>
 
               <div class="flex min-h-4 items-center justify-between">
-                <AgentPicker
-                  current={agent()}
-                  onSelect={(id) => setPreferredAgent(id)}
-                />
+                <ModelPicker value={model()} onSelect={setStoredModel} />
 
                 <button
                   type="button"
@@ -444,31 +391,8 @@ export function DashboardHomeView() {
                 </button>
               </div>
 
-              <Show when={isDragging()}>
-                <div class="absolute inset-0 z-20 overflow-hidden rounded-[20px] border border-primary bg-background p-2">
-                  <div class="absolute inset-0 rounded-[20px] bg-muted" />
-                  <div class="relative flex size-full items-center justify-center gap-1 rounded-xl">
-                    <svg
-                      aria-hidden="true"
-                      class="pointer-events-none absolute inset-[0.5px] size-[calc(100%-1px)] overflow-visible text-border-input opacity-15"
-                    >
-                      <rect
-                        width="100%"
-                        height="100%"
-                        rx="12"
-                        fill="none"
-                        stroke="currentColor"
-                        stroke-width="1"
-                        stroke-dasharray="8 4"
-                        shape-rendering="crispEdges"
-                      />
-                    </svg>
-                    <Icon name="attachment" class="size-6 text-muted-foreground" />
-                    <span class="text-xs font-450 text-muted-foreground">
-                      Drop files or folders here
-                    </span>
-                  </div>
-                </div>
+              <Show when={drop.dragging()}>
+                <DropOverlay />
               </Show>
             </div>
           </div>
@@ -519,72 +443,6 @@ export function DashboardHomeView() {
   );
 }
 
-type AgentPickerProps = {
-  current: AgentInfo | null;
-  onSelect: (id: string) => void;
-};
-
-/**
- * Which agent the prompt goes to. Every agent in {@link AGENTS} is listed,
- * and the ones not marked installed are shown disabled rather than left out,
- * so the list says what else this works with.
- */
-function AgentPicker(props: AgentPickerProps) {
-  return (
-    <DropdownMenu placement="bottom-start">
-      <DropdownMenuTrigger
-        as="button"
-        type="button"
-        aria-label="Choose the coding agent"
-        class="flex h-7 shrink-0 items-center rounded-md pl-0.5 pr-2 text-xs font-450 text-muted-foreground hover:bg-muted focus-ring"
-      >
-        <AgentLogo agent={props.current} />
-        <span class="max-w-40 truncate">
-          {props.current?.label ?? "No agent installed"}
-        </span>
-      </DropdownMenuTrigger>
-      <DropdownMenuPortal>
-        <DropdownMenuContent class="w-50">
-          <DropdownMenuGroup>
-            <For each={AGENTS}>
-              {(entry) => (
-                <DropdownMenuItem
-                  disabled={!entry.installed}
-                  onSelect={() => props.onSelect(entry.id)}
-                >
-                  <Icon name={agentIcon(entry)} />
-                  <span class="min-w-0 flex-1 truncate">{entry.label}</span>
-                  <Show
-                    when={entry.installed}
-                    fallback={
-                      <span class="shrink-0 text-[10px] text-muted-foreground">
-                        Not installed
-                      </span>
-                    }
-                  >
-                    <Show when={entry.id === props.current?.id}>
-                      <Icon name="confirm-check" class="size-6" />
-                    </Show>
-                  </Show>
-                </DropdownMenuItem>
-              )}
-            </For>
-          </DropdownMenuGroup>
-        </DropdownMenuContent>
-      </DropdownMenuPortal>
-    </DropdownMenu>
-  );
-}
-
-/** The agent's mark in the composer, in the same box the folder icon sits in. */
-function AgentLogo(props: { agent: AgentInfo | null }) {
-  return (
-    <span class="grid size-6 shrink-0 place-items-center overflow-clip">
-      <Icon name={agentIcon(props.agent)} />
-    </span>
-  );
-}
-
 /**
  * The composer's placeholder, cycling through {@link PROMPT_EXAMPLES}: each
  * prompt fades in whole, however many lines it wraps to, holds long enough
@@ -631,77 +489,6 @@ function createFadingPlaceholder(active: () => boolean) {
   onCleanup(() => clearTimeout(timer));
 
   return { line, visible };
-}
-
-type AttachmentTileProps = {
-  attachment: PromptAttachment;
-  onRemove(): void;
-};
-
-/**
- * One dropped file or folder: a grey square with a folder mark, or the file's
- * type in the middle. There is no thumbnail to show — nothing is loaded — so
- * the name is in the tooltip and the remove button appears on hover, as it
- * does on the generation composer's reference images.
- */
-function AttachmentTile(props: AttachmentTileProps) {
-  return (
-    <div class="group relative size-10 shrink-0" title={props.attachment.name}>
-      <div class="grid size-full place-items-center overflow-hidden rounded-lg bg-input text-muted-foreground">
-        <Show
-          when={props.attachment.kind === "folder"}
-          fallback={
-            <span class="max-w-9 truncate px-0.5 text-[9px] font-500 uppercase tracking-wide">
-              {fileType(props.attachment.name)}
-            </span>
-          }
-        >
-          <Icon name="navigation.folder" class="size-6" />
-        </Show>
-      </div>
-      <RemoveButton
-        label={`Remove ${props.attachment.name}`}
-        class="absolute -right-2.5 -top-2.5 z-10 opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100"
-        onClick={props.onRemove}
-      />
-    </div>
-  );
-}
-
-/** `MP4` for `clip.mp4`, `FILE` for a name with no extension to speak of. */
-function fileType(name: string): string {
-  const dot = name.lastIndexOf(".");
-  const ext = dot > 0 ? name.slice(dot + 1) : "";
-  return ext && ext.length <= 8 ? ext : "FILE";
-}
-
-/**
- * The files and folders in a drop, in the order they were dragged. Folders
- * are told apart through the entry API, the only thing a drop says about a
- * directory; the path comes from the desktop shell, which is the only one
- * that knows it. Nothing is opened or read.
- */
-function droppedAttachments(event: DragEvent): PromptAttachment[] {
-  const items = Array.from(event.dataTransfer?.items ?? []);
-  const result: PromptAttachment[] = [];
-
-  for (const item of items) {
-    if (item.kind !== "file") continue;
-    const entry = item.webkitGetAsEntry?.();
-    const file = item.getAsFile();
-    if (!file) continue;
-
-    const path = window.desktop?.getPathForFile(file) || null;
-    const name = entry?.name || file.name;
-    result.push({
-      key: path ?? `${name}:${file.size}:${file.lastModified}`,
-      name,
-      kind: entry?.isDirectory ? "folder" : "file",
-      path,
-    });
-  }
-
-  return result;
 }
 
 /** The last segment of a path, for naming a folder the user picked. */
