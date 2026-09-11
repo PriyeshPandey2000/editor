@@ -26,6 +26,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Icon } from "@/components/ui/icon";
+import { Kbd } from "@/components/ui/kbd";
 import {
   AttachmentTile,
   DropOverlay,
@@ -211,6 +212,15 @@ export function DashboardHomeView() {
   // shortcuts have no business reading what is typed here.
   const handleKeyDown = (event: KeyboardEvent) => {
     event.stopPropagation();
+
+    // Tab takes the example that is on screen, which is only offered while the
+    // field is empty; with something typed, tab is still tab and moves focus.
+    if (event.key === "Tab" && !event.shiftKey && prompt().length === 0) {
+      event.preventDefault();
+      setPrompt(placeholder.line());
+      return;
+    }
+
     if (event.key !== "Enter" || event.shiftKey) return;
 
     event.preventDefault();
@@ -360,6 +370,9 @@ export function DashboardHomeView() {
                     classList={{ "opacity-0": !placeholder.visible() }}
                   >
                     {placeholder.line()}
+                    <Kbd class="ml-1 h-4 min-w-0 rounded-sm px-0.5 -mt-0.5 pt-px align-middle text-foreground opacity-70">
+                      Tab
+                    </Kbd>
                   </span>
                 </Show>
 
@@ -370,6 +383,7 @@ export function DashboardHomeView() {
                   onKeyUp={(event) => event.stopPropagation()}
                   aria-label="Describe the edit you want"
                   aria-placeholder={placeholder.line()}
+                  aria-keyshortcuts={prompt().length === 0 ? "Tab" : undefined}
                   rows={2}
                   class="[grid-area:1/1] max-h-60 min-h-12 w-full resize-none overflow-auto bg-transparent p-1 text-[12px] leading-5 text-foreground outline-none selection:bg-selection selection:text-selection-foreground"
                 />
