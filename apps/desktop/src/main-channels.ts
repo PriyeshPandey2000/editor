@@ -38,7 +38,6 @@ export const MAIN_CHANNELS = {
   FILE_WRITE_CHUNK: "file:write-chunk",
   FILE_WRITE_CLOSE: "file:write-close",
   FILE_WRITE_ABORT: "file:write-abort",
-  HEADLESS_GET_MODE: "headless:get-mode",
   LOGS_GET: "logs:get",
   PROJECTS_PICK_ROOT: "projects:pick-root",
   PROJECTS_PICK_FOLDER: "projects:pick-folder",
@@ -68,7 +67,6 @@ export const MAIN_CHANNELS = {
   AUTH_CALLBACK: "auth:callback",
   CHECKOUT_CALLBACK: "checkout:callback",
   WINDOW_FULLSCREEN_CHANGE: "window:fullscreen-change",
-  HEADLESS_MODE: "headless:mode",
   PROJECTS_CHANGED: "projects:changed",
 } as const;
 
@@ -150,7 +148,6 @@ export type MainRequestMap = {
     request: { path: string };
     response: void;
   };
-  [MAIN_CHANNELS.HEADLESS_GET_MODE]: { request: void; response: boolean };
   [MAIN_CHANNELS.LOGS_GET]: { request: void; response: LogEntry[] };
   [MAIN_CHANNELS.PROJECTS_PICK_ROOT]: {
     request: void;
@@ -263,7 +260,6 @@ export type MainEventMap = {
   [MAIN_CHANNELS.AUTH_CALLBACK]: { url: string };
   [MAIN_CHANNELS.CHECKOUT_CALLBACK]: { url: string };
   [MAIN_CHANNELS.WINDOW_FULLSCREEN_CHANGE]: { fullscreen: boolean };
-  [MAIN_CHANNELS.HEADLESS_MODE]: { active: boolean };
   // A file inside a watched project folder changed (path relative to `dir`).
   [MAIN_CHANNELS.PROJECTS_CHANGED]: { dir: string; path: string };
 };

@@ -10,7 +10,7 @@ import { randomUUID } from "node:crypto";
 import type { FileHandle } from "node:fs/promises";
 import { updateElectronApp } from "update-electron-app";
 import { DapiServer } from "./dapi/server";
-import { enableHeadless, isHeadless } from "./headless";
+import { enableHeadless } from "./headless";
 import { pruneLegacySkills } from "./skills-cleanup";
 import { trackInstall } from "./analytics";
 import { setupAppMenu } from "./menu";
@@ -109,17 +109,12 @@ function knowledgeDir(): string | null {
 }
 
 // The MCP server agents and the dapi CLI talk to. Started once the app is
-// ready; the first connection switches the UI into headless mode.
+// ready; the first connection switches the app into headless mode.
 const dapi = new DapiServer({
   version: app.getVersion(),
   logs: () => logBuffer,
   knowledgeDir: knowledgeDir(),
-  onFirstConnection() {
-    enableHeadless();
-    if (mainWindow && !mainWindow.isDestroyed()) {
-      mainBridge.emit(mainWindow, MAIN_CHANNELS.HEADLESS_MODE, { active: true });
-    }
-  },
+  onFirstConnection: enableHeadless,
 });
 
 function pushLog(level: LogEntry["level"], message: string, source: string) {
@@ -300,7 +295,6 @@ if (app.requestSingleInstanceLock()) {
     // A plain Uint8Array over the PNG, so the renderer sees bytes and not a Buffer.
     return { png: new Uint8Array(png.buffer, png.byteOffset, png.byteLength), width, height };
   });
-  mainBridge.handle(MAIN_CHANNELS.HEADLESS_GET_MODE, () => isHeadless());
   mainBridge.handle(MAIN_CHANNELS.LOGS_GET, () => logBuffer);
   mainBridge.handle(MAIN_CHANNELS.PROJECTS_PICK_ROOT, () => pickRoot(mainWindow));
   mainBridge.handle(MAIN_CHANNELS.PROJECTS_PICK_FOLDER, () => pickFolder(mainWindow));

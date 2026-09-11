@@ -26,7 +26,7 @@ function AuthGate(props: { children: JSX.Element }) {
 
   return (
     <Show when={!auth.isLoading()}>
-      <Show when={auth.isAuthenticated() || auth.headless()}>
+      <Show when={auth.isAuthenticated()}>
         {props.children}
       </Show>
       <Show when={!auth.isAuthenticated()}>
