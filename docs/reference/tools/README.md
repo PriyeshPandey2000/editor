@@ -2,7 +2,7 @@
 
 Diffusion Studio exposes one set of tools, reachable two ways:
 
-- **MCP.** The running app serves an MCP server at `http://127.0.0.1:3274/mcp` (Streamable HTTP) and on a local socket; `dapi mcp` pipes that socket to stdio for clients that only spawn processes. A connected agent gets every tool in `tools/list`, with the descriptions on these pages, this knowledge base as resources under `dapi://`, and two live resources, `dapi://context` and `dapi://logs`.
+- **MCP.** The running app serves an MCP server at `http://127.0.0.1:3274/mcp` (Streamable HTTP) and on a local socket; `dapi mcp` pipes that socket to stdio for clients that only spawn processes. A connected agent gets every tool in `tools/list`, with the descriptions on these pages, and instructions that give the path of these docs in the installed app.
 - **CLI.** `dapi`, the command-line client shipped with the app, wraps every tool as a command for shells, scripts and CI. `dapi <command> --help` prints the same description and the same field help.
 
 Both validate against the same schemas and return the same result, so each tool is documented once, on its own page. The catalog behind all three (server, CLI, these pages) lives in `packages/dapi`.

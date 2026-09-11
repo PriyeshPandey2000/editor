@@ -14,7 +14,7 @@ None.
 
 ## What it does not say
 
-The composition itself — its scenes, what is selected, which scene is active, the work area — is all in the JSX, and a caller that wants any of it reads the file. This report is only what the source cannot say. Over MCP it is also the live resource `dapi://context`.
+The composition itself — its scenes, what is selected, which scene is active, the work area — is all in the JSX, and a caller that wants any of it reads the file. This report is only what the source cannot say.
 
 ## Output
 

@@ -207,9 +207,9 @@ Conventions throughout: every result is one JSON object, the same structured con
 
 ## Documentation
 
-- [Tool reference](knowledge/reference/tools/README.md): every tool and CLI command, its options, and its output
-- [JSX reference](knowledge/reference/jsx/README.md): the composition markup with elements, timing, paints, generative assets, and captions
-- [Examples](knowledge/examples/README.md): runnable compositions, from basic scenes and generative assets to three.js and raw WebGPU
+- [Tool reference](docs/reference/tools/README.md): every tool and CLI command, its options, and its output
+- [JSX reference](docs/reference/jsx/README.md): the composition markup with elements, timing, paints, generative assets, and captions
+- [Examples](docs/examples/README.md): runnable compositions, from basic scenes and generative assets to three.js and raw WebGPU
 
 ## Repository layout
 

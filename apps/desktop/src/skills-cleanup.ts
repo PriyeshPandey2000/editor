@@ -4,7 +4,7 @@
 
 // Removes the skill directories older builds planted in agents' skill
 // folders. The guidance they carried is served over MCP now (see
-// `dapi/knowledge.ts`), so a copy on disk is a second, staler answer to the
+// `dapi/docs.ts`), so a copy on disk is a second, staler answer to the
 // same question — and it points at a `dapi` binary that may no longer be
 // where it was linked.
 //

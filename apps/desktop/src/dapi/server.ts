@@ -9,12 +9,12 @@ import { tools } from "@diffusionstudio/dapi";
 import { MCP_HOST, MCP_PATH, MCP_PORT, SOCKET_PATH, SocketTransport } from "@diffusionstudio/dapi/socket";
 import { mainHandlers } from "./handlers";
 import { DapiHttpServer } from "./http";
-import { instructions, registerPrompts, registerResources } from "./knowledge";
+import { instructions, registerPrompts } from "./docs";
 import { present, toCallToolResult, toErrorResult } from "./present";
 import { RendererCalls } from "./renderer-calls";
 
 import type { Server, Socket } from "node:net";
-import type { GenericTool, LogEntry, ToolName, ToolOutput } from "@diffusionstudio/dapi";
+import type { GenericTool, LogEntry, ToolName } from "@diffusionstudio/dapi";
 import type { MainContext, MainToolName } from "./handler";
 
 /**
@@ -30,8 +30,8 @@ export type DapiServerDeps = {
   logs(): LogEntry[];
   /** Called once, on the first connection: an agent is driving, so the UI may step back. */
   onFirstConnection(): void;
-  /** The staged knowledge base: INSTRUCTIONS.md for every session, the rest as resources. Null when not staged. */
-  knowledgeDir: string | null;
+  /** The staged docs: INSTRUCTIONS.md and their path for every session, the skill pages as prompts. Null when not staged. */
+  docsDir: string | null;
 };
 
 /**
@@ -127,20 +127,14 @@ export class DapiServer {
     }
   }
 
-  /** One MCP server over the whole catalog, plus the docs and live state as resources and the skills as prompts. */
+  /** One MCP server over the whole catalog, plus the skills as prompts. The docs are plain files; the instructions say where. */
   private createSession(): McpServer {
-    const knowledge = {
-      knowledgeDir: this.deps.knowledgeDir,
-      logs: this.deps.logs,
-      context: (signal: AbortSignal) => this.renderer.call("context", {}, signal) as Promise<ToolOutput<"context">>,
-    };
-    this.instructionsText ??= instructions(knowledge);
+    this.instructionsText ??= instructions(this.deps.docsDir);
     // `name` is the machine identity, and matches the key we write into agent
     // configs; `title` is what a client shows a person.
     const session = new McpServer({ name: SERVER_NAME, title: "Diffusion Studio", version: this.deps.version }, { instructions: this.instructionsText });
     for (const tool of tools) this.register(session, tool);
-    registerResources(session, knowledge);
-    registerPrompts(session, knowledge);
+    registerPrompts(session, this.deps.docsDir);
     return session;
   }
 

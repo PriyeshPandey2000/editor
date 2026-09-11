@@ -28,9 +28,9 @@ The component receives no props. [`open`](../tools/open.md) opens the folder —
 | `assets.yml` | The asset library (see [media.md](./media.md#the-library)). |
 | `assets/` | The library's files: symlinks to media brought in from elsewhere, plus what the app produced itself, generations under `assets/generated/`. Media imported through the app is linked where it lies, never copied. |
 | `cache/` | Derived data (thumbnails, waveforms). Disposable. |
-| `README.md` | What the folder holds and how to work in it — including, for agents, that the app's MCP server carries this reference. |
+| `README.md` | What the folder holds and how to work in it — including, for agents, where to find this reference. |
 
-Everything is written once and is yours from then on. The reference itself is not copied into the project: the app serves the installed version's as MCP resources under `dapi://reference/`.
+Everything is written once and is yours from then on. The reference itself is not copied into the project: it ships with the app, and the MCP server's instructions give agents the path of the installed version's `docs/`.
 
 ## Ids
 

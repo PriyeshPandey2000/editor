@@ -14,7 +14,7 @@ Recent console output from the running app (what the devtools console shows: pag
 | `tail` | `integer` | `-n, --tail <n>` | return only the last n entries |
 | `level` | `"debug" \| "info" \| "warning" \| "error"` | `-l, --level <level>` | minimum level to include: debug, info, warning, or error |
 
-The buffer lives in the app's main process, so the log survives page reloads and project switches. Over MCP the same entries are the live resource `dapi://logs`. Progress of long operations — an export's percentage, a generation landing — shows up here, so polling `logs` is how a caller follows work it started.
+The buffer lives in the app's main process, so the log survives page reloads and project switches. Progress of long operations — an export's percentage, a generation landing — shows up here, so polling `logs` is how a caller follows work it started.
 
 ## Output
 

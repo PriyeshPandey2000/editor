@@ -687,9 +687,9 @@ All of them talk to the running app, except \`fonts\` and \`fetch\`.
 
 ## Reference
 
-- [JSX reference](https://github.com/diffusionstudio/editor/blob/main/knowledge/reference/jsx/README.md): elements, timing, paints, generation, captions
-- [Tool reference](https://github.com/diffusionstudio/editor/blob/main/knowledge/reference/tools/README.md): every tool and command, its options and its output
-- [Examples](https://github.com/diffusionstudio/editor/tree/main/knowledge/examples): runnable compositions to read
+- [JSX reference](https://github.com/diffusionstudio/editor/blob/main/docs/reference/jsx/README.md): elements, timing, paints, generation, captions
+- [Tool reference](https://github.com/diffusionstudio/editor/blob/main/docs/reference/tools/README.md): every tool and command, its options and its output
+- [Examples](https://github.com/diffusionstudio/editor/tree/main/docs/examples): runnable compositions to read
 `;
 
 // ---------------------------------------------------------------------------
