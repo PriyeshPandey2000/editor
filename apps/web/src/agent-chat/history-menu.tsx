@@ -19,7 +19,6 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Icon } from "@/components/ui/icon";
-import { RemoveButton } from "@/components/ui/remove-button";
 
 import type { ChatSummary } from "@diffusionstudio/agent-chat";
 
@@ -77,25 +76,35 @@ export function HistoryMenu(props: HistoryMenuProps) {
                 {(chat) => (
                   <DropdownMenuItem tone="neutral" class="group/row" onSelect={() => props.onOpen(chat.id)}>
                     <Show when={chat.status === "running"}>
-                      <Icon name="spinner-loader" class="animate-spin size-4 shrink-0" />
+                      <Icon name="spinner-loader" class="animate-spin size-6 -mr-1 shrink-0" />
                     </Show>
                     <Show when={chat.status === "waiting"}>
-                      <Icon name="dot" class="size-4 shrink-0 text-primary" />
+                      <Icon name="dot" class="size-6 -mr-1 shrink-0 text-primary" />
                     </Show>
                     <span class="min-w-0 flex-1 truncate" title={chat.title}>
                       {chat.title}
                     </span>
-                    <span class="shrink-0 text-[10px] text-muted-foreground group-hover/row:hidden">
-                      {chat.status === "waiting" ? "Needs you" : relativeTime(chat.updatedAt)}
-                    </span>
-                    <Show when={chat.id === props.chatId}>
-                      <Icon name="confirm-check" class="size-5 shrink-0 group-hover/row:hidden" />
+                    <Show when={chat.id !== props.chatId}>
+                      <span class="shrink-0 text-[10px] text-muted-foreground group-hover/row:hidden">
+                        {chat.status === "waiting" ? "Needs you" : relativeTime(chat.updatedAt)}
+                      </span>
                     </Show>
-                    <RemoveButton
-                      label={`Delete chat ${chat.title}`}
-                      class="hidden shrink-0 group-hover/row:inline-flex"
+                    <Show when={chat.id === props.chatId}>
+                      <Icon name="confirm-check" class="size-6 -mr-1 shrink-0 group-hover/row:hidden" />
+                    </Show>
+                    <button
+                      type="button"
+                      aria-label={`Delete chat ${chat.title}`}
+                      class="relative hidden size-6 shrink-0 -mr-1 text-muted-foreground transition-colors hover:text-foreground focus-ring group-hover/row:inline-block"
+                      onPointerDown={(event) => event.stopPropagation()}
+                      onPointerUp={(event) => event.stopPropagation()}
                       onClick={(event) => remove(event, chat)}
-                    />
+                    >
+                      <Icon
+                        name="close-remove-small"
+                        class="absolute left-1/2 top-1/2 size-6 -translate-x-1/2 -translate-y-1/2 text-inherit!"
+                      />
+                    </button>
                   </DropdownMenuItem>
                 )}
               </For>
