@@ -29,8 +29,9 @@ export interface Tool<
   readonly output: Output;
   /**
    * What the handler returns, when that is not the output: image tools hand
-   * back bytes, and the server presents them as files and inline images. Same
-   * as `output` when omitted.
+   * back bytes, and the server presents them as files and inline images;
+   * transcribe hands back the transcript, and the server writes it to a file.
+   * Same as `output` when omitted.
    */
   readonly result?: Result;
   readonly environment: Environment;

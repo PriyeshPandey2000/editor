@@ -25,6 +25,8 @@ export { DAPI_WIRE } from "./ipc";
 export type { DapiCall, DapiCancel, DapiReply } from "./ipc";
 export { FRAME_CAP } from "./tools/media-grab";
 export { ISSUE_LOG_TAIL } from "./tools/report";
+export { LOG_TAIL, LOG_MESSAGE_MAX } from "./tools/logs";
+export { FONT_LIMIT } from "./tools/fonts";
 
 // Named request and result types, for handlers that spell out their
 // signature. Each is the parsed (output) side of the tool's schema.

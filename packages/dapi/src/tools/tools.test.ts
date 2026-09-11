@@ -10,6 +10,7 @@ import { logs } from "./logs";
 import { mediaFilmstrip } from "./media-filmstrip";
 import { mediaGrab } from "./media-grab";
 import { mediaListen } from "./media-listen";
+import { mediaTranscribe } from "./media-transcribe";
 
 /** The messages of a failed parse, keyed by the path they point at. */
 function issues(result: { success: boolean; error?: { issues: Array<{ path: PropertyKey[]; message: string }> } }) {
@@ -89,6 +90,8 @@ describe("logs and export", () => {
     expect(logs.input.safeParse({ tail: 0 }).success).toBe(false);
     expect(logs.input.safeParse({ tail: 5, level: "warning" }).success).toBe(true);
     expect(logs.input.safeParse({ level: "verbose" }).success).toBe(false);
+    expect(logs.input.safeParse({ contains: "" }).success).toBe(false);
+    expect(logs.input.safeParse({ since: 1700000000000, contains: "export" }).success).toBe(true);
     expect(exportScene.input.safeParse({ id: "" }).success).toBe(false);
   });
 });
@@ -108,6 +111,15 @@ describe("context", () => {
       }).success,
     ).toBe(true);
     expect(context.output.safeParse({ rootDir: "/p", projectDir: "/p/a" }).success).toBe(false);
+  });
+});
+
+describe("media_transcribe", () => {
+  it("presents the transcript as a file: the result carries segments, the output a path", () => {
+    const segments = [{ text: "Hi", words: [{ text: "Hi", start: 0, end: 0.2 }] }];
+    expect(mediaTranscribe.result!.safeParse({ segments }).success).toBe(true);
+    expect(mediaTranscribe.output.safeParse({ path: "/tmp/t.json", segments: 1, words: 1 }).success).toBe(true);
+    expect(mediaTranscribe.output.safeParse({ segments }).success).toBe(false);
   });
 });
 

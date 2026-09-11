@@ -152,7 +152,10 @@ media
   .command("transcribe")
   .description(describe("media_transcribe"))
   .argument("<path>", field("media_transcribe", "path"))
-  .action((ref: string) => run("media_transcribe", { path: assetPath(ref) }));
+  .option("-o, --output <path>", field("media_transcribe", "output"))
+  .action((ref: string, opts: Omit<ToolInput<"media_transcribe">, "path">) =>
+    run("media_transcribe", { path: assetPath(ref), ...opts, output: opts.output && resolve(opts.output) }),
+  );
 
 media
   .command("grab")
@@ -229,6 +232,8 @@ program
   .description(describe("logs"))
   .option("-n, --tail <n>", field("logs", "tail"), numeric)
   .option("-l, --level <level>", field("logs", "level"))
+  .option("--since <ms>", field("logs", "since"), numeric)
+  .option("-c, --contains <text>", field("logs", "contains"))
   .action((opts: ToolInput<"logs">) => run("logs", opts));
 
 program

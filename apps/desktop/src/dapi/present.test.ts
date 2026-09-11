@@ -46,6 +46,14 @@ describe("present", () => {
     expect(b).not.toBe(a);
   });
 
+  it("writes a transcript to a file, unchanged, and returns its path and size", async () => {
+    const file = join(dir, "talk.json");
+    const segments = [{ text: "Hi there", words: [{ text: "Hi", start: 0, end: 0.2 }, { text: "there", start: 0.3, end: 0.6 }] }];
+    const presented = await present("media_transcribe", { path: "/c.mp4", output: file }, { segments });
+    expect(presented).toEqual({ output: { path: file, segments: 1, words: 2 }, images: [] });
+    expect(JSON.parse(readFileSync(file, "utf8"))).toEqual({ segments });
+  });
+
   it("passes other results through untouched", async () => {
     expect(await present("check", { id: "x" }, { stats: {}, issues: [] })).toEqual({ output: { stats: {}, issues: [] }, images: [] });
   });

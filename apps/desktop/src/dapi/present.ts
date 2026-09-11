@@ -2,12 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// Turns what a handler returned into what a caller receives. Tools that
-// render images hand back bytes; here they become files on disk, paths in
-// the structured result, and — when the result is small — inline images the
-// agent sees without opening anything.
-
-import { existsSync } from "node:fs";
+ import { existsSync } from "node:fs";
 import { mkdir, mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
@@ -39,6 +34,8 @@ export async function present(name: ToolName, args: unknown, result: unknown): P
       return presentPreview(result as ToolResult<"media_waveform">, (args as ToolArgs<"media_waveform">).output, "waveform");
     case "screenshot":
       return presentScreenshot(result as ToolResult<"screenshot">, (args as ToolArgs<"screenshot">).output);
+    case "media_transcribe":
+      return presentTranscript(result as ToolResult<"media_transcribe">, (args as ToolArgs<"media_transcribe">).output);
     default:
       return { output: result, images: [] };
   }
@@ -83,6 +80,15 @@ async function presentScreenshot(result: ToolResult<"screenshot">, output: strin
   await writeFile(path, result.png);
   const presented: ToolOutput<"screenshot"> = { path, width: result.width, height: result.height };
   return { output: presented, images: [{ path, png: result.png }] };
+}
+
+async function presentTranscript(transcript: ToolResult<"media_transcribe">, output: string | undefined): Promise<Presented> {
+  const path = output ?? join(tmpdir(), `dapi-transcript-${randomUUID()}.json`);
+  await mkdir(dirname(path), { recursive: true });
+  await writeFile(path, JSON.stringify(transcript, null, 2));
+  const words = transcript.segments.reduce((sum, segment) => sum + segment.words.length, 0);
+  const presented: ToolOutput<"media_transcribe"> = { path, segments: transcript.segments.length, words };
+  return { output: presented, images: [] };
 }
 
 function screenshotFilename(taken: Date, attempt: number): string {

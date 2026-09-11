@@ -21,8 +21,16 @@ export const mediaTranscribe = defineTool({
   name: "media_transcribe",
   title: "Transcribe speech",
   description:
-    "Transcribe the speech in a video or audio file and return the timed transcript, with word-level start/end times in seconds. Commonly useful for footage with speakers (talking head, interview), where the word times let you cut on a line. A transcript marks only speech; the gaps are not necessarily silent (music, score, applause).",
-  input: z.object({ path: AssetPath }),
-  output: z.object({ segments: z.array(TranscriptSegment) }),
+    "Transcribe the speech in a video or audio file and write the timed transcript to a JSON file, `{ segments: [{ text, words: [{ text, start, end }] }] }` with word-level times in seconds; returns the file's path and its segment and word counts. Search the file for the passage you need (grep, jq) rather than reading it whole: a long recording's word timings run to tens of thousands of tokens. Commonly useful for footage with speakers (talking head, interview), where the word times let you cut on a line. A transcript marks only speech; the gaps are not necessarily silent (music, score, applause).",
+  input: z.object({
+    path: AssetPath,
+    output: z.string().optional().describe("absolute path to write the transcript JSON to (default: a fresh file under the system temp dir)"),
+  }),
+  output: z.object({
+    path: z.string().describe("absolute path of the transcript JSON"),
+    segments: z.int().describe("segments in the transcript"),
+    words: z.int().describe("words across all segments"),
+  }),
+  result: z.object({ segments: z.array(TranscriptSegment) }),
   environment: "renderer",
 });

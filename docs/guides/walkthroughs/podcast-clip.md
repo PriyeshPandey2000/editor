@@ -36,7 +36,7 @@ Asking for a rating and a one-line summary is what makes the candidates comparab
 
 The analysis gives you seconds; a clip needs the frame. Tighten both ends against the real audio:
 
-- `media_transcribe` returns word-level start/end times (use ffmpeg to shorten). Put the in-point on the first word of the hook line and the out-point after the last word of the button.
+- `media_transcribe` writes word-level start/end times to a JSON file (use ffmpeg to shorten); search it for the hook line. Put the in-point on the first word of the hook line and the out-point after the last word of the button.
 - `media_waveform` with `start`/`end` around the cut shows the breaths around those words, so you can open the in-point a beat early and let the out-point land on the silence after the line instead of clipping its tail.
 
 ## 6. Download the segment and lay it out

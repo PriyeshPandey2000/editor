@@ -1,6 +1,6 @@
 # media_transcribe
 
-Transcribe the speech in a video or audio file and return the timed transcript, with word-level start/end times in seconds. Commonly useful for footage with speakers (talking head, interview), where the word times let you cut on a line. A transcript marks only speech; the gaps are not necessarily silent (music, score, applause).
+Transcribe the speech in a video or audio file and write the timed transcript to a JSON file, with word-level start/end times in seconds; returns the file's path and its segment and word counts. Commonly useful for footage with speakers (talking head, interview), where the word times let you cut on a line. A transcript marks only speech; the gaps are not necessarily silent (music, score, applause).
 
 | | |
 | --- | --- |
@@ -12,12 +12,23 @@ Transcribe the speech in a video or audio file and return the timed transcript, 
 | Field | Type | CLI | Description |
 | --- | --- | --- | --- |
 | `path` | `string`, required | `<path>` | absolute file path or URL (works with or without an open project), or a library path like `b-roll/clip.mp4` (needs an open project) |
+| `output` | `string` | `-o, --output <path>` | absolute path to write the transcript JSON to (default: a fresh file under the system temp dir) |
 
-Times are in **seconds** of source/content time. The whole asset is transcribed once per app session (cached in memory, keyed by file content; an app restart or an edited file re-transcribes).
+Times are in **seconds** of source/content time. The whole asset is transcribed once per app session (cached in memory, keyed by file content; an app restart or an edited file re-transcribes). Every call writes the file again, so a cached transcript returns at once.
 
 ## Output
 
-One JSON object, the transcript:
+One JSON object, where the transcript went and how large it is:
+
+```ts
+{
+  path:     string;   // absolute path of the transcript JSON
+  segments: number;   // segments in the transcript
+  words:    number;   // words across all segments
+}
+```
+
+The file holds the transcript as indented JSON, so it searches line by line: a grep for a phrase lands on its segment's `text`, with the word times in the lines after it. Search it (grep, jq) or read the part you need rather than loading it whole — a long recording's word timings run to tens of thousands of tokens.
 
 ```ts
 {

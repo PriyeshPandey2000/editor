@@ -4,7 +4,7 @@
 
 import { spawnSync } from "node:child_process";
 import { platform } from "node:os";
-import { DapiError } from "@diffusionstudio/dapi";
+import { DapiError, FONT_LIMIT } from "@diffusionstudio/dapi";
 
 import type { FontFamily } from "@diffusionstudio/dapi";
 import type { MainHandler } from "../handler";
@@ -70,7 +70,7 @@ function listLocalFonts(): FontFamily[] {
   return JSON.parse(result.stdout.trim()) as FontFamily[];
 }
 
-export const fonts: MainHandler<"fonts"> = async ({ family, weights, style, limit }) => {
+export const fonts: MainHandler<"fonts"> = async ({ family, weights, style, limit = FONT_LIMIT }) => {
   const pattern = family?.toLowerCase();
   const wanted = weights && weights.length > 0 ? new Set(weights) : null;
 
@@ -84,7 +84,6 @@ export const fonts: MainHandler<"fonts"> = async ({ family, weights, style, limi
     });
     if (variants.length === 0) continue;
     families.push({ family: entry.family, variants });
-    if (limit !== undefined && families.length >= limit) break;
   }
-  return { families };
+  return { families: families.slice(0, limit), total: families.length };
 };
