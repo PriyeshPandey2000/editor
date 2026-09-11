@@ -10,13 +10,19 @@ import { MCP_HOST, MCP_PATH, MCP_PORT, SOCKET_PATH, SocketTransport } from "@dif
 import { mainHandlers } from "./handlers";
 import { DapiHttpServer } from "./http";
 import { instructions, registerPrompts, registerResources } from "./knowledge";
-import { SERVER_NAME } from "../mcp-config";
 import { present, toCallToolResult, toErrorResult } from "./present";
 import { RendererCalls } from "./renderer-calls";
 
 import type { Server, Socket } from "node:net";
 import type { GenericTool, LogEntry, ToolName, ToolOutput } from "@diffusionstudio/dapi";
 import type { MainContext, MainToolName } from "./handler";
+
+/**
+ * The name the server introduces itself with, and so the namespace an agent
+ * shows us under: `mcp__diffusion__<tool>` and `/diffusion:<prompt>`. The
+ * same word as our URL scheme, and not `dapi`, which is the CLI.
+ */
+const SERVER_NAME = "diffusion";
 
 export type DapiServerDeps = {
   version: string;

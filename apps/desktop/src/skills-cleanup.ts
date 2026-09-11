@@ -17,18 +17,18 @@ import { lstatSync, readFileSync, readlinkSync, rmSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 
-import { AGENT_TARGETS } from "./mcp-config";
-
 /** The skills we shipped, by the directory name they were installed under. */
 const LEGACY_SKILLS = ["editor", "watch"];
 
+/** Home-relative folders of the agents older builds installed skills for. */
+const AGENT_DIRS = [".claude", ".codex", ".cursor", ".gemini", ".codeium/windsurf"];
+
 /**
- * Where an agent keeps its global skills: `skills/` beside the marker that
- * says it is set up here — `~/.claude/skills`, `~/.codex/skills`, and so on.
- * Claude Desktop has no such folder, so the path simply never exists.
+ * Where an agent keeps its global skills: `skills/` inside its folder —
+ * `~/.claude/skills`, `~/.codex/skills`, and so on.
  */
 const skillsDirs = (): string[] =>
-  AGENT_TARGETS.map((target) => join(homedir(), target.marker, "skills"));
+  AGENT_DIRS.map((dir) => join(homedir(), dir, "skills"));
 
 /** The link's target, or null when `path` is missing or not a symlink. */
 function linkTarget(path: string): string | null {

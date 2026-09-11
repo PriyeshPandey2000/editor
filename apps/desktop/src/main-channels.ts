@@ -31,8 +31,6 @@ export const MAIN_CHANNELS = {
   APP_SHOW_IN_FOLDER: "app:show-in-folder",
   AUTH_GET_PENDING_CALLBACK: "auth:get-pending-callback",
   CHECKOUT_GET_PENDING_CALLBACK: "checkout:get-pending-callback",
-  SETUP_ENSURE: "setup:ensure",
-  SETUP_STATUS: "setup:status",
   WINDOW_IS_FULLSCREEN: "window:is-fullscreen",
   WINDOW_CAPTURE: "window:capture",
   FILE_TRANSFER: "file:transfer",
@@ -103,51 +101,6 @@ export type ProjectInfo = {
 export type CompileResult =
   { ok: true; code: string } | { ok: false; error: string };
 
-// Outcome of linking the bundled dapi CLI into PATH. "cancelled" means the
-// user dismissed the macOS admin prompt — not an error, not installed.
-export type CliInstallResult =
-  | { status: "installed" }
-  | { status: "cancelled" }
-  | { status: "error"; error: string };
-
-// Outcome of registering the app's MCP server with the agents on this
-// machine. `agents` names the configs written; `url` is the HTTP endpoint
-// most of them got, `command` the stdio proxy the rest run (null when this
-// build has no dapi binary).
-export type McpRegisterResult =
-  | {
-      status: "registered";
-      agents: string[];
-      url: string;
-      command: string | null;
-    }
-  | { status: "error"; error: string };
-
-/**
- * What to do about the `dapi` symlink, the one setup step that needs an
- * admin password: `skip` never asks, `auto` asks once and remembers a
- * refusal, `force` asks because the user just asked for it.
- */
-export type CliMode = "skip" | "auto" | "force";
-
-/** `present` was already linked; `skipped` was not attempted this run. */
-export type CliSetupResult = CliInstallResult | { status: "present" } | { status: "skipped" };
-
-// The state of this machine after `ensureSetup`: where each agent's config
-// points, what became of the CLI symlink, and which stale skill directories
-// were cleared out (usually none, after the first run that finds them).
-export type SetupResult = {
-  mcp: McpRegisterResult;
-  cli: CliSetupResult;
-  skills: string[];
-};
-
-export type SetupStatus = {
-  /** Every agent config on this machine points at this build's MCP server. */
-  mcp: boolean;
-  cli: "present" | "missing" | "declined" | "unavailable";
-};
-
 export type { SourceEdit, WriteResult };
 
 export type MainChannel = (typeof MAIN_CHANNELS)[keyof typeof MAIN_CHANNELS];
@@ -170,11 +123,6 @@ export type MainRequestMap = {
     request: void;
     response: string | null;
   };
-  [MAIN_CHANNELS.SETUP_ENSURE]: {
-    request: { cli?: CliMode };
-    response: SetupResult;
-  };
-  [MAIN_CHANNELS.SETUP_STATUS]: { request: void; response: SetupStatus };
   [MAIN_CHANNELS.WINDOW_IS_FULLSCREEN]: { request: void; response: boolean };
   [MAIN_CHANNELS.WINDOW_CAPTURE]: { request: void; response: ScreenshotResult };
   [MAIN_CHANNELS.FILE_TRANSFER]: {
