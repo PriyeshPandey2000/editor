@@ -36,6 +36,12 @@ export type RuntimeMode = 'realtime' | 'offline-video' | 'offline-audio';
 
 export const Mode = trait({ value: 'realtime' as RuntimeMode });
 
+// On the world: nothing in this render is to be heard, so no audio decoder is
+// ever opened (a frame capture draws pictures and never mixes). A rendering
+// concern, kept apart from `Muted`, which is the composition's own — a clip
+// the project muted. What is silenced here is still audio the scene has.
+export const Silent = trait();
+
 // Frame clock (was timestamp).
 export const Time = trait({ now: 0, delta: 0 });
 

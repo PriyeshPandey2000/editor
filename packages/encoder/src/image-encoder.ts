@@ -3,9 +3,9 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 import {
-	setActive, framesToSeconds, formatTimecode, assert, store, getEntityTree,
+	setActive, framesToSeconds, formatTimecode, assert, store,
 	assetSystem, playbackSystem, motionSystem, transformSystem, renderSystem,
-	Muted, Workarea, Playback, Computed,
+	Silent, Workarea, Playback, Computed,
 	Time, FrameRate, RenderSurface, AudioEngine,
 } from '@diffusionstudio/runtime';
 
@@ -51,10 +51,11 @@ export async function createImageEncoder(world: World, config: ImageEncoderConfi
 	// for the lazy audio-bus wiring to have something to bind to.
 	world.set(AudioEngine, { context: new OfflineAudioContext(2, 1, 48000) });
 
-	// Mute everything so the playback system never initializes audio decoders.
-	for (const entity of getEntityTree(world, scene)) {
-		entity.add(Muted);
-	}
+	// Silence the world so the playback system never initializes audio
+	// decoders. On the world rather than as a `Muted` on every node: what the
+	// scene holds is still audio, and a `<captions>` that has to transcribe
+	// its scene during the warmup below asks exactly that question.
+	world.add(Silent);
 
 	await warmupAssets(world);
 
