@@ -5,7 +5,6 @@
 import { createMemo, createResource } from "solid-js";
 import { getAssetSpec, isAssetRef, isTransformSpec } from "@diffusionstudio/jsx";
 import { authoredElement } from "@diffusionstudio/reconciler";
-import { useSelection } from "@/engine/hooks";
 import { useLibrary } from "@/engine/library";
 import { supabase } from "@/lib/supabase";
 import { useMediaSelection } from "./selection";
@@ -113,15 +112,14 @@ function generationUnder(ref: AssetRef): GenerateSpec | undefined {
 
 export function useGenerationRecords() {
   const library = useLibrary();
-  const { nodes } = useSelection();
-  const { bound } = useMediaSelection();
+  const { bound, sources } = useMediaSelection();
 
   // What the selected elements declare their source to be. An element made by
   // the prompt box carries the whole spec, so this answers before the asset
   // exists — and without asking the server what it was asked for. Transforms
   // are looked through: the generation under them is what the box made.
   const declarations = createMemo(() =>
-    nodes()
+    sources()
       .map((entity) => authoredElement(entity)?.props.src)
       .filter(isAssetRef)
       .map(generationUnder)

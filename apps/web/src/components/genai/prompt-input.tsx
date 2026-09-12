@@ -468,7 +468,7 @@ export function PromptInput(props: PromptInputProps) {
 
   return (
     <div
-      class="absolute w-xl bottom-16 z-10 mx-auto left-1/2 -translate-x-1/2 flex flex-col gap-2 rounded-xl border border-border bg-background p-2"
+      class="absolute w-xl max-w-[calc(100%-2rem)] bottom-16 z-10 mx-auto left-1/2 -translate-x-1/2 flex flex-col gap-2 rounded-xl border border-border bg-background p-2"
       onDragOver={handleDragOver}
       onDragEnter={handleDragEnter}
       onDragLeave={handleDragLeave}

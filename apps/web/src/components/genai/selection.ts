@@ -2,55 +2,79 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// What the prompt box has to work with. Two readings of the selection, for
-// two different questions:
-//
-// `imageNodes`/`videoNodes` are what the element *is*, which is what a
-// transform applies to — a picture that is still generating is still a
-// picture, and `removeBackground` can be asked of it before it exists.
-//
-// `images`/`videos` are what the element currently *shows*, which is what a
-// reference needs: a library asset with a path to name it by.
-
 import { createMemo } from "solid-js";
-import { AssetId } from "@diffusionstudio/runtime";
-import { authoredElement } from "@diffusionstudio/reconciler";
+import { AssetId, Cache, Paint, PaintType, getIntrinsicPaint } from "@diffusionstudio/runtime";
 import { useSelection } from "@/engine/hooks";
 import { useLibrary } from "@/engine/library";
 
 import type { Asset } from "@diffusionstudio/assets";
 import type { Entity } from "koota";
 
-/** A selected node and the library asset it is bound to. */
-export interface BoundNode {
+/** The kinds of paint the prompt box has anything to say about. */
+type MediaPaint = PaintType.IMAGE | PaintType.VIDEO;
+
+/** A selected node and the element its source props live on. */
+export interface SelectedNode {
   entity: Entity;
+  source: Entity;
+  paint?: MediaPaint;
+}
+
+/** A selected node and the library asset its source element is bound to. */
+export interface BoundNode extends SelectedNode {
   asset: Asset;
+}
+
+function isMediaPaint(paint: PaintType | undefined): paint is MediaPaint {
+  return paint === PaintType.IMAGE || paint === PaintType.VIDEO;
+}
+
+/**
+ * Where `entity` keeps its source: itself when its own paint is the media,
+ * else its first media fill. A node that paints no media at all is still its
+ * own source element — an `<audio>` carries its `src` like any other.
+ */
+function resolve(entity: Entity): SelectedNode {
+  const intrinsic = getIntrinsicPaint(entity);
+  if (isMediaPaint(intrinsic)) return { entity, source: entity, paint: intrinsic };
+
+  for (const fill of entity.get(Cache)?.fills ?? []) {
+    const paint = fill.get(Paint)?.value;
+    if (isMediaPaint(paint)) return { entity, source: fill, paint };
+  }
+
+  return { entity, source: entity };
 }
 
 export function useMediaSelection() {
   const library = useLibrary();
   const { nodes } = useSelection();
 
-  const tagged = (tag: string) =>
-    createMemo(() => nodes().filter((entity) => authoredElement(entity)?.tag === tag));
+  const selected = createMemo(() => nodes().map(resolve));
 
-  const imageNodes = tagged("image");
-  const videoNodes = tagged("video");
+  const painted = (paint: MediaPaint) =>
+    createMemo(() => selected().filter((node) => node.paint === paint).map((node) => node.source));
+
+  const imageNodes = painted(PaintType.IMAGE);
+  const videoNodes = painted(PaintType.VIDEO);
+
+  /** Every selected node as the element its source props live on. */
+  const sources = createMemo(() => selected().map((node) => node.source));
 
   const bound = createMemo(() => {
     const lib = library();
     if (!lib) return [];
 
     const entries: BoundNode[] = [];
-    for (const entity of nodes()) {
-      const id = entity.get(AssetId)?.value;
+    for (const node of selected()) {
+      const id = node.source.get(AssetId)?.value;
       const asset = id ? lib.get(id) : undefined;
-      if (asset) entries.push({ entity, asset });
+      if (asset) entries.push({ ...node, asset });
     }
     return entries;
   });
 
   const images = createMemo(() => bound().filter((entry) => entry.asset.type === "IMAGE"));
 
-  return { bound, images, imageNodes, videoNodes };
+  return { bound, images, imageNodes, videoNodes, sources };
 }

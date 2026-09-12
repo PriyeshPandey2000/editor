@@ -73,8 +73,8 @@ export function PartialAssetItem(props: PartialAssetItemProps) {
             classList={{ "animate-pulse": !failed() }}
           >
             <div class="absolute inset-0 flex items-center justify-center text-muted-foreground">
-              <Show when={failed()} fallback={<Icon name="spinner-loader" class="size-5 animate-spin" />}>
-                <Icon name="alert-warning" class="size-5 text-destructive" />
+              <Show when={failed()} fallback={<Icon name="spinner-loader" class="size-6 animate-spin" />}>
+                <Icon name="alert-warning" class="size-6 text-destructive" />
               </Show>
             </div>
           </TooltipTrigger>
