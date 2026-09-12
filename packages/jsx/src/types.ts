@@ -286,7 +286,7 @@ type FillProps = {
 
 type MediaProps = {
   /**
-   * Path, URL, asset id, or a `generate.*` declaration. A path naming a
+   * Path, URL, asset id, or a `generate.*` / `transform.*` declaration. A path naming a
    * directory of numbered frames (`shot_001.png`, `shot_002.png`, ...) is an
    * image sequence, and plays on `<Video>` or `<Image>` as footage does — see
    * `frameRate` for how long it lasts. On `<Captions>` a transcript source
@@ -294,22 +294,6 @@ type MediaProps = {
    * scene; `generate.*` is not accepted there.
    */
   src: string | AssetRef;
-};
-
-/**
- * Model calls the source is put through before the element shows it. The
- * `src` goes on naming what it was made from, so taking a modifier off gives
- * the original back; what they made is cached by source and modifiers, so it
- * is made once however many elements ask for it, and adding a second
- * modifier does not re-run the first. Applied in the order below.
- */
-type UpscaleProps = {
-  /**
-   * Resolution multiplier: 2 asks for twice the pixels. Enlarges the source,
-   * not the box — the element keeps the width and height it was given, and
-   * renders sharper. Default 1, the source as it is.
-   */
-  upscale?: number;
 };
 
 type FitProps = {
@@ -655,24 +639,12 @@ export type ColorStopProps = ColorProps & OpacityProps & TrackChildren & {
  */
 export type MediaPaintProps = PaintProps & MediaProps & FitProps & FrameRateProps & TrackChildren;
 
-export type VideoProps = CommonProps & MediaProps & FitProps & FrameRateProps & AudioTrackProps & UpscaleProps & {
-  /**
-   * Scores the footage: a generated soundtrack for a clip that has none. See
-   * `UpscaleProps` for what a modifier is; applied last, after `upscale`, so
-   * a re-encode cannot drop the track. Independent of `volume` and `muted`,
-   * which mix whatever track the clip ends up with.
-   */
-  addAudio?: boolean;
+export type VideoProps = CommonProps & MediaProps & FitProps & FrameRateProps & AudioTrackProps & {
   /** Paint children, stacked over the media paint created by `src`; `<Stroke>`, `<Shadow>`, `<Effect>`, `<Animation>` and `<KeyframeTrack>` children. */
     children?: SolidJSX.Element;
   };
 
-export type ImageProps = CommonProps & MediaProps & FitProps & FrameRateProps & UpscaleProps & {
-  /**
-   * Cuts the subject out, leaving the rest of the picture transparent. See
-   * `UpscaleProps` for what a modifier is; applied before `upscale`.
-   */
-  removeBackground?: boolean;
+export type ImageProps = CommonProps & MediaProps & FitProps & FrameRateProps & {
   /** Paint children, stacked over the media paint created by `src`; `<Stroke>`, `<Shadow>`, `<Effect>`, `<Animation>` and `<KeyframeTrack>` children. */
     children?: SolidJSX.Element;
   };

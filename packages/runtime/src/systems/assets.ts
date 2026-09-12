@@ -5,7 +5,7 @@
 import { parseSource } from '@diffusionstudio/jsx';
 
 import { Ai, Cache, Computed, Delay, FrameRate, FramePromises, Generating, GenerationRequest, Host, Library, LoadRequest, PendingSource, PendingSync, PlaybackRate, Source, SourceError, SyncRequest, TranscriptionRequest, Trim } from '../traits';
-import { bindAsset, getAssetFile, getModifiers } from '../actions/assets';
+import { bindAsset, getAssetFile } from '../actions/assets';
 import { getEntityTree, getParentNode, getSceneAncestor } from '../queries/hierarchy';
 import { findAssetDuration, findGeometryAsset } from '../utils/time';
 import { computeAudioSyncOffsetCached } from '../media/audio-sync';
@@ -30,7 +30,7 @@ export function assetSystem(world: World): void {
 		for (const entity of world.query(LoadRequest)) {
 			const source = entity.get(LoadRequest)!.value;
 			entity.remove(LoadRequest);
-			start(world, entity, library.resolve(source));
+			resolve(world, entity, library.resolve(source));
 		}
 	}
 
@@ -41,7 +41,7 @@ export function assetSystem(world: World): void {
 			entity.remove(GenerationRequest);
 			if (ref === null) continue;
 			if (isDomImage(entity)) pointDomImageAt(entity, null);
-			start(world, entity, ai.resolve(ref), true);
+			resolve(world, entity, ai.resolve(ref), true);
 		}
 
 		for (const entity of world.query(TranscriptionRequest)) {
@@ -216,24 +216,6 @@ function currentSync(entity: Entity, token: object): boolean {
 }
 
 /**
- * Starts a resolution for whatever the element's src named, putting it
- * through the modifiers the element asks of it (see `SourceModifiers`). The
- * two are one wait: the element binds the asset it is going to show, not
- * first the one it was made from.
- */
-function start(world: World, entity: Entity, base: Promise<Asset>, generating = false): void {
-	const modifiers = getModifiers(entity);
-	const ai = world.get(Ai);
-
-	if (!modifiers || !ai) {
-		resolve(world, entity, base, generating);
-		return;
-	}
-
-	resolve(world, entity, base.then((asset) => ai.derive(asset, modifiers)), true);
-}
-
-/**
  * Whether anything in `scene`'s subtree (besides `except`, the requesting
  * element itself) is still waiting on a source: a request this system has
  * not consumed, or a resolution it started that has not landed. A pending
@@ -254,8 +236,7 @@ function hasPendingSources(world: World, scene: Entity, except: Entity): boolean
  * Tracks one started resolution: the entity remembers which one it is waiting
  * on (PendingSource), so of overlapping resolutions only the latest binds, and
  * one that outlives its element (or its src) is dropped. The wait itself is
- * the identity rather than what was asked for — the same src put through
- * different modifiers is a different answer, and the later question is always
+ * the identity rather than what was asked for — the later question is always
  * the one being asked.
  */
 function resolve(world: World, entity: Entity, promise: Promise<Asset>, generating = false): void {

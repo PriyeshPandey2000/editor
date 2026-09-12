@@ -21,7 +21,6 @@ It draws nothing inside a scene, but on the canvas it is still something to poin
 | `volume` | `number` | `0` | Decibels: `0` = unity, negative attenuates (`-6` ≈ half as loud), `-Infinity` = silence. Not linear. |
 | `muted` | `boolean` | `false` | Excludes the node's audio from the mix; independent of `volume`. |
 | `syncTo` | `string` | none | `id` of another element carrying audio; derives `start` by audio alignment (see [audio-sync.md](./audio-sync.md)). Mutually exclusive with `start`. |
-| `error` | `string` | none | Why this element's source never became an asset (see [errors.md](./errors.md#failed-sources)). |
 
 An audio clip has no picture, so it takes no transform beyond its canvas box and no paints. Its children are [`<keyframeTrack>`](./keyframes.md) (a `volume` track) and [`<animation>`](./animations.md), of which only `"gain"` is audible:
 

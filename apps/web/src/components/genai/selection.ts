@@ -6,7 +6,7 @@
 // two different questions:
 //
 // `imageNodes`/`videoNodes` are what the element *is*, which is what a
-// source modifier applies to — a picture that is still generating is still a
+// transform applies to — a picture that is still generating is still a
 // picture, and `removeBackground` can be asked of it before it exists.
 //
 // `images`/`videos` are what the element currently *shows*, which is what a

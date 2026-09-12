@@ -3,7 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 import { createMemo, createResource } from "solid-js";
-import { getAssetSpec, isAssetRef } from "@diffusionstudio/jsx";
+import { getAssetSpec, isAssetRef, isTransformSpec } from "@diffusionstudio/jsx";
 import { authoredElement } from "@diffusionstudio/reconciler";
 import { useSelection } from "@/engine/hooks";
 import { useLibrary } from "@/engine/library";
@@ -18,7 +18,7 @@ import {
 } from "./config";
 import { generationConfigSchema, type GenerationConfig } from "./schemas";
 
-import type { AssetInput, AssetSpecInput } from "@diffusionstudio/jsx";
+import type { AssetInput, AssetRef, GenerateSpec } from "@diffusionstudio/jsx";
 import type { AssetLibrary } from "@diffusionstudio/assets";
 
 /**
@@ -63,7 +63,7 @@ export function toClientConfig(stored: unknown): GenerationConfig | undefined {
  * "Rerun" and "Reuse" work from. Inputs are named by library path in the
  * file and by asset id in the prompt box, so they are looked up on the way.
  */
-function toPromptConfig(spec: AssetSpecInput, library: AssetLibrary): GenerationConfig {
+function toPromptConfig(spec: GenerateSpec, library: AssetLibrary): GenerationConfig {
   const idOf = (input: AssetInput | undefined): string | undefined =>
     typeof input === "string" ? library.get(input)?.id : undefined;
 
@@ -104,6 +104,13 @@ function toPromptConfig(spec: AssetSpecInput, library: AssetLibrary): Generation
   }
 }
 
+/** The generation a declaration rests on: itself, or what its transforms were put over. */
+function generationUnder(ref: AssetRef): GenerateSpec | undefined {
+  const spec = getAssetSpec(ref);
+  if (!isTransformSpec(spec)) return spec;
+  return isAssetRef(spec.input) ? generationUnder(spec.input) : undefined;
+}
+
 export function useGenerationRecords() {
   const library = useLibrary();
   const { nodes } = useSelection();
@@ -111,12 +118,14 @@ export function useGenerationRecords() {
 
   // What the selected elements declare their source to be. An element made by
   // the prompt box carries the whole spec, so this answers before the asset
-  // exists — and without asking the server what it was asked for.
+  // exists — and without asking the server what it was asked for. Transforms
+  // are looked through: the generation under them is what the box made.
   const declarations = createMemo(() =>
     nodes()
       .map((entity) => authoredElement(entity)?.props.src)
       .filter(isAssetRef)
-      .map(getAssetSpec),
+      .map(generationUnder)
+      .filter((spec): spec is GenerateSpec => spec !== undefined),
   );
 
   // Credits are the server's to know, and it knows them per generation.

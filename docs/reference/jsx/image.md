@@ -15,9 +15,6 @@ All [common props](./elements.md#common-props), plus:
 | `src` | `string \| AssetRef` | **required** | See [media.md](./media.md). |
 | `objectFit` | `"cover" \| "contain" \| "fill"` | `"cover"` | How the source maps into the box. |
 | `frameRate` | `number` | `30` | Frames per second for a `src` naming a directory of numbered frames, which plays on `<image>` as footage does (see [media.md](./media.md#image-sequences)). Nothing for a still to read. |
-| `removeBackground` | `boolean` | `false` | Cuts the subject out, leaving the rest transparent (see [media.md](./media.md#source-modifiers)). |
-| `upscale` | `number` | `1` | Resolution multiplier; enlarges the source, not the box (see [media.md](./media.md#source-modifiers)). |
-| `error` | `string` | none | Why this element's source never became an asset (see [errors.md](./errors.md#failed-sources)). |
 
 Without `width`/`height` the box is 1920×1080. A still has no duration to fit, so with no `end` it takes the 16-second default (see [timing.md](./timing.md)).
 

@@ -24,23 +24,17 @@ A folder of pictures has a count, not a duration, so `frameRate` is what says ho
 
 `frameRate` is not [`playbackRate`](./timing.md#playback-rate), which retimes a source against the timeline whatever its natural speed is; this is what that natural speed *is*. It is unrelated to the composition's own frame rate, which the export sets.
 
-## Source modifiers
+## Transforms
 
-`<image>` and `<video>` take props that put the source through a model before the element shows it:
-
-| Prop | On | Meaning |
-| ---- | -- | ------- |
-| `removeBackground` | `<image>` | Cuts the subject out, leaving the rest transparent. |
-| `upscale` | both | Resolution multiplier — `upscale={2}` asks for twice the pixels. Enlarges the source, not the box. |
-| `addAudio` | `<video>` | Scores footage that has no sound. Independent of `volume` and `muted`, which mix whatever track the clip ends up with. |
+A source can be put through a model before the element shows it, by declaring the result as the `src` — see [generate.md](./generate.md#transforms):
 
 ```tsx
-<image src="footage/fox.png" removeBackground upscale={2} width={800} height={450} />
+import { transform } from "@diffusionstudio/jsx";
+
+<image src={transform.upscale(transform.removeBackground("footage/fox.png"))} width={800} height={450} />
 ```
 
-The `src` goes on naming what the picture was made from, so taking a modifier off gives the original back — nothing is overwritten and nothing is lost. Results are cached by source and modifiers, like [generated assets](./generate.md#caching-and-idempotency) and stored in the same `generated/` folder, so one is made however many elements ask for it, and adding a second modifier does not re-run the first. They are applied in the order of the table above, whatever order they are written in.
-
-Modifiers compose with declarations: `<image src={generate.image({ prompt: "a red fox" })} removeBackground />` generates, then cuts out.
+The inner source is untouched — nothing is overwritten and nothing is lost — and the chain runs inside out, in the order it is written. Results are cached by step and input like any [generated asset](./generate.md#caching-and-idempotency) and stored in the same `generated/` folder, so one is made however many elements ask for it, and wrapping a further transform around a chain does not re-run what is inside it.
 
 ## The library
 

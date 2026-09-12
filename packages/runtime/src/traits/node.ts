@@ -85,16 +85,6 @@ export const GenerationRequest = trait(() => ({ ref: null as AssetRef | null }))
 // through the library.
 export const LoadRequest = trait({ value: '' });
 
-// Model calls the src is put through once it resolves: the element shows
-// what they made of what it named, and the src goes on naming the original,
-// so taking a modifier off gives it back. Every field's default is off —
-// `upscale` 1 is natural size — and the trait is only present while one is
-// not. Applied in the order declared here: the matte before the enlarging
-// (cheaper, and the model wants a normally-sized picture), the audio last so
-// a re-encode cannot drop it. Each step is cached on its own, so turning one
-// on does not re-pay for the ones already applied.
-export const SourceModifiers = trait({ removeBackground: false, upscale: 1, addAudio: false });
-
 // On a `<captions>` element without a src: transcribe the scene it sits
 // under, through the world's Ai. The seed keys the take — the transcript is
 // cached by scene id + seed, so re-running with a seed replays that take and

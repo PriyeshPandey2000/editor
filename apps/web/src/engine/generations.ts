@@ -14,7 +14,7 @@
 import { isAssetRef } from '@diffusionstudio/jsx';
 import { authoredElement } from '@diffusionstudio/reconciler';
 import {
-	Caption, Generating, GenerationRequest, LoadRequest, PendingSource, SourceError, TranscriptionRequest,
+	Caption, Generating, GenerationRequest, PendingSource, SourceError, TranscriptionRequest,
 } from '@diffusionstudio/runtime';
 
 import type { AssetLibrary, PartialAsset } from '@diffusionstudio/assets';
@@ -36,10 +36,6 @@ export async function retryGeneration(world: World, library: AssetLibrary, parti
 		if (isAssetRef(src)) {
 			entity.add(GenerationRequest);
 			entity.set(GenerationRequest, { ref: src });
-		} else if (typeof src === 'string' && src !== '') {
-			// A source put through modifiers: the load is cheap, the derivation is what failed.
-			entity.add(LoadRequest);
-			entity.set(LoadRequest, { value: src });
 		} else if (entity.has(Caption)) {
 			entity.add(TranscriptionRequest);
 			entity.set(TranscriptionRequest, { seed: Number(authored.props.seed) || 0 });

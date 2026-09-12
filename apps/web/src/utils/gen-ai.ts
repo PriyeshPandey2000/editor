@@ -2,12 +2,11 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-import { getAssetSpec, isAssetRef, parseSource } from "@diffusionstudio/jsx";
+import { getAssetSpec, isAssetRef, isTransformSpec, isTransformType, parseSource } from "@diffusionstudio/jsx";
 import {
   Ai, AssetId, Audio, GenAi, getAssetFile, getEntityTree, Hidden, Muted,
   Paint, PaintType, Project, Source,
 } from "@diffusionstudio/runtime";
-import type { SourceModifierValues } from "@diffusionstudio/runtime";
 import { createEncoder } from "@diffusionstudio/encoder";
 import { createCapture } from "@/engine/capture";
 import { assetName, GENERATED_DIR, isPartialAsset } from "@diffusionstudio/assets";
@@ -24,14 +23,14 @@ import { track } from "@/lib/analytics";
 import { trpc } from "@/lib/trpc";
 import { toast } from "somoto";
 
-import type { AspectRatio, AssetInput, AssetRef, AssetSpecInput } from "@diffusionstudio/jsx";
+import type { AspectRatio, AssetInput, AssetRef, AssetSpecInput, GenerateSpec, TransformType } from "@diffusionstudio/jsx";
 import type { Asset, AssetLibrary, AssetType, PartialAsset, ReserveOptions } from "@diffusionstudio/assets";
 import type { FileRef } from "@diffusionstudio/api-contract";
 import type { ExportResult } from "@diffusionstudio/encoder";
 import type { Entity, World } from "koota";
 
-/** What a failure is called where the user reads about it. */
-const FAILURE_TITLES: Record<AssetSpecInput["type"] | "transcript", string> = {
+/** What a failed generation is called where the user reads about it. */
+const FAILURE_TITLES: Record<GenerateSpec["type"] | "transcript", string> = {
   image: "Image generation failed",
   video: "Video generation failed",
   voice: "Voice generation failed",
@@ -39,48 +38,36 @@ const FAILURE_TITLES: Record<AssetSpecInput["type"] | "transcript", string> = {
   transcript: "Caption generation failed",
 };
 
-/** What each declaration is to become, for the partial that stands for it. */
-const ASSET_TYPES: Record<AssetSpecInput["type"], AssetType> = {
+/** What each generation is to become, for the partial that stands for it. */
+const ASSET_TYPES: Record<GenerateSpec["type"], AssetType> = {
   image: "IMAGE",
   video: "VIDEO",
   voice: "AUDIO",
   audio: "AUDIO",
 };
 
-/**
- * One step of a source modifier (see the runtime's `SourceModifiers`): a
- * model call that makes a new asset out of one the library already holds.
- * An element asks for these by prop and goes on naming what it was made
- * from, so each step is stored and cached on its own, and a set of modifiers
- * is these run in order (see `derive`).
- */
-export type TransformKind = "remove-background" | "upscale" | "add-audio";
-
-/** What each step is called where the user reads about it, and names its result. */
-const TRANSFORMS: Record<TransformKind, { title: string; suffix: string }> = {
-  "remove-background": { title: "Background removal failed", suffix: "Background removed" },
-  "upscale": { title: "Upscale failed", suffix: "Upscaled" },
-  "add-audio": { title: "Adding audio failed", suffix: "With audio" },
+/** What each transform's failure is called where the user reads about it, and what names its result. */
+const TRANSFORMS: Record<TransformType, { title: string; suffix: string }> = {
+  removeBackground: { title: "Background removal failed", suffix: "Background removed" },
+  upscale: { title: "Upscale failed", suffix: "Upscaled" },
+  addAudio: { title: "Adding audio failed", suffix: "With audio" },
 };
-
-/** The steps a set of modifiers comes to, in the order they are applied. */
-function steps(modifiers: SourceModifierValues): TransformKind[] {
-  const kinds: TransformKind[] = [];
-  if (modifiers.removeBackground) kinds.push("remove-background");
-  if (modifiers.upscale > 1) kinds.push("upscale");
-  if (modifiers.addAudio) kinds.push("add-audio");
-  return kinds;
-}
 
 /**
  * A spec with defaults applied and every `AssetInput` reduced to an asset id.
  * Field order is fixed, so `JSON.stringify` of it is a stable `generationKey`.
+ * A transform's key is its type and input alone: the endpoints take no model
+ * and no factor, so every call over the same asset is the same call.
  */
-type ResolvedSpec =
+type ResolvedGeneration =
   | { type: "image"; model: string; prompt: string; aspectRatio: AspectRatio; seed?: number; refIds: string[] }
   | { type: "video"; model: string; prompt: string; aspectRatio: AspectRatio; duration: number; audio: boolean; seed?: number; startFrameId?: string; endFrameId?: string }
   | { type: "voice"; model: string; prompt: string; voice: string; seed?: number }
   | { type: "audio"; model: string; prompt: string; duration?: number; seed?: number };
+type ResolvedTransform = { type: TransformType; inputId: string };
+type ResolvedSpec = ResolvedGeneration | ResolvedTransform;
+
+const isResolvedTransform = (spec: ResolvedSpec): spec is ResolvedTransform => isTransformType(spec.type);
 
 /** What the partial standing for a run is called and is to become, and what its failure is called. */
 type RunDescription = Omit<ReserveOptions, "key" | "folder"> & { title: string };
@@ -153,39 +140,6 @@ export class EditorGenAi extends GenAi {
   }
 
   /**
-   * `asset` through every modifier the element asked for, one step at a time
-   * and in a fixed order. Each step is cached in its own right, so turning
-   * one on leaves what the others already made alone — adding `upscale` to a
-   * cut-out picture pays for the enlarging, not for the matte again.
-   */
-  public async derive(asset: Asset, modifiers: SourceModifierValues): Promise<Asset> {
-    let derived = asset;
-    for (const kind of steps(modifiers)) {
-      derived = await this.transform(kind, derived);
-    }
-    return derived;
-  }
-
-  /**
-   * Runs one step over `asset` and returns what it produced, stored under
-   * `generated/` like any other model output. Keyed by step and input, so the
-   * same call on the same asset is the same result in this session and the
-   * next: upscaling a picture twice costs what upscaling it once did.
-   */
-  public transform(kind: TransformKind, asset: Asset): Promise<Asset> {
-    // No upscale factor in the key: the endpoint takes none, so every factor
-    // is the same call and would otherwise be billed once per number asked
-    // for. It belongs here the moment the API can be told one.
-    const key = `transform:v1:${kind}:${asset.id}`;
-    const base = assetName(asset).replace(/\.[^.]+$/, "");
-    return this.generated(
-      key,
-      () => ({ type: asset.type, name: `${base} (${TRANSFORMS[kind].suffix})`, title: TRANSFORMS[kind].title }),
-      () => this.runTransform(kind, asset, key),
-    );
-  }
-
-  /**
    * The library's answer for `key`, or the run that produces one. An asset
    * the key landed as is returned; a key standing in error rejects with the
    * recorded reason — answered, not run or paid for again, and not toasted
@@ -226,6 +180,7 @@ export class EditorGenAi extends GenAi {
 
   private async generateFromRef(ref: AssetRef): Promise<Asset> {
     const spec = getAssetSpec(ref);
+    const title = isTransformSpec(spec) ? TRANSFORMS[spec.type].title : FAILURE_TITLES[spec.type];
 
     // Inputs first: their ids are part of the key. An input that failed has
     // said so already; anything else wrong with them is said here.
@@ -233,14 +188,24 @@ export class EditorGenAi extends GenAi {
     try {
       resolved = await this.resolveSpec(spec);
     } catch (error) {
-      throw error instanceof ReportedError ? error : reportFailure(error, FAILURE_TITLES[spec.type]);
+      throw error instanceof ReportedError ? error : reportFailure(error, title);
     }
 
     return this.generated(
       JSON.stringify(resolved),
-      () => ({ type: ASSET_TYPES[spec.type], name: provisionalName(spec.prompt), title: FAILURE_TITLES[spec.type] }),
-      (partial) => this.runGeneration(resolved, partial),
+      () => ({ ...this.describe(resolved), title }),
+      (partial) => isResolvedTransform(resolved)
+        ? this.runTransform(resolved, partial)
+        : this.runGeneration(resolved, partial),
     );
+  }
+
+  /** What the partial standing for a run is called, and what it is to become. */
+  private describe(spec: ResolvedSpec): { type: AssetType; name: string } {
+    if (!isResolvedTransform(spec)) return { type: ASSET_TYPES[spec.type], name: provisionalName(spec.prompt) };
+    const input = this.library.get(spec.inputId);
+    assert(input, `Input asset ${spec.inputId} not found`);
+    return { type: input.type, name: `${stem(input)} (${TRANSFORMS[spec.type].suffix})` };
   }
 
   private resolveInput(input: AssetInput): Promise<Asset> {
@@ -248,6 +213,11 @@ export class EditorGenAi extends GenAi {
   }
 
   private async resolveSpec(spec: AssetSpecInput): Promise<ResolvedSpec> {
+    if (isTransformSpec(spec)) {
+      const input = await this.resolveInput(spec.input);
+      return { type: spec.type, inputId: input.id };
+    }
+
     switch (spec.type) {
       case "image": {
         const refs = await Promise.all((spec.refs ?? []).map((ref) => this.resolveInput(ref)));
@@ -303,7 +273,7 @@ export class EditorGenAi extends GenAi {
    * spec a model cannot take fails here rather than before the partial is
    * reserved, so the refusal is recorded like any other and not asked again.
    */
-  private async runGeneration(spec: ResolvedSpec, partial: PartialAsset): Promise<Asset> {
+  private async runGeneration(spec: ResolvedGeneration, partial: PartialAsset): Promise<Asset> {
     if (spec.type === "video") checkVideoConstraints(spec);
 
     const startedAt = performance.now();
@@ -389,27 +359,33 @@ export class EditorGenAi extends GenAi {
     return `Captions ${max + 1}`;
   }
 
-  /** Uploads the input, runs the call, and stores the result beside the generations. */
-  private async runTransform(kind: TransformKind, asset: Asset, key: string): Promise<Asset> {
+  /**
+   * Uploads the transform's input, runs the call, and stores the result in
+   * place of `partial`. A transform over the wrong kind of asset fails here,
+   * like a spec a model cannot take: recorded, and not asked again.
+   */
+  private async runTransform(spec: ResolvedTransform, partial: PartialAsset): Promise<Asset> {
+    const asset = this.library.get(spec.inputId);
+    assert(asset, `Input asset ${spec.inputId} not found`);
+    checkTransformInput(spec.type, asset);
+
     const startedAt = performance.now();
-    track("generation_started", { mode: kind });
+    track("generation_started", { mode: spec.type });
 
     try {
-      console.log(`[gen-ai] running ${kind} on ${asset.path}`);
+      console.log(`[gen-ai] running ${spec.type} on ${asset.path}`);
       const input = await this.uploadInput(asset.id);
-      const { url, generationId } = await this.requestTransform(kind, asset, input);
-
-      const base = assetName(asset).replace(/\.[^.]+$/, "");
-      const stored = await this.store(url, `${base} (${TRANSFORMS[kind].suffix})`, { key, id: generationId });
+      const { url, generationId } = await this.requestTransform(spec.type, asset, input);
+      const stored = await this.store(url, assetName(partial), { key: partial.generation.key, id: generationId });
 
       track("generation_completed", {
-        mode: kind,
+        mode: spec.type,
         duration_ms: Math.round(performance.now() - startedAt),
       });
       return stored;
     } catch (err) {
       track("generation_failed", {
-        mode: kind,
+        mode: spec.type,
         duration_ms: Math.round(performance.now() - startedAt),
         error: err instanceof Error ? err.message.slice(0, 200) : "unknown",
       });
@@ -417,17 +393,15 @@ export class EditorGenAi extends GenAi {
     }
   }
 
-  private requestTransform(kind: TransformKind, asset: Asset, input: FileRef) {
-    switch (kind) {
-      case "remove-background":
-        assert(asset.type === "IMAGE", "Only a picture has a background to remove");
+  private requestTransform(type: TransformType, asset: Asset, input: FileRef) {
+    switch (type) {
+      case "removeBackground":
         return trpc.removeBackground.mutate({ image: input });
       case "upscale":
         return isMoving(asset.type)
           ? trpc.upscaleVideo.mutate({ video: input })
           : trpc.upscaleImage.mutate({ image: input });
-      case "add-audio":
-        assert(isMoving(asset.type), "Only footage can be scored");
+      case "addAudio":
         return trpc.addAudioToVideo.mutate({ video: input });
     }
   }
@@ -449,7 +423,7 @@ export class EditorGenAi extends GenAi {
     });
   }
 
-  private requestGeneration(spec: ResolvedSpec) {
+  private requestGeneration(spec: ResolvedGeneration) {
     switch (spec.type) {
       case "image": {
         return (async () => {
@@ -517,6 +491,24 @@ export class EditorGenAi extends GenAi {
 
 /** Whether an asset type is footage, for the calls that only take footage. */
 const isMoving = (type: AssetType): boolean => type === "VIDEO" || type === "SEQUENCE";
+
+/** An asset's name without its extension: what a transform's result is named after. */
+const stem = (asset: Asset): string => assetName(asset).replace(/\.[^.]+$/, "");
+
+/** What a transform can be put over; known only once the input has resolved. */
+function checkTransformInput(type: TransformType, input: Asset): void {
+  switch (type) {
+    case "removeBackground":
+      assert(input.type === "IMAGE", "Only a picture has a background to remove");
+      return;
+    case "upscale":
+      assert(input.type === "IMAGE" || isMoving(input.type), "Only a picture or footage can be upscaled");
+      return;
+    case "addAudio":
+      assert(isMoving(input.type), "Only footage can be scored");
+      return;
+  }
+}
 
 /** How much of a prompt names the partial standing for its generation. */
 const PROVISIONAL_NAME_LENGTH = 48;
@@ -600,7 +592,7 @@ function sceneHasAudio(world: World, scene: Entity): boolean {
 /**
  *  Per-model constraints (`dapi models video`); unknown models are left to the server.
  */
-function checkVideoConstraints(spec: Extract<ResolvedSpec, { type: "video" }>): void {
+function checkVideoConstraints(spec: Extract<ResolvedGeneration, { type: "video" }>): void {
   const model = PROMPT_INPUT_VIDEO_MODEL_OPTIONS.find((option) => option.id === spec.model);
   if (!model) return;
 

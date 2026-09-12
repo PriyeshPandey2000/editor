@@ -19,7 +19,7 @@ import { authoredElement, authoredTree, getRuntimeDocument, insert, isSceneNode,
 import { findInspectEntry } from './inspect';
 
 import type { SceneNode } from '@diffusionstudio/runtime';
-import type { InspectValue, PropValue, SerializedAssetRef } from '@diffusionstudio/jsx';
+import type { AssetRef, InspectValue, PropValue, SerializedAssetRef } from '@diffusionstudio/jsx';
 import type { Entity, World } from 'koota';
 import type { AuthoredTree, ProjectDocument, RuntimeDocument } from '@diffusionstudio/reconciler';
 
@@ -266,11 +266,10 @@ function nextSourceAfter(world: World, entity: Entity): string | undefined {
  * The props of a `<video>`/`<image>` that only mean something while the node
  * plays media, dropped when the intrinsic paint is removed (see
  * `removeIntrinsicPaint`): the source, what qualifies it (its fit, its
- * window, a frames directory's rate, the modifiers put on it), and the audio
- * mix a rect has no track to apply to. `start`/`end` stay: they place the
- * clip, media or not.
+ * window, a frames directory's rate), and the audio mix a rect has no track
+ * to apply to. `start`/`end` stay: they place the clip, media or not.
  */
-const MEDIA_PROPS = ['src', 'objectFit', 'frameRate', 'sourceIn', 'sourceOut', 'upscale', 'removeBackground', 'addAudio', 'volume', 'muted', 'syncTo'] as const;
+const MEDIA_PROPS = ['src', 'objectFit', 'frameRate', 'sourceIn', 'sourceOut', 'volume', 'muted', 'syncTo'] as const;
 
 /**
  * What `copy` took: the subtrees as authored, and the source of the parent
@@ -325,7 +324,7 @@ export class DocumentEditor {
 	}
 
 	/** Writes a prop to the document and reports it. */
-	public editProperty(entity: Entity, name: string, value: PropValue): void {
+	public editProperty(entity: Entity, name: string, value: PropValue | AssetRef): void {
 		const node = this.document.node(entity);
 		let previous = node.props[name];
 		// The stage keeps no authored record (see RuntimeDocument.setProperty),
@@ -336,7 +335,7 @@ export class DocumentEditor {
 			if (background !== undefined && background !== DEFAULT_BACKGROUND) previous = colorToHex(background);
 		}
 		this.document.setProperty(node, name, value);
-		this.reportEdit(entity, name, value, previous ?? false);
+		this.reportEdit(entity, name, wireValue(value)!, wireValue(previous) ?? false);
 	}
 
 	/**
@@ -380,7 +379,7 @@ export class DocumentEditor {
 	 * (see `PropEdit`); a caller that cannot say what the value was leaves it
 	 * out, and the edit is not undoable.
 	 */
-	public reportEdit(entity: Entity, name: string, value: PropValue, previous?: unknown): void {
+	public reportEdit(entity: Entity, name: string, value: EditValue, previous?: unknown): void {
 		this.settle(entity);
 		const source = entity.get(Source)?.value;
 

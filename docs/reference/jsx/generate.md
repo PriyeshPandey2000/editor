@@ -76,9 +76,27 @@ generate.audio(opts: {
 }): AssetRef;
 ```
 
+## Transforms
+
+`transform.*` declares an asset made from another. Each takes what it works on as its argument — a source string or another declaration — and returns an `AssetRef` like `generate.*` does, usable anywhere a source is:
+
+```ts
+transform.upscale(input: AssetInput): AssetRef;            // twice the pixels; a picture or footage — enlarges the source, not the box
+transform.removeBackground(input: AssetInput): AssetRef;   // the subject cut out, the rest transparent; pictures only
+transform.addAudio(input: AssetInput): AssetRef;           // footage scored with a generated soundtrack; independent of `volume` and `muted`
+```
+
+A chain reads inside out and runs in that order:
+
+```tsx
+<image src={transform.upscale(transform.removeBackground(generate.image({ prompt: "a red fox" })))} width={800} height={450} />
+```
+
+generates, cuts out, then enlarges. Each step is cached by step and input, so wrapping a further transform around a chain does not re-run what is inside it, and a transform over a library asset (`transform.upscale("footage/fox.png")`) leaves that asset as it is. A transform over the wrong kind of asset — a background removal over footage — fails like a spec a model cannot take (see [errors.md](./errors.md#failed-sources)).
+
 ## Dependency order
 
-`startFrame`, `endFrame`, and `refs` accept other `AssetRef`s. The dependency graph is built from these values and generated in topological order, so referenced assets exist before the assets that consume them. Because dependencies are **values, not string ids**, a declaration can only reference refs that already exist; reference cycles are impossible by construction. Assets referenced only as inputs generate too, but produce no node of their own.
+`startFrame`, `endFrame`, `refs`, and a transform's input accept other `AssetRef`s. The dependency graph is built from these values and generated in topological order, so referenced assets exist before the assets that consume them. Because dependencies are **values, not string ids**, a declaration can only reference refs that already exist; reference cycles are impossible by construction. Assets referenced only as inputs generate too, but produce no node of their own.
 
 ## Caching and idempotency
 

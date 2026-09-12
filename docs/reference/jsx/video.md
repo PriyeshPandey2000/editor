@@ -18,9 +18,6 @@ All [common props](./elements.md#common-props), plus:
 | `volume` | `number` | `0` | Decibels: `0` = unity, negative attenuates (`-6` ≈ half as loud), `-Infinity` = silence. Not linear. |
 | `muted` | `boolean` | `false` | Excludes the node's audio from the mix; independent of `volume`. |
 | `syncTo` | `string` | none | `id` of another element carrying audio; derives `start` by audio alignment (see [audio-sync.md](./audio-sync.md)). Mutually exclusive with `start`. |
-| `upscale` | `number` | `1` | Resolution multiplier; enlarges the source, not the box (see [media.md](./media.md#source-modifiers)). |
-| `addAudio` | `boolean` | `false` | Scores footage that has no sound (see [media.md](./media.md#source-modifiers)). |
-| `error` | `string` | none | Why this element's source never became an asset (see [errors.md](./errors.md#failed-sources)). |
 
 Without `width`/`height` the box is 1920×1080.
 

@@ -9,7 +9,7 @@ import { join } from "node:path";
 
 import { IndentationText, Project, SyntaxKind } from "ts-morph";
 
-import { ID_ATTR, INSPECT_TAG, formatSource, isCompositionTag, isLoopTag, isSerializedAssetRef, parseSource } from "@diffusionstudio/jsx";
+import { ID_ATTR, INSPECT_TAG, formatSource, isCompositionTag, isLoopTag, isSerializedAssetRef, isTransformType, parseSource } from "@diffusionstudio/jsx";
 
 import type { PropValue, SerializedAssetRef } from "@diffusionstudio/jsx";
 import type {
@@ -119,7 +119,8 @@ const round = (value: number): number => Math.round(value * 100) / 100;
 const IDENTIFIER = /^[A-Za-z_$][\w$]*$/;
 
 /** A prop value as the JavaScript that would have produced it. */
-function literalText(value: PropValue): string {
+function literalText(value: PropValue | SerializedAssetRef): string {
+  if (isSerializedAssetRef(value)) return declarationText(value);
   if (typeof value === "string") return JSON.stringify(value);
   if (typeof value === "number") return String(round(value));
   if (typeof value === "boolean" || value === null) return String(value);
@@ -149,24 +150,41 @@ const initializerText = (value: PropValue): string =>
     ? `"${value}"`
     : `{${literalText(value)}}`;
 
-/** A declaration's wire form as the `generate.*` call that reproduces it. */
-function generateCallText(ref: SerializedAssetRef): string {
-  const { type, ...options } = ref.$generate;
+/**
+ * A declaration's wire form as the call that reproduces it: `generate.<type>`
+ * over its options, or `transform.<type>` over its input, with declared
+ * inputs spelled as the nested calls they are.
+ */
+function declarationText(ref: SerializedAssetRef): string {
+  const { type, ...options } = ref.$asset;
+  if (isTransformType(type)) return `transform.${type}(${literalText((options as { input: EditValue }).input)})`;
   return `generate.${type}(${literalText(options as Record<string, PropValue>)})`;
+}
+
+/** The namespaces a declaration is spelled with: what its file has to import. */
+function declarationImports(ref: SerializedAssetRef, names = new Set<string>()): Set<string> {
+  const { type, ...options } = ref.$asset;
+  names.add(isTransformType(type) ? "transform" : "generate");
+  for (const value of Object.values(options)) {
+    for (const input of Array.isArray(value) ? value : [value]) {
+      if (isSerializedAssetRef(input)) declarationImports(input, names);
+    }
+  }
+  return names;
 }
 
 /**
  * Writes a prop onto a tag as one would write it: `muted`, not `muted={true}`,
  * and no attribute at all rather than `muted={false}`, since absence is what a
- * boolean prop's false reads as. A declaration is spelled as its `generate.*`
- * call — the caller makes sure `generate` is imported (see
- * `ensureGenerateImport`).
+ * boolean prop's false reads as. A declaration is spelled as the call that
+ * reproduces it — the caller makes sure its namespaces are imported (see
+ * `ensureDeclarationImports`).
  */
 function setProp(tag: JsxTag, name: string, value: EditValue): void {
   const attribute = attributeOf(tag, name);
 
   if (isSerializedAssetRef(value)) {
-    const initializer = `{${generateCallText(value)}}`;
+    const initializer = `{${declarationText(value)}}`;
     if (attribute) attribute.setInitializer(initializer);
     else tag.addAttribute({ name, initializer });
     return;
@@ -187,32 +205,37 @@ function setProp(tag: JsxTag, name: string, value: EditValue): void {
   else tag.addAttribute({ name, initializer: initializerText(value) });
 }
 
-/** Where `generate` comes from — the module every project authors against. */
-const GENERATE_MODULE = "@diffusionstudio/jsx";
+/** Where `generate` and `transform` come from — the module every project authors against. */
+const DECLARATION_MODULE = "@diffusionstudio/jsx";
 
 /**
- * Makes sure `generate` is in scope once a declaration has been spelled into
- * the file: added to the module's existing import, or as an import of its own
- * after the last one — or above the first statement, past the file's header
- * comments, when there are no imports at all. Idempotent.
+ * Makes sure the namespaces a declaration is spelled with are in scope once
+ * it has been written into the file: added to the module's existing import,
+ * or as an import of their own after the last one — or above the first
+ * statement, past the file's header comments, when there are no imports at
+ * all. Idempotent.
  */
-function ensureGenerateImport(sourceFile: SourceFile): void {
+function ensureDeclarationImports(sourceFile: SourceFile, ref: SerializedAssetRef): void {
+  for (const name of declarationImports(ref)) ensureNamedImport(sourceFile, name);
+}
+
+function ensureNamedImport(sourceFile: SourceFile, name: string): void {
   const declarations = sourceFile.getImportDeclarations();
   const importable = declarations.find(
     (declaration) =>
-      declaration.getModuleSpecifierValue() === GENERATE_MODULE &&
+      declaration.getModuleSpecifierValue() === DECLARATION_MODULE &&
       !declaration.isTypeOnly() &&
       !declaration.getNamespaceImport(),
   );
 
   if (importable) {
     const named = importable.getNamedImports();
-    if (named.some((specifier) => specifier.getName() === "generate" && !specifier.getAliasNode())) return;
-    importable.addNamedImport("generate");
+    if (named.some((specifier) => specifier.getName() === name && !specifier.getAliasNode())) return;
+    importable.addNamedImport(name);
     return;
   }
 
-  const statement = `import { generate } from "${GENERATE_MODULE}";`;
+  const statement = `import { ${name} } from "${DECLARATION_MODULE}";`;
   const last = declarations.at(-1);
   if (last) sourceFile.insertText(last.getEnd(), `\n${statement}`);
   else {
@@ -423,8 +446,14 @@ function reindent(text: string, from: string, to: string): string {
     .join("\n");
 }
 
-/** Whether an expression is a value rather than a way of computing one. */
+/**
+ * Whether an expression is a value rather than a way of computing one. A
+ * declaration call over values is one too: it is what the writer spells a
+ * declaration as, so it is an initializer the writer may also overwrite.
+ */
 function isLiteral(node: Node): boolean {
+  if (isDeclarationCall(node)) return true;
+
   if (
     node.isKind(SyntaxKind.StringLiteral) ||
     node.isKind(SyntaxKind.NumericLiteral) ||
@@ -458,16 +487,19 @@ function isLiteral(node: Node): boolean {
   return false;
 }
 
+/** The namespaces a declaration call is made through. */
+const DECLARATION_NAMESPACES = new Set(["generate", "transform"]);
+
 /**
- * A `generate.*` call over a literal spec: what the writer spells a
- * declaration as, and so an initializer it may also overwrite. One whose
- * argument computes anything is authored reactivity, like any expression.
+ * A `generate.*` or `transform.*` call over literals — a nested declaration
+ * among them. One whose argument computes anything is authored reactivity,
+ * like any expression.
  */
-function isGenerateCall(node: Node): boolean {
+function isDeclarationCall(node: Node): boolean {
   const call = node.asKind(SyntaxKind.CallExpression);
   const callee = call?.getExpression().asKind(SyntaxKind.PropertyAccessExpression);
   if (!call || !callee || !callee.getExpression().isKind(SyntaxKind.Identifier)) return false;
-  if (callee.getExpression().getText() !== "generate") return false;
+  if (!DECLARATION_NAMESPACES.has(callee.getExpression().getText())) return false;
 
   const args = call.getArguments();
   return args.length === 1 && isLiteral(args[0]!);
@@ -486,7 +518,7 @@ function isWritable(attribute: JsxAttribute): boolean {
   if (!initializer.isKind(SyntaxKind.JsxExpression)) return false;
 
   const expression = initializer.getExpression();
-  return expression !== undefined && (isLiteral(expression) || isGenerateCall(expression));
+  return expression !== undefined && isLiteral(expression);
 }
 
 // ---------------------------------------------------------------------------
@@ -801,7 +833,7 @@ class SourceWriter {
           }
 
           setProp(tag, name, value);
-          if (isSerializedAssetRef(value)) ensureGenerateImport(sourceFile);
+          if (isSerializedAssetRef(value)) ensureDeclarationImports(sourceFile, value);
           wrote = true;
         }
 
@@ -898,7 +930,7 @@ class SourceWriter {
     insertChild(sourceFile, parent, child, before);
     for (const [name, value] of Object.entries(edit.props)) {
       setProp(findTag(sourceFile, id)!, name, value);
-      if (isSerializedAssetRef(value)) ensureGenerateImport(sourceFile);
+      if (isSerializedAssetRef(value)) ensureDeclarationImports(sourceFile, value);
     }
     ids[edit.source] = formatSource(file, id);
     return true;
@@ -1138,7 +1170,7 @@ class SourceWriter {
         }
         for (const [name, value] of Object.entries(record.props)) {
           setProp(found(), name, value);
-          if (isSerializedAssetRef(value)) ensureGenerateImport(sourceFile);
+          if (isSerializedAssetRef(value)) ensureDeclarationImports(sourceFile, value);
         }
 
         const element = elementOf(found());

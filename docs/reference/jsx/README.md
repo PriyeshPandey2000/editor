@@ -40,7 +40,7 @@ export default function Project() {
 | [html.md](./html.md) | `<html>`: reactive HTML children drawn into the box |
 | [surface-paint.md](./surface-paint.md) | `<surface>`: a ref-provided canvas you draw into, sampled every frame |
 | [shader-paint.md](./shader-paint.md) | `<shaderPaint>`: a WGSL fragment shader over the media paint below it |
-| [media.md](./media.md) | `src` resolution (paths, URLs, asset ids, `AssetRef`), image sequences, modifiers, adding an asset to the library |
+| [media.md](./media.md) | `src` resolution (paths, URLs, asset ids, `AssetRef`), image sequences, transforms, adding an asset to the library |
 | [timing.md](./timing.md) | `start` / `end` / `sourceIn` / `sourceOut` / `playbackRate`, time formats |
 | [keyframes.md](./keyframes.md) | Keyframe animation and easing |
 | [animations.md](./animations.md) | `<animation>`: preset in/out animations |
