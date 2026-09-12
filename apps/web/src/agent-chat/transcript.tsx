@@ -26,9 +26,12 @@ type TranscriptProps = {
   waiting: boolean;
 };
 
+const toolInFlight = (item: Item | undefined) => item?.kind === "tool" && item.status === "running";
+
 export function Transcript(props: TranscriptProps) {
   const [scrollEl, setScrollEl] = createSignal<HTMLDivElement>();
   const stick = createStickToBottom(scrollEl, { initial: "instant" });
+  const last = () => props.items[props.items.length - 1];
 
   createEffect(on(() => props.sendCount, (count) => count > 0 && void stick.scrollToBottom(), { defer: true }));
   createEffect(on(() => props.chatKey, () => void stick.scrollToBottom({ animation: "instant" }), { defer: true }));
@@ -37,10 +40,11 @@ export function Transcript(props: TranscriptProps) {
     <div ref={setScrollEl} class="min-h-0 flex-1 overflow-y-auto overflow-x-hidden">
       <div class="flex flex-col gap-2 px-4 pb-2 pt-4">
         <For each={props.items}>
-          {(item, index) => <ChatItem item={item} active={props.running && index() === props.items.length - 1} />}
+          {(item) => <ChatItem item={item} />}
         </For>
-        <Show when={props.running && !props.waiting}>
-          <RunningIndicator last={props.items[props.items.length - 1]} />
+        {/* A tool in flight spins on its own row; the indicator covers everything else the turn does. */}
+        <Show when={props.running && !props.waiting && !toolInFlight(last())}>
+          <RunningIndicator last={last()} />
         </Show>
       </div>
     </div>

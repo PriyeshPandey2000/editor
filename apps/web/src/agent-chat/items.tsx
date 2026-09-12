@@ -13,7 +13,7 @@ import type { Item } from "@diffusionstudio/agent-chat";
 
 import { AttachmentChip } from "./attachments";
 import { Markdown } from "./markdown";
-import "./shimmer.css";
+import "./activity.css";
 
 type Of<K extends Item["kind"]> = Extract<Item, { kind: K }>;
 
@@ -38,8 +38,8 @@ export function AssistantItem(props: { item: Of<"assistant"> }) {
   );
 }
 
-/** `active`: the model is still thinking here, so the label shimmers (and stays even before any text). */
-export function ReasoningItem(props: { item: Of<"reasoning">; active?: boolean }) {
+/** The record of a thought: what the model is on right now is the transcript's running indicator, not this row. */
+export function ReasoningItem(props: { item: Of<"reasoning"> }) {
   const [open, setOpen] = createSignal(false);
   const expandable = () => props.item.text.trim().length > 0;
   return (
@@ -52,7 +52,7 @@ export function ReasoningItem(props: { item: Of<"reasoning">; active?: boolean }
         onClick={() => expandable() && setOpen(!open())}
       >
         <Icon name={open() ? "chevron-down" : "chevron-right"} class="size-6" />
-        <span classList={{ "agent-shimmer": props.active }}>Thinking</span>
+        <span>Thinking</span>
       </button>
       <Show when={open()}>
         <div class="mt-0.5 whitespace-pre-wrap break-words border-l border-border pl-2 text-[11px] leading-4 text-muted-foreground">
@@ -150,8 +150,8 @@ export function NoticeItem(props: { item: Of<"notice"> }) {
   );
 }
 
-/** Dispatches on kind. `active`: this is the item the running turn is on right now. */
-export function ChatItem(props: { item: Item; active?: boolean }) {
+/** Dispatches on kind. */
+export function ChatItem(props: { item: Item }) {
   const item = () => props.item;
   return (
     <>
@@ -161,9 +161,9 @@ export function ChatItem(props: { item: Item; active?: boolean }) {
       <Show when={item().kind === "assistant"}>
         <AssistantItem item={item() as Of<"assistant">} />
       </Show>
-      {/* Thinking the model keeps to itself arrives as an empty block: shown only while it is happening. */}
-      <Show when={item().kind === "reasoning" && ((item() as Of<"reasoning">).text.trim() || props.active)}>
-        <ReasoningItem item={item() as Of<"reasoning">} active={props.active} />
+      {/* Thinking the model keeps to itself arrives as an empty block: nothing to show. */}
+      <Show when={item().kind === "reasoning" && (item() as Of<"reasoning">).text.trim()}>
+        <ReasoningItem item={item() as Of<"reasoning">} />
       </Show>
       <Show when={item().kind === "tool"}>
         <ToolItem item={item() as Of<"tool">} />
