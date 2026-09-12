@@ -9,7 +9,8 @@
  * motion clips) that generates in topological order, blocking the command
  * until every asset lands. <captions> reads the finished scene audio after
  * generation, so caption timing matches the voiceover. Consumes credits;
- * results are cached per session, so re-mounting unchanged specs is free.
+ * results are cached in the project's library, so re-mounting unchanged
+ * specs is free.
  * Discover models and voices with `dapi models <type>` and `dapi voices`;
  * omitted here, so each stage uses the default model.
  */

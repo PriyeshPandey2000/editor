@@ -12,17 +12,23 @@ Runtime errors are reported against the compiled module. Since types are strippe
 
 ## Failed sources
 
-A failed **generation** is written back into your file as the element's `error` prop:
+A failed **generation** is recorded in the library, never in your file. The library holds a partial document for every generation the project has asked for: `pending` while the model runs, replaced by the asset when it lands, and kept as `error` — with the reason — when it does not. In `assets.yml`:
 
-```tsx
-<image src={generate.image({ prompt: "a red fox" })} error="Model refused the prompt" />
+```yaml
+- id: 3f9c1a7e2b8d4c05
+  path: generated/a red fox
+  type: IMAGE
+  generation:
+    key: '{"type":"image","model":"…","prompt":"a red fox",…}'
+  state: error
+  error: Model refused the prompt
 ```
 
-That is deliberate, and it is what keeps a refused or impossible generation from being run — or paid for — again by every reopen of the project. An element holding an `error` is not resolved a second time, and nothing in the editor takes the prop off silently.
+That record is what keeps a refused or impossible generation from being run — or paid for — again by every reopen of the project: a declaration whose key stands in error resolves to that error, and its element carries the message without anything being requested. The source that declared it is not written to.
 
-**Removing the `error` attribute is what asks for the run again**, and it is the only thing that does. Not another take, not another prompt.
+**Removing the record is what asks for the run again**, and it is the only thing that does — not another take, not another prompt. Delete the entry in the asset panel (or its record in `assets.yml`), or use *Retry* on it, which deletes the record and re-asks at once for every element still waiting on the answer. Changing the declaration is a new key, and so a new generation; the old record stays until removed.
 
-Only generations are written down this way: a load that failed is cheap to try again, and an asset that has since been put back should simply load. An element rendered inside a `<For>` is left alone too — writing a prop to one iteration would mean unrolling the loop into the file, which is not a change to make behind your back over a generation that failed.
+Only generations are recorded this way: a load that failed is cheap to try again, and an asset that has since been put back should simply load.
 
 ## Blank or partial `<html>` content in captures
 

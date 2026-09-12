@@ -39,7 +39,7 @@ export function assetSystem(world: World): void {
 		for (const entity of world.query(GenerationRequest)) {
 			const ref = entity.get(GenerationRequest)!.ref;
 			entity.remove(GenerationRequest);
-			if (ref === null || entity.has(SourceError)) continue;
+			if (ref === null) continue;
 			if (isDomImage(entity)) pointDomImageAt(entity, null);
 			start(world, entity, ai.resolve(ref), true);
 		}
@@ -50,7 +50,6 @@ export function assetSystem(world: World): void {
 
 			const seed = entity.get(TranscriptionRequest)!.seed;
 			entity.remove(TranscriptionRequest);
-			if (entity.has(SourceError)) continue;
 			resolve(world, entity, ai.transcribe(world, scene, seed), true);
 		}
 	}

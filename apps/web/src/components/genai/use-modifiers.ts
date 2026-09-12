@@ -58,12 +58,6 @@ export function useModifiers() {
     const value = next ? (name === "upscale" ? UPSCALE_FACTOR : true) : false;
 
     for (const entity of targets(name)) {
-      // A failure is the answer to what was asked for (see `sourceErrorSystem`),
-      // and asking for a different set of modifiers is a different question.
-      // Taking the prop off is what asks again, and this is the user doing it.
-      if (authoredElement(entity)?.props.error !== undefined) {
-        editor.editProperty(entity, "error", false);
-      }
       editor.editProperty(entity, name, value);
     }
   };

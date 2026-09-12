@@ -266,11 +266,11 @@ function nextSourceAfter(world: World, entity: Entity): string | undefined {
  * The props of a `<video>`/`<image>` that only mean something while the node
  * plays media, dropped when the intrinsic paint is removed (see
  * `removeIntrinsicPaint`): the source, what qualifies it (its fit, its
- * window, a frames directory's rate, the modifiers put on it), its error,
- * and the audio mix a rect has no track to apply to. `start`/`end` stay:
- * they place the clip, media or not.
+ * window, a frames directory's rate, the modifiers put on it), and the audio
+ * mix a rect has no track to apply to. `start`/`end` stay: they place the
+ * clip, media or not.
  */
-const MEDIA_PROPS = ['src', 'error', 'objectFit', 'frameRate', 'sourceIn', 'sourceOut', 'upscale', 'removeBackground', 'addAudio', 'volume', 'muted', 'syncTo'] as const;
+const MEDIA_PROPS = ['src', 'objectFit', 'frameRate', 'sourceIn', 'sourceOut', 'upscale', 'removeBackground', 'addAudio', 'volume', 'muted', 'syncTo'] as const;
 
 /**
  * What `copy` took: the subtrees as authored, and the source of the parent

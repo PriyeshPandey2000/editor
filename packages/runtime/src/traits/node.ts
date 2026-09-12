@@ -121,16 +121,15 @@ export const PendingSync = trait(() => ({ value: undefined as unknown }));
 export const PendingSource = trait(() => ({ value: undefined as unknown }));
 
 // Why the entity's src never became an asset: the message of the rejection
-// the asset system saw. It stands until the element is authored without it
-// (the `error` prop) or a resolution for it starts — which, for a generation,
-// only happens once that prop is gone.
+// the asset system saw. Session state, like the requests above: it stands
+// until a resolution for the src starts again, and is never written back to
+// the source. What outlives the session is the library's: a generation that
+// failed stands there as a partial document carrying this same message, and
+// answers the next request for it with the failure rather than another run.
 //
-// `generated` tells a failed generation from a failed load, which are worth
-// different things: a load is cheap and idempotent, so it is simply tried
-// again next render, while a generation is neither. An element carrying one
-// of those is not resolved again (see the asset system), and the host is
-// expected to write it back to the source the element came from — which is
-// what makes the failure outlive the session that saw it.
+// `generated` tells a failed generation from a failed load, for whoever
+// reports them: the one is a model refusing or a spec a model cannot take,
+// the other a path that is not there.
 export const SourceError = trait({ value: '', generated: false });
 
 // Sibling order under a ChildOf parent.

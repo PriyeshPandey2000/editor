@@ -294,16 +294,6 @@ type MediaProps = {
    * scene; `generate.*` is not accepted there.
    */
   src: string | AssetRef;
-  /**
-   * Why this element's source never became an asset. Editor state carried by
-   * the source like `selected`, and the answer to the `src` it was written
-   * for: an element holding one is not resolved again, so a generation the
-   * model refused is not run — or paid for — a second time by every reopen of
-   * the project. The editor writes it when a generation or a transcription
-   * fails; taking it off the element is what asks for the run again, and
-   * nothing else does — not another take, not another prompt.
-   */
-  error?: string;
 };
 
 /**

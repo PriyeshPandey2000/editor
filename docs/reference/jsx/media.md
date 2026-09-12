@@ -8,7 +8,7 @@
 - **Remote URL**: e.g. `"https://my.videoarchive.com/audio/clip.wav"`, fetched on mount. Not added to the library.
 - **`AssetRef`**: the value returned by a `generate.*` declaration (see [generate.md](./generate.md)). The node is mounted immediately as a placeholder and its paint is attached once the asset has generated; the result is stored under the library's `generated/` folder.
 
-Resolution is **asynchronous and non-blocking**: the element is on the canvas as soon as the project mounts, showing a generating state until its source lands. A source that never lands leaves the element carrying an [`error`](./errors.md#failed-sources).
+Resolution is **asynchronous and non-blocking**: the element is on the canvas as soon as the project mounts, showing a generating state until its source lands. A source that never lands leaves the element carrying the reason (see [errors.md](./errors.md#failed-sources)).
 
 An `<img>` inside [`<html>`](./html.md) additionally takes a `data:` or `blob:` URL, which goes to the browser as it is.
 
@@ -45,6 +45,8 @@ Modifiers compose with declarations: `<image src={generate.image({ prompt: "a re
 ## The library
 
 A project's assets are recorded in `assets.yml` next to its entry file: for each asset, its library `path`, where its bytes are (`source`: the absolute path of a file imported from disk — imports never move or copy files — or a project-relative path under `assets/`, whether the app wrote the bytes there or a symlink points at them), and what it was found to be. Folders are listed too, so an empty one survives a reload. Renaming or moving an asset in the panel rewrites the `src` props that named it.
+
+Generations are listed from the moment they are asked for: a partial record (`state: pending`) with no `source` while the model runs, the asset once it lands, and a record in `state: error` carrying the reason when it fails, which stands until removed (see [errors.md](./errors.md#failed-sources)).
 
 ## Adding an asset
 

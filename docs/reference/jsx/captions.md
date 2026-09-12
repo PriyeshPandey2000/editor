@@ -9,7 +9,7 @@
 </scene>
 ```
 
-Transcription is **asynchronous and non-blocking**: the caption node is on the canvas from the moment the project mounts and its transcript attaches once ready. Because it reads the scene's audible mix, it waits until **every other source in the scene has landed** — a generated `voice` or `audio` track is transcribed at its final placement, not at the placeholder. The scene must contain an unmuted, unhidden audio or video source; without one the node carries an [`error`](./errors.md#failed-sources) saying so.
+Transcription is **asynchronous and non-blocking**: the caption node is on the canvas from the moment the project mounts and its transcript attaches once ready. Because it reads the scene's audible mix, it waits until **every other source in the scene has landed** — a generated `voice` or `audio` track is transcribed at its final placement, not at the placeholder. The scene must contain an unmuted, unhidden audio or video source; without one the node carries an error saying so, recorded in the library like any failed generation (see [errors.md](./errors.md#failed-sources)).
 
 ## Bringing your own transcript
 
@@ -41,6 +41,8 @@ The preset positions the caption block; `verticalAlign` overrides only its verti
 A transcript is cached under **the scene's id and the `seed`**, and the cached asset is reused whenever that pair comes up again — so reopening a project transcribes nothing and consumes no credits.
 
 The audio itself is not part of the key. **Recutting a scene does not re-transcribe it**: to pick up changed audio, bump `seed`. A value used before replays that take from cache; a value that has not been used for this scene transcribes it again, which costs credits.
+
+A transcription that failed is recorded under the same key, as a library entry in error, and is not run again until that entry is removed — see [errors.md](./errors.md#failed-sources).
 
 ## Trimming
 

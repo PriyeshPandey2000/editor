@@ -15,12 +15,22 @@ import type {
 	GenerateVoiceOptions,
 } from '@diffusionstudio/jsx';
 
+/**
+ * The generation service a host attaches to its world. Where a generation
+ * stands is the library's to hold, as partial documents (see
+ * `PartialAsset` in @diffusionstudio/assets): a run that starts is
+ * `pending` there, one that lands is the asset, one that fails stays as
+ * `error` with its reason — and a key standing in error resolves to that
+ * error rather than to another run, in this session and the next. Nothing
+ * here writes to the source that declared the generation.
+ */
 export abstract class GenAi {
 	/**
 	 * The declaration, made real: an asset whose bytes the model produced.
 	 * Content-addressed — the fully-resolved spec's hash is the asset's
 	 * `generation.key`, so the same spec is the same asset in this session
 	 * and the next, and identical concurrent declarations share one run.
+	 * Rejects with the recorded reason when the key stands in error.
 	 */
 	public abstract resolve(ref: AssetRef): Promise<Asset>;
 
