@@ -5,10 +5,11 @@
 import { app, BrowserWindow, nativeImage, session, shell } from "electron";
 import { dirname, join } from "node:path";
 import { existsSync } from "node:fs";
-import { mkdir, open, unlink } from "node:fs/promises";
+import { mkdir, open, rename, unlink } from "node:fs/promises";
 import { randomUUID } from "node:crypto";
 import type { FileHandle } from "node:fs/promises";
 import { updateElectronApp } from "update-electron-app";
+import { tempPathFor } from "./atomic";
 import { DapiServer } from "./dapi/server";
 import { agentChatEndpoint, deleteProjectChats, startAgentChat, stopAgentChat } from "./agent-chat";
 import { cliStatus, installCli, uninstallCli } from "./cli-install";
@@ -35,7 +36,8 @@ import {
   unwatchAll,
   listEntries,
   realPathEntry,
-  markSelfWriteAbsolute,
+  noteContent,
+  noteRenamed,
   readConfig,
   readManifest,
   removeEntry,
@@ -88,7 +90,7 @@ if (app.isPackaged && !process.argv.includes("--hidden")) {
   updateElectronApp({ repo: "diffusionstudio/editor" });
 }
 
-const openWrites = new Map<string, { handle: FileHandle; path: string }>();
+const openWrites = new Map<string, { handle: FileHandle; path: string; temp: string; reserved: boolean }>();
 
 let mainWindow: BrowserWindow | null = null;
 
@@ -337,26 +339,30 @@ if (app.requestSingleInstanceLock()) {
   );
 
   mainBridge.handle(MAIN_CHANNELS.FILE_WRITE_OPEN, async ({ path, exclusive }) => {
-    // The folders the write has to make are changes to the project like any
-    // other, and the watcher must not hear about ours: a generated asset
-    // landing in a project that had no `assets/` yet would otherwise come
-    // back as an outside edit and reload the library mid-write.
-    const created = await mkdir(dirname(path), { recursive: true });
-    markSelfWriteAbsolute(path);
-    for (let folder = dirname(path); created !== undefined; folder = dirname(folder)) {
-      markSelfWriteAbsolute(folder);
-      if (folder === created || folder === dirname(folder)) break;
+    await mkdir(dirname(path), { recursive: true });
+
+    // `exclusive` means the name must be free, so it is taken now rather than
+    // at the rename below — the empty file that reserves it is renamed over
+    // when the write finishes, and removed when it is abandoned.
+    if (exclusive) {
+      noteContent(path, "");
+      await (await open(path, "wx")).close();
     }
-    const handle = await open(path, exclusive ? "wx" : "w");
+
+    // The bytes go to a temp file beside the destination and are renamed into
+    // place once they are whole. Nothing ever sees half an asset — not the
+    // watcher, not a scan of the library, not an import — so there is no
+    // window anyone has to be kept out of.
+    const temp = tempPathFor(path);
+    const handle = await open(temp, "wx");
     const id = randomUUID();
-    openWrites.set(id, { handle, path });
+    openWrites.set(id, { handle, path, temp, reserved: exclusive === true });
     return { id };
   });
 
   mainBridge.handle(MAIN_CHANNELS.FILE_WRITE_CHUNK, async ({ id, data, position }) => {
     const entry = openWrites.get(id);
     if (!entry) throw new Error(`No open file for write id ${id}`);
-    markSelfWriteAbsolute(entry.path);
     await entry.handle.write(data, 0, data.byteLength, position);
   });
 
@@ -364,11 +370,21 @@ if (app.requestSingleInstanceLock()) {
     const entry = openWrites.get(id);
     if (!entry) return;
     openWrites.delete(id);
-    markSelfWriteAbsolute(entry.path);
-    await entry.handle.close();
+    try {
+      await entry.handle.close();
+      // Claimed before the rename, which is the first and only moment the
+      // destination changes (see `noteRenamed`).
+      await noteRenamed(entry.temp, entry.path);
+      await rename(entry.temp, entry.path);
+    } catch (error) {
+      await unlink(entry.temp).catch(() => { });
+      throw error;
+    }
   });
 
-  // Abort: close the fd and delete the partial file (cancel / error cleanup).
+  // Abort: close the fd and drop the temp file (cancel / error cleanup). The
+  // destination is left alone — an abandoned write never reached it — bar the
+  // name an `exclusive` open reserved, which is given back.
   mainBridge.handle(MAIN_CHANNELS.FILE_WRITE_ABORT, async ({ id }) => {
     const entry = openWrites.get(id);
     if (!entry) return;
@@ -376,7 +392,11 @@ if (app.requestSingleInstanceLock()) {
     try {
       await entry.handle.close();
     } finally {
-      await unlink(entry.path).catch(() => { });
+      await unlink(entry.temp).catch(() => { });
+      if (entry.reserved) {
+        noteContent(entry.path, null);
+        await unlink(entry.path).catch(() => { });
+      }
     }
   });
 

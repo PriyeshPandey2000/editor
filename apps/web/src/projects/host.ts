@@ -205,7 +205,7 @@ export function compileProject(dir: string): Promise<CompileResult> {
 /**
  * Writes changed props back into the project's JSX. No compile follows: the
  * canvas is already showing these values, and main keeps the write from
- * reaching the watcher (see `markSelfWrite` in the desktop's projects.ts).
+ * reaching the watcher (see `noteContent` in the desktop's projects.ts).
  */
 export function writeProject(dir: string, edits: SourceEdit[]): Promise<WriteResult> {
 	return mainBridge.call(MAIN_CHANNELS.PROJECTS_WRITE, { dir, edits });
@@ -222,25 +222,36 @@ export function writeProjectConfig(dir: string, config: unknown): Promise<void> 
 }
 
 /**
- * Watches a project folder and calls `onChange` (debounced) when a file
- * inside it changes. Returns the unwatch function.
+ * Watches a project folder and calls `onChange` with every file that changed
+ * since the last call, coalescing a burst of them — an install, a checkout, a
+ * folder dropped into the library — into one answer.
+ *
+ * The delay buys throughput and nothing else: main keeps the app's own writes
+ * out of this stream by their content rather than by their timing (see
+ * `noteContent` in the desktop's projects.ts) and writes whole files, so no
+ * amount of waiting here is load-bearing.
  */
-export function watchProject(dir: string, onChange: (path: string) => void, debounceMs = 80): () => void {
+export function watchProject(dir: string, onChange: (paths: string[]) => void, debounceMs = 80): () => void {
 	if (!isDesktop()) return () => {};
 
 	let pending: ReturnType<typeof setTimeout> | undefined;
-	let last = '';
+	let changed = new Set<string>();
 	const stop = mainBridge.handle(MAIN_CHANNELS.PROJECTS_CHANGED, (event) => {
 		if (event.dir !== dir) return;
-		last = event.path;
+		changed.add(event.path);
 		clearTimeout(pending);
-		pending = setTimeout(() => onChange(last), debounceMs);
+		pending = setTimeout(() => {
+			const paths = [...changed];
+			changed = new Set();
+			onChange(paths);
+		}, debounceMs);
 	});
-	void mainBridge.call(MAIN_CHANNELS.PROJECTS_WATCH, { dir });
+
+	mainBridge.call(MAIN_CHANNELS.PROJECTS_WATCH, { dir });
 
 	return () => {
 		clearTimeout(pending);
 		stop();
-		void mainBridge.call(MAIN_CHANNELS.PROJECTS_UNWATCH, { dir }).catch(() => {});
+		mainBridge.call(MAIN_CHANNELS.PROJECTS_UNWATCH, { dir }).catch(() => {});
 	};
 }

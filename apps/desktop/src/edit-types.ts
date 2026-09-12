@@ -20,8 +20,12 @@ export type EditValue = PropValue | SerializedAssetRef;
 export interface SourceContext {
   /** Absolute path of the project folder. */
   dir: string;
-  /** Called with the project-relative path of every file written. */
-  onWrite?: (file: string) => void;
+  /**
+   * Called with the project-relative path of every file about to be written
+   * and the exact text it is about to hold, so that whatever is watching the
+   * folder can tell the write apart from someone else's.
+   */
+  onWrite?: (file: string, text: string) => void;
 }
 
 /**

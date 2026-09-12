@@ -4,8 +4,9 @@
 
 import { app, dialog, shell, type BrowserWindow } from "electron";
 import { execFile } from "node:child_process";
+import { createHash } from "node:crypto";
 import { watch, type FSWatcher } from "node:fs";
-import { cp, mkdir, readdir, readFile, realpath, rename, rm, stat, writeFile } from "node:fs/promises";
+import { cp, mkdir, readdir, readFile, realpath, rename, rm, stat } from "node:fs/promises";
 import { createRequire } from "node:module";
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { nanoid } from "nanoid";
@@ -15,6 +16,7 @@ import { parse as parseYaml, stringify as stringifyYaml } from "yaml";
 import type { PluginItem, TransformOptions } from "@babel/core";
 import type { BuildOptions, Plugin } from "esbuild";
 
+import { isTempPath, TEMP_PREFIX, writeFileAtomic } from "./atomic";
 import { isHeadless } from "./headless";
 import { mainBridge } from "./main-manager";
 import { MAIN_CHANNELS } from "./main-channels";
@@ -82,7 +84,12 @@ async function readPackage(dir: string): Promise<PackageJson | null> {
 }
 
 async function writePackage(dir: string, pkg: PackageJson): Promise<void> {
-  await writeFile(join(dir, "package.json"), JSON.stringify(pkg, null, 2) + "\n", "utf8");
+  const path = join(dir, "package.json");
+  const text = JSON.stringify(pkg, null, 2) + "\n";
+  // The record is read by the app, by the watcher and by whatever else has the
+  // folder open, so it is claimed and replaced whole (see `noteContent`).
+  noteContent(path, text);
+  await writeFileAtomic(path, text);
 }
 
 // ---------------------------------------------------------------------------
@@ -111,7 +118,6 @@ async function ensureProjectId(dir: string): Promise<string> {
   if (existing) return existing;
 
   const id = nanoid();
-  markSelfWrite(dir, "package.json");
   await writePackage(dir, { ...(pkg ?? packageJson(basename(dir), basename(dir))), projectId: id });
   return id;
 }
@@ -553,6 +559,7 @@ const TSCONFIG = `{
 const GITIGNORE = `node_modules/
 cache/
 .diffusion/
+${TEMP_PREFIX}*
 `;
 
 const STARTER = `export default function Project() {
@@ -705,7 +712,8 @@ const APP_DIR = ".diffusion";
 async function writeIfMissing(dir: string, name: string, content: string): Promise<void> {
   const path = join(dir, name);
   if (await exists(path)) return;
-  await writeFile(path, content, "utf8");
+  noteContent(path, content);
+  await writeFileAtomic(path, content);
 }
 
 /** Adds the record fields to a package.json that predates them; leaves everything else alone. */
@@ -728,7 +736,6 @@ async function ensurePackage(dir: string, name: string, displayName: string, ent
     next.main !== pkg.main ||
     next.scripts !== pkg.scripts
   ) {
-    markSelfWrite(dir, "package.json");
     await writePackage(dir, next);
   }
 }
@@ -805,7 +812,6 @@ export async function createProject(root: string, displayName: string): Promise<
 export async function renameProject(dir: string, displayName: string): Promise<ProjectInfo> {
   const pkg = (await readPackage(dir)) ?? packageJson(basename(dir), displayName);
   const name = displayName.trim() || basename(dir);
-  markSelfWrite(dir, "package.json");
   await writePackage(dir, { ...pkg, displayName: name });
 
   const project = await describe(await renameFolder(dir, name));
@@ -932,10 +938,10 @@ function solidLoader(root: string, projectPlugins: PluginItem[]): Plugin {
   };
 }
 
-/** The `./edit` context for a project folder, wired to the watcher's self-write log. */
+/** The `./edit` context for a project folder, wired to what the watcher knows. */
 const sourceContext = (dir: string): SourceContext => ({
   dir,
-  onWrite: (file) => markSelfWrite(dir, file),
+  onWrite: (file, text) => noteContent(join(dir, file), text),
 });
 
 export async function compileProject(dir: string): Promise<CompileResult> {
@@ -982,7 +988,8 @@ export async function compileProject(dir: string): Promise<CompileResult> {
  * Writes values the editor arrived at back into the JSX that produced them.
  * Deliberately not a compile: the canvas already shows these values, so this
  * is the file catching up with the scene rather than the other way round, and
- * the watcher is told to keep quiet about it (see `markSelfWrite`).
+ * the watcher is told what the file will hold so that it keeps quiet about it
+ * (see `noteContent`).
  */
 export async function writeProject(dir: string, edits: SourceEdit[]): Promise<WriteResult> {
   try {
@@ -1023,18 +1030,15 @@ export async function readManifest(dir: string): Promise<unknown> {
 
 /**
  * Writes the manifest as YAML. Atomic (temp file + rename), so a crash
- * mid-write leaves the old manifest, and marked as ours so the watcher does
- * not hand it back as a change.
+ * mid-write leaves the old manifest and no reader ever sees half of one, and
+ * claimed first so the watcher does not hand it back as a change.
  */
 export async function writeManifest(dir: string, manifest: unknown): Promise<void> {
   const path = join(dir, MANIFEST_FILE);
-  const temp = join(dir, `.${MANIFEST_FILE}.tmp`);
-  const text = stringifyYaml(manifest, { lineWidth: 0 });
-  markSelfWrite(dir, MANIFEST_FILE);
-  markSelfWrite(dir, `.${MANIFEST_FILE}.tmp`);
-  await writeFile(temp, `# Diffusion Studio asset library. Edited by the app; hand edits are read on the next load.
-${text}`, "utf8");
-  await rename(temp, path);
+  const text = `# Diffusion Studio asset library. Edited by the app; hand edits are read on the next load.
+${stringifyYaml(manifest, { lineWidth: 0 })}`;
+  noteContent(path, text);
+  await writeFileAtomic(path, text);
 }
 
 // ---------------------------------------------------------------------------
@@ -1059,7 +1063,6 @@ export async function writeConfig(dir: string, config: unknown): Promise<void> {
   const next: PackageJson = { ...pkg };
   if (config === null || config === undefined) delete next[CONFIG_FIELD];
   else next[CONFIG_FIELD] = config;
-  markSelfWrite(dir, "package.json");
   await writePackage(dir, next);
 }
 
@@ -1147,7 +1150,7 @@ export async function removeEntry(dir: string, path: string): Promise<void> {
     throw new Error(`Refusing to remove ${path}: it really lives outside the project`);
   }
 
-  markSelfWrite(dir, path.split(sep).join("/"));
+  noteContent(target, null);
   await rm(target, { recursive: true, force: true });
 }
 
@@ -1156,47 +1159,87 @@ export async function removeEntry(dir: string, path: string): Promise<void> {
 
 const watchers = new Map<string, FSWatcher>();
 
-/** How long a file we wrote ourselves stays exempt from the watcher. */
-const SELF_WRITE_GRACE = 1000;
+/**
+ * What the app believes is on disk, by absolute path: a digest of the content
+ * of every file it has written, and of every change it has already been told
+ * about. The watcher stays on — anything else may be editing these files, and
+ * should still reach the canvas — but the app's own writes must not come back
+ * as a change, or every key stamp and every dragged rect would cost a
+ * recompile and a remount of the scene the user is looking at.
+ *
+ * Identity rather than timing, which is what makes this exact. A change is the
+ * app's own when the bytes on disk are the bytes it meant to put there, however
+ * long the event takes to arrive: an outside edit is never swallowed for
+ * landing too soon after one of ours, and one of ours never gets through for
+ * landing too late. A write that changes nothing — a formatter saving back what
+ * it was given, a checkout of the blob already there — costs nothing either.
+ */
+const known = new Map<string, string>();
+
+/** Digests for what has no content: a file that is not there, and a folder. */
+const ABSENT = "";
+const FOLDER = "folder";
 
 /**
- * Writes made on behalf of the editor, by file and time. The watcher stays on
- * — anything else may be editing these files, and should still reach the
- * canvas — but our own writes must not come back as a change, or every key
- * stamp and every dragged rect would cost a recompile and a remount of the
- * scene the user is looking at.
+ * Above this a file is fingerprinted by size and mtime rather than by content:
+ * the library holds whole videos, and re-reading one to answer an event would
+ * cost more than the reload it saves. A rename carries both across untouched,
+ * so a fingerprint taken from a temp file still answers for the file it
+ * becomes (see `noteRenamed`).
  */
-const selfWrites = new Map<string, number>();
+const DIGEST_MAX = 8 * 1024 * 1024;
 
-const writeKey = (dir: string, path: string): string => `${dir}\n${path}`;
+const digest = (content: Buffer | string): string => createHash("sha1").update(content).digest("hex");
 
-export function markSelfWrite(dir: string, path: string): void {
-  selfWrites.set(writeKey(dir, path), Date.now());
-}
-
-/** `markSelfWrite` for an absolute path, against whichever watched project holds it. */
-export function markSelfWriteAbsolute(path: string): void {
-  for (const dir of watchers.keys()) {
-    const rel = relative(dir, path);
-    if (rel && !rel.startsWith("..") && !isAbsolute(rel)) {
-      markSelfWrite(dir, rel.split(sep).join("/"));
-    }
+/** What `path` holds now: a digest of its content, or `ABSENT` / `FOLDER`. */
+async function digestOf(path: string): Promise<string> {
+  try {
+    const info = await stat(path);
+    if (info.isDirectory()) return FOLDER;
+    if (info.size > DIGEST_MAX) return `${info.size}:${info.mtimeMs}`;
+    return digest(await readFile(path));
+  } catch {
+    return ABSENT;
   }
 }
 
-function isSelfWrite(dir: string, path: string): boolean {
-  const key = writeKey(dir, path);
-  const at = selfWrites.get(key);
-  if (at === undefined) return false;
-  if (Date.now() - at > SELF_WRITE_GRACE) {
-    selfWrites.delete(key);
-    return false;
-  }
-  return true;
+/**
+ * Claims the content a write is about to put at `path` — or, for null, that it
+ * is about to take what is there away. Before the write rather than after: the
+ * event can arrive the instant the bytes land, and it is answered by comparing
+ * them against this. A write that fails halfway leaves the claim wrong, which
+ * the next event corrects by reporting a change nobody made — the safe way
+ * round, and self-correcting either way.
+ */
+export function noteContent(path: string, text: string | null): void {
+  if (text === null) known.set(path, ABSENT);
+  else if (Buffer.byteLength(text) > DIGEST_MAX) known.delete(path);
+  else known.set(path, digest(text));
+}
+
+/**
+ * Claims the content of the temp file `temp` as what will be found at `as`.
+ *
+ * The one write whose content the app never holds in one piece is a streamed
+ * one — an asset encoded straight to disk. It lands in a temp file, which the
+ * watcher ignores, and is renamed into place once it is whole; claiming it
+ * from the temp just before that rename is what leaves no window at all. A
+ * rename changes neither the bytes nor the mtime, so what is claimed here is
+ * exactly what an event will find at `as`.
+ */
+export async function noteRenamed(temp: string, as: string): Promise<void> {
+  known.set(as, await digestOf(temp));
 }
 
 export function watchProject(window: BrowserWindow | null, dir: string): void {
   if (watchers.has(dir)) return;
+
+  // Events are answered one at a time: answering one means reading the file
+  // back, and two reads in flight could settle out of order, leaving `known`
+  // holding the older of two contents — and with it a change that would then
+  // never be reported.
+  let queue: Promise<void> = Promise.resolve();
+
   const watcher = watch(dir, { recursive: true }, (_event, filename) => {
     if (!filename) return;
     // Project-relative and `/`-separated; installs churn node_modules constantly.
@@ -1204,8 +1247,18 @@ export function watchProject(window: BrowserWindow | null, dir: string): void {
     if (path.startsWith("node_modules/") || path === "node_modules") return;
     // The app's folder: a docs refresh writes the whole tree in one burst.
     if (path.startsWith(`${APP_DIR}/`) || path === APP_DIR) return;
-    if (isSelfWrite(dir, path)) return;
-    mainBridge.emit(window, MAIN_CHANNELS.PROJECTS_CHANGED, { dir, path });
+    // Half a file by definition, and renamed away the moment it is whole.
+    if (isTempPath(path)) return;
+
+    const file = join(dir, filename);
+    queue = queue
+      .then(async () => {
+        const current = await digestOf(file);
+        if (known.get(file) === current) return;
+        known.set(file, current);
+        mainBridge.emit(window, MAIN_CHANNELS.PROJECTS_CHANGED, { dir, path });
+      })
+      .catch(() => { });
   });
   watcher.on("error", () => unwatchProject(dir));
   watchers.set(dir, watcher);
@@ -1214,6 +1267,10 @@ export function watchProject(window: BrowserWindow | null, dir: string): void {
 export function unwatchProject(dir: string): void {
   watchers.get(dir)?.close();
   watchers.delete(dir);
+  // What the folder holds while nobody is watching is not the app's to
+  // remember: the next watch starts from a fresh load of the project anyway.
+  const prefix = dir.endsWith(sep) ? dir : dir + sep;
+  for (const path of known.keys()) if (path.startsWith(prefix)) known.delete(path);
 }
 
 export function unwatchAll(): void {

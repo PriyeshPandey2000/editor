@@ -156,20 +156,23 @@ export function EditorPage() {
 
     load();
   
-    const unwatch = watchProject(dir, (path) => {
-      if (isCacheFile(path)) return;
-      if (isLibraryFile(path)) {
-        library.load();
-      } else {
-        // package.json is the config and the record (`main`, `displayName`)
-        // in one, so a hand edit to it reloads both; the app's own config
-        // writes never reach here (main keeps them from the watcher).
-        if (isProjectConfigFile(path)) {
-          config.load();
-          void project.refresh();
-        }
-        load();
+    // A burst arrives as the whole set of files it touched, so a checkout that
+    // rewrites the library and the sources at once reloads both — reading only
+    // the last path of a burst would answer for one of them and drop the rest.
+    const unwatch = watchProject(dir, (paths) => {
+      const changed = paths.filter((path) => !isCacheFile(path));
+      if (changed.some(isLibraryFile)) library.load();
+
+      const source = changed.filter((path) => !isLibraryFile(path));
+      if (!source.length) return;
+      // package.json is the config and the record (`main`, `displayName`)
+      // in one, so a hand edit to it reloads both; the app's own config
+      // writes never reach here (main keeps them from the watcher).
+      if (source.some(isProjectConfigFile)) {
+        config.load();
+        project.refresh();
       }
+      load();
     });
 
     onCleanup(() => {

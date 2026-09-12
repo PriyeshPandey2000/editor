@@ -4,12 +4,14 @@
 
 
 import { randomInt } from "node:crypto";
-import { readdir, readFile, writeFile } from "node:fs/promises";
+import { readdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
 
 import { IndentationText, Project, SyntaxKind } from "ts-morph";
 
 import { ID_ATTR, INSPECT_TAG, formatSource, isCompositionTag, isLoopTag, isSerializedAssetRef, isTransformType, parseSource } from "@diffusionstudio/jsx";
+
+import { writeFileAtomic } from "./atomic";
 
 import type { PropValue, SerializedAssetRef } from "@diffusionstudio/jsx";
 import type {
@@ -646,9 +648,11 @@ class SourceWriter {
       open.text = text;
 
       // Claimed before the write lands: a watcher must never see this change
-      // arrive without knowing whose it was.
-      this.context.onWrite?.(path);
-      await writeFile(absolute(this.context.dir, path), text, "utf8");
+      // arrive without knowing whose it was, and what says whose it is are the
+      // bytes themselves — so they go with the claim. Written whole, because
+      // the same watcher reads the file straight back.
+      this.context.onWrite?.(path, text);
+      await writeFileAtomic(absolute(this.context.dir, path), text);
     }
   }
 
