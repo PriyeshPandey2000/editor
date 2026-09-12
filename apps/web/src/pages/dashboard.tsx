@@ -3,7 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 import { useSearchParams } from "@solidjs/router";
-import { Match, Show, Switch, createEffect, createSignal } from "solid-js";
+import { Match, Show, Switch, createEffect, createSignal, onMount } from "solid-js";
 
 import { DashboardAccountView } from "@/components/dashboard/account-view";
 import { DashboardAiCreditsView } from "@/components/dashboard/ai-credits-view";
@@ -11,9 +11,11 @@ import { DashboardBillingView } from "@/components/dashboard/billing-view";
 import { DashboardGetDesktopApp } from "@/components/dashboard/get-desktop-app";
 import { DashboardHelpView } from "@/components/dashboard/help-view";
 import { DashboardHomeView } from "@/components/dashboard/home-view";
+import { DashboardMcpView } from "@/components/dashboard/mcp-view";
 import { DashboardProjectsView } from "@/components/dashboard/projects-view";
 import { DashboardSettingsView } from "@/components/dashboard/settings-view";
 import {
+  DashboardSidebarConnectCard,
   DashboardSidebarHeader,
   DashboardSidebarItem,
   DashboardSidebarNav,
@@ -23,6 +25,8 @@ import {
 } from "@/components/dashboard/sidebar";
 import { Separator } from "@/components/ui/separator";
 import { useFullscreenState } from "@/hooks/use-fullscreen-state";
+import { connectedAgents, fetchMcpStatus } from "@/lib/mcp";
+import { isDesktop } from "@/projects";
 
 import type { DashboardView } from "@/components/dashboard/types";
 
@@ -34,6 +38,7 @@ const DASHBOARD_VIEWS: readonly DashboardView[] = [
   "billing",
   "account",
   "settings",
+  "mcp",
   "preferences",
   "help",
 ];
@@ -42,6 +47,7 @@ const DASHBOARD_VIEWS: readonly DashboardView[] = [
 const SETTINGS_VIEWS: readonly DashboardView[] = [
   "account",
   "settings",
+  "mcp",
   "ai-credits",
   "billing",
   "help",
@@ -66,14 +72,26 @@ export function DashboardPage() {
   // Which navigation the sidebar shows. Landing on a settings view (deep link,
   // reload) opens the settings navigation; the user row opens it by itself.
   const [settingsNavOpen, setSettingsNavOpen] = createSignal(isSettingsView(view()));
+
   createEffect(() => {
-    if (isSettingsView(view())) setSettingsNavOpen(true);
+    if (isSettingsView(view())) {
+      setSettingsNavOpen(true);
+    }
   });
 
   const openProfile = () => {
     setSettingsNavOpen(true);
     setView("account");
   };
+  const openAgentSetup = () => {
+    setSettingsNavOpen(true);
+    setView("mcp");
+  };
+
+  onMount(() => fetchMcpStatus().catch(() => { }));
+
+  const showConnectCard = () => isDesktop() && connectedAgents() === 0;
+
   const backToDashboard = () => {
     setSettingsNavOpen(false);
     if (isSettingsView(view())) setView("home");
@@ -88,7 +106,13 @@ export function DashboardPage() {
         <Show when={!settingsNavOpen()} fallback={<DashboardSidebarTopSpacer />}>
           <DashboardSidebarHeader />
         </Show>
-        <DashboardSidebarNav>
+        <DashboardSidebarNav
+          footer={
+            <Show when={!settingsNavOpen() && showConnectCard()}>
+              <DashboardSidebarConnectCard onInstall={openAgentSetup} />
+            </Show>
+          }
+        >
           <Show
             when={settingsNavOpen()}
             fallback={
@@ -104,6 +128,7 @@ export function DashboardPage() {
             <DashboardSidebarSection title="Settings">
               <DashboardSidebarItem active={view() === "account"} onClick={() => setView("account")} icon="user" label="Account" />
               <DashboardSidebarItem active={view() === "settings"} onClick={() => setView("settings")} icon="settings" label="General" />
+              <DashboardSidebarItem active={view() === "mcp"} onClick={() => setView("mcp")} icon="ai-mcp-cli" label="MCP & CLI" />
               <DashboardSidebarItem active={view() === "ai-credits"} onClick={() => setView("ai-credits")} icon="ai-generate" label="AI credits" />
               <DashboardSidebarItem active={view() === "billing"} onClick={() => setView("billing")} icon="billing" label="Billing" />
               <DashboardSidebarItem active={view() === "help"} onClick={() => setView("help")} icon="help" label="Help" />
@@ -134,6 +159,9 @@ export function DashboardPage() {
           </Match>
           <Match when={view() === "settings"}>
             <DashboardSettingsView />
+          </Match>
+          <Match when={view() === "mcp"}>
+            <DashboardMcpView />
           </Match>
           <Match when={view() === "help"}>
             <DashboardHelpView />

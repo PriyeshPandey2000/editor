@@ -10,6 +10,7 @@ import { z } from "zod";
 import { version } from "../../../package.json";
 import { MCP_URL, toolByName } from "@diffusionstudio/dapi";
 import { APP_NAME, call, isAppDown, launchApp, ping, waitForApp } from "./cli-client";
+import { runProxy } from "./mcp-proxy";
 
 import type { GenericTool, ToolInput, ToolName } from "@diffusionstudio/dapi";
 
@@ -87,6 +88,13 @@ program
     await (launched ? waitForApp() : ping()).catch(appError);
     if (path !== undefined) await run("open", { dir: resolve(path) });
   });
+
+program
+  .command("mcp")
+  .description(
+    `Serve ${APP_NAME}'s MCP server over stdio, for agents that cannot connect to it by URL (Claude Desktop). Launches the app in the background if it is not running. Agents that speak Streamable HTTP should use ${MCP_URL} directly.`,
+  )
+  .action(() => runProxy().catch(appError));
 
 program
   .command("context")

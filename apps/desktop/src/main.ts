@@ -11,6 +11,8 @@ import type { FileHandle } from "node:fs/promises";
 import { updateElectronApp } from "update-electron-app";
 import { DapiServer } from "./dapi/server";
 import { agentChatEndpoint, deleteProjectChats, startAgentChat, stopAgentChat } from "./agent-chat";
+import { cliStatus, installCli, uninstallCli } from "./cli-install";
+import { applyMcp, healMcpRegistrations, mcpStatus } from "./mcp-install";
 import { enableHeadless } from "./headless";
 import { pruneLegacySkills } from "./skills-cleanup";
 import { trackInstall } from "./analytics";
@@ -298,6 +300,11 @@ if (app.requestSingleInstanceLock()) {
   });
   mainBridge.handle(MAIN_CHANNELS.LOGS_GET, () => logBuffer);
   mainBridge.handle(MAIN_CHANNELS.AGENT_CHAT_ENDPOINT, () => agentChatEndpoint());
+  mainBridge.handle(MAIN_CHANNELS.MCP_STATUS, () => mcpStatus());
+  mainBridge.handle(MAIN_CHANNELS.MCP_APPLY, (request) => applyMcp(request));
+  mainBridge.handle(MAIN_CHANNELS.CLI_STATUS, () => cliStatus());
+  mainBridge.handle(MAIN_CHANNELS.CLI_INSTALL, () => installCli());
+  mainBridge.handle(MAIN_CHANNELS.CLI_UNINSTALL, () => uninstallCli());
   mainBridge.handle(MAIN_CHANNELS.PROJECTS_PICK_ROOT, () => pickRoot(mainWindow));
   mainBridge.handle(MAIN_CHANNELS.PROJECTS_PICK_FOLDER, () => pickFolder(mainWindow));
   mainBridge.handle(MAIN_CHANNELS.PROJECTS_DEFAULT_ROOT, () => defaultRoot(mainWindow));
@@ -390,6 +397,7 @@ if (app.requestSingleInstanceLock()) {
       }),
     );
     pruneLegacySkills();
+    healMcpRegistrations();
     trackInstall();
     createWindow(!isHiddenLaunch(process.argv));
   });

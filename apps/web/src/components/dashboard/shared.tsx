@@ -60,6 +60,7 @@ export function DashboardSurfaceCard(props: DashboardSurfaceCardProps) {
 
 type DashboardTitledSectionProps = {
   title: string;
+  description?: string;
   class?: string;
   children: JSX.Element;
 };
@@ -68,8 +69,13 @@ type DashboardTitledSectionProps = {
 export function DashboardTitledSection(props: DashboardTitledSectionProps) {
   return (
     <section class={cx("flex flex-col", props.class)}>
-      <div class={cx("flex h-9 items-center px-2 text-sm leading-5 font-450 text-foreground", props.class)}>
-        {props.title}
+      <div class="p-2 gap-1 flex flex-col">
+        <span class={cx("flex items-center text-sm leading-5 font-450 text-foreground", props.class)}>
+          {props.title}
+        </span>
+        <Show when={props.description}>
+          <p class="pb-1 text-xs text-muted-foreground">{props.description}</p>
+        </Show>
       </div>
       {props.children}
     </section>
@@ -78,13 +84,14 @@ export function DashboardTitledSection(props: DashboardTitledSectionProps) {
 
 type DashboardSurfaceSectionProps = {
   title: string;
+  description?: string;
   class?: string;
   children: JSX.Element;
 };
 
 export function DashboardSurfaceSection(props: DashboardSurfaceSectionProps) {
   return (
-    <DashboardTitledSection title={props.title} class={props.class}>
+    <DashboardTitledSection title={props.title} description={props.description} class={props.class}>
       <DashboardSurfaceCard class="flex flex-col gap-3">
         {props.children}
       </DashboardSurfaceCard>

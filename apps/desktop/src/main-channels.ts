@@ -11,6 +11,7 @@
 // @diffusionstudio/dapi), in the other direction: main asks, the renderer answers.
 import type { LogEntry, ScreenshotResult } from "@diffusionstudio/dapi";
 import type { SourceEdit, WriteResult } from "./edit-types";
+import type { AgentId } from "./mcp-config";
 
 export const MAIN_WIRE = {
   REQUEST: "main:request",
@@ -63,6 +64,11 @@ export const MAIN_CHANNELS = {
   PROJECTS_FS_REMOVE: "projects:fs-remove",
   PROJECTS_FS_REAL_PATH: "projects:fs-real-path",
   AGENT_CHAT_ENDPOINT: "agent-chat:endpoint",
+  MCP_STATUS: "mcp:status",
+  MCP_APPLY: "mcp:apply",
+  CLI_STATUS: "cli:status",
+  CLI_INSTALL: "cli:install",
+  CLI_UNINSTALL: "cli:uninstall",
 
   // Main→Renderer events
   AUTH_CALLBACK: "auth:callback",
@@ -101,6 +107,59 @@ export type CompileResult =
   { ok: true; code: string } | { ok: false; error: string };
 
 export type { SourceEdit, WriteResult };
+export type { AgentId };
+
+// One agent the settings page lists: whether it is set up on this machine,
+// whether its config already carries the app's MCP entry, and — for the
+// agents that need the bundled `dapi` binary — why this build cannot
+// connect it (null when it can).
+export type McpAgentStatus = {
+  id: AgentId;
+  label: string;
+  detected: boolean;
+  connected: boolean;
+  /** Absolute path of the config file the entry goes into. */
+  config: string;
+  unavailable: string | null;
+};
+
+/** `url` is the HTTP endpoint any other agent can be pointed at by hand. */
+export type McpStatus = { url: string; agents: McpAgentStatus[] };
+
+export type McpApplyRequest = { add: AgentId[]; remove: AgentId[] };
+
+// Per agent: written, taken out, or left as it was with the reason.
+export type McpApplyResult = {
+  added: AgentId[];
+  removed: AgentId[];
+  failures: { id: AgentId; error: string }[];
+};
+
+// Where the `dapi` command stands. `managed` means what is there is a
+// symlink (the app's own, or the dev workflow's Homebrew link), which
+// "Uninstall" can remove; `available` that this build can create the app's
+// link (a dev build cannot: that is `npm run symlink:create`).
+export type CliStatus = {
+  installed: boolean;
+  path: string | null;
+  managed: boolean;
+  available: boolean;
+};
+
+// Outcome of linking the bundled dapi CLI into PATH. "cancelled" means the
+// user dismissed the macOS admin prompt — not an error, not installed.
+export type CliInstallResult =
+  | { status: "installed" }
+  | { status: "cancelled" }
+  | { status: "error"; error: string };
+
+// Outcome of taking the symlink back out. "absent" means there was none to
+// remove; "cancelled" that the admin prompt was dismissed and it stays.
+export type CliUninstallResult =
+  | { status: "removed" }
+  | { status: "absent" }
+  | { status: "cancelled" }
+  | { status: "error"; error: string };
 
 export type MainChannel = (typeof MAIN_CHANNELS)[keyof typeof MAIN_CHANNELS];
 
@@ -250,6 +309,14 @@ export type MainRequestMap = {
     request: void;
     response: { url: string } | null;
   };
+  // The app's MCP server in the agents' configs (see mcp-install.ts), and
+  // the `dapi` command on PATH (see cli-install.ts). The install/uninstall
+  // calls put the macOS admin prompt on screen.
+  [MAIN_CHANNELS.MCP_STATUS]: { request: void; response: McpStatus };
+  [MAIN_CHANNELS.MCP_APPLY]: { request: McpApplyRequest; response: McpApplyResult };
+  [MAIN_CHANNELS.CLI_STATUS]: { request: void; response: CliStatus };
+  [MAIN_CHANNELS.CLI_INSTALL]: { request: void; response: CliInstallResult };
+  [MAIN_CHANNELS.CLI_UNINSTALL]: { request: void; response: CliUninstallResult };
 };
 
 export type FsEntry = {

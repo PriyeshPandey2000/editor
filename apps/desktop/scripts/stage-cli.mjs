@@ -5,7 +5,9 @@
 // Stages the dapi CLI into apps/desktop/cli so electron-forge can ship it as
 // an app resource (Contents/Resources/cli). The staged layout:
 //   cli/dapi.js        bundled CLI (built by apps/cli), self-contained
-//   cli/bin/dapi       shell wrapper: the file that gets linked into PATH
+//   cli/bin/dapi       shell wrapper: what Claude Desktop runs as `dapi mcp`
+//                      (registered by mcp-install.ts) and the file that gets
+//                      linked into PATH
 
 import { chmodSync, cpSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
@@ -22,7 +24,7 @@ cpSync(join(cliDir, "dist", "index.js"), join(stageDir, "dapi.js"));
 
 // The wrapper runs the CLI bundle on the app's own Electron binary in Node
 // mode, so users need no separate Node install. It resolves symlinks first
-// because Homebrew links it into PATH.
+// because both Homebrew and the in-app installer link it into PATH.
 const wrapper = `#!/bin/sh
 SELF="$0"
 while [ -L "$SELF" ]; do
