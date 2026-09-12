@@ -3,12 +3,11 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 import { execFile } from "node:child_process";
-import { connect } from "node:net";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
-import { SOCKET_PATH, SocketTransport } from "@diffusionstudio/dapi/socket";
+import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
+import { MCP_URL } from "@diffusionstudio/dapi";
 import { version } from "../../../package.json";
 
-import type { Socket } from "node:net";
 import type { ToolInput, ToolName, ToolOutput } from "@diffusionstudio/dapi";
 
 export const APP_NAME = "Diffusion Studio";
@@ -23,15 +22,15 @@ const TIMEOUTS: Record<string, number> = {
 };
 
 /**
- * Calls one tool in the running app over an MCP session on its socket.
- * Typed by the catalog: the input is what the tool's schema accepts, the
- * output its structured content. One session per call; a command makes one
- * or two, and the process exits when it settles.
+ * Calls one tool in the running app over an MCP session on its HTTP
+ * endpoint — the same URL agents register. Typed by the catalog: the input is
+ * what the tool's schema accepts, the output its structured content. One
+ * session per call; a command makes one or two, and the process exits when
+ * it settles.
  */
 export async function call<N extends ToolName>(name: N, input: ToolInput<N>): Promise<ToolOutput<N>> {
-  const client = new Client({ name: "dapi", version });
+  const client = await connect();
   try {
-    await client.connect(new SocketTransport(await openSocket()));
     const result = await client.callTool({ name, arguments: input as Record<string, unknown> }, undefined, {
       timeout: TIMEOUTS[name] ?? 60_000,
     });
@@ -50,37 +49,39 @@ export async function call<N extends ToolName>(name: N, input: ToolInput<N>): Pr
 
 /** Liveness: a round-trip through the app's MCP server. */
 export async function ping(): Promise<void> {
-  const client = new Client({ name: "dapi", version });
+  const client = await connect();
   try {
-    await client.connect(new SocketTransport(await openSocket()));
     await client.ping();
   } finally {
     await client.close().catch(() => {});
   }
 }
 
-// Connecting is where "the app is not running" shows up, as ENOENT (no
-// socket file) or ECONNREFUSED (a stale one); see `isAppDown`.
-export function openSocket(): Promise<Socket> {
-  return new Promise((resolve, reject) => {
-    const socket = connect(SOCKET_PATH);
-    socket.once("connect", () => {
-      socket.off("error", reject);
-      resolve(socket);
-    });
-    socket.once("error", reject);
-  });
+// Connecting is where "the app is not running" shows up: the `initialize`
+// request's fetch is refused, see `isAppDown`.
+async function connect(): Promise<Client> {
+  const client = new Client({ name: "dapi", version });
+  await client.connect(new StreamableHTTPClientTransport(new URL(MCP_URL)));
+  return client;
 }
 
+/**
+ * Nothing is listening on the app's port. Node's fetch reports that as a
+ * `fetch failed` TypeError whose cause carries the errno, so the chain of
+ * causes is searched.
+ */
 export function isAppDown(e: unknown): boolean {
-  const code = (e as NodeJS.ErrnoException | undefined)?.code;
-  return code === "ENOENT" || code === "ECONNREFUSED";
+  for (let error = e, depth = 0; error && depth < 5; error = (error as { cause?: unknown }).cause, depth++) {
+    const code = (error as NodeJS.ErrnoException).code;
+    if (code === "ECONNREFUSED" || code === "ECONNRESET") return true;
+  }
+  return false;
 }
 
 /**
  * Launches the app, or surfaces the running instance: `open -a` on a running
  * app only activates it, so this is safe to always run. macOS only; elsewhere
- * it resolves false and the caller falls through to the socket.
+ * it resolves false and the caller falls through to the connection.
  */
 export function launchApp(background: boolean): Promise<boolean> {
   if (process.platform !== "darwin") return Promise.resolve(false);
@@ -90,8 +91,7 @@ export function launchApp(background: boolean): Promise<boolean> {
 
 /**
  * Bridges the cold-start gap after launching the app: retries while the app
- * looks down, until it answers a ping (a cold app binds the socket before
- * its session is ready, so connecting alone proves nothing).
+ * looks down, until it answers a ping.
  */
 export async function waitForApp(timeoutMs = 30000): Promise<void> {
   const start = Date.now();

@@ -9,7 +9,7 @@ import { cp, mkdir, readdir, readFile, realpath, rename, rm, stat, writeFile } f
 import { createRequire } from "node:module";
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { nanoid } from "nanoid";
-import { MCP_URL } from "@diffusionstudio/dapi/socket";
+import { MCP_URL } from "@diffusionstudio/dapi";
 import { parse as parseYaml, stringify as stringifyYaml } from "yaml";
 
 import type { PluginItem, TransformOptions } from "@babel/core";

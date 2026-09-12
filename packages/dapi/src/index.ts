@@ -2,8 +2,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// Free of Node built-ins on purpose: the renderer imports this. The socket
-// path, which needs node:os, lives in `@diffusionstudio/dapi/socket`.
 
 import type { z } from "zod";
 
@@ -21,6 +19,7 @@ export type { DapiErrorCode } from "./errors";
 
 export { MAX_FRAMES_PER_SHEET, Bytes } from "./schemas";
 
+export { MCP_HOST, MCP_PORT, MCP_PATH, MCP_URL } from "./mcp";
 export { DAPI_WIRE } from "./ipc";
 export type { DapiCall, DapiCancel, DapiReply } from "./ipc";
 export { FRAME_CAP } from "./tools/media-grab";

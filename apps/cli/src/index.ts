@@ -8,10 +8,8 @@ import { isAbsolute, resolve } from "node:path";
 import { Command } from "commander";
 import { z } from "zod";
 import { version } from "../../../package.json";
-import { toolByName } from "@diffusionstudio/dapi";
-import { MCP_URL } from "@diffusionstudio/dapi/socket";
+import { MCP_URL, toolByName } from "@diffusionstudio/dapi";
 import { APP_NAME, call, isAppDown, launchApp, ping, waitForApp } from "./cli-client";
-import { runProxy } from "./mcp-proxy";
 
 import type { GenericTool, ToolInput, ToolName } from "@diffusionstudio/dapi";
 
@@ -74,18 +72,8 @@ program
   .description(
     `The Diffusion Studio CLI: understand, generate, and edit footage.
 Analyze video/audio/images, generate them with AI, and compose assets.
-Use for any media analysis, media generation, or video editing task. No ffmpeg needed.
-
-Every command wraps one tool of the running app's MCP server, which agents reach at ${MCP_URL} once the app runs (\`dapi open\`).`,
-  )
+Use for any media analysis, media generation, or video editing task. No ffmpeg needed.`)
   .version(version);
-
-program
-  .command("mcp")
-  .description(
-    `Serve the app's MCP server on stdio, for agents that cannot connect over HTTP (Claude Desktop). Every other agent should register the URL ${MCP_URL} instead, which the running app serves — \`dapi open\` starts it. Register this with \`claude mcp add dapi -- dapi mcp\` (or the equivalent entry in the agent's MCP config) and the agent gets every command below as a tool, with the same descriptions. Launches ${APP_NAME} in the background if it is not running (macOS).`,
-  )
-  .action(() => runProxy().catch((e: Error) => fail(e.message)));
 
 program
   .command("open")

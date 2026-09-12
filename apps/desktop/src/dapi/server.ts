@@ -2,18 +2,14 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-import { chmodSync, existsSync, unlinkSync } from "node:fs";
-import { createServer } from "node:net";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { tools } from "@diffusionstudio/dapi";
-import { MCP_HOST, MCP_PATH, MCP_PORT, SOCKET_PATH, SocketTransport } from "@diffusionstudio/dapi/socket";
+import { MCP_HOST, MCP_PATH, MCP_PORT, tools } from "@diffusionstudio/dapi";
 import { mainHandlers } from "./handlers";
 import { DapiHttpServer } from "./http";
 import { instructions, registerPrompts } from "./docs";
 import { present, toCallToolResult, toErrorResult } from "./present";
 import { RendererCalls } from "./renderer-calls";
 
-import type { Server, Socket } from "node:net";
 import type { GenericTool, LogEntry, ToolName } from "@diffusionstudio/dapi";
 import type { MainContext, MainToolName } from "./handler";
 
@@ -35,20 +31,16 @@ export type DapiServerDeps = {
 };
 
 /**
- * The app's MCP server, on two transports over one catalog: Streamable HTTP
- * on a fixed loopback port, which agents register by URL, and the local
- * socket the `dapi` CLI uses (and `dapi mcp` proxies for agents that only
- * speak stdio). Each connection gets its own MCP session. Main-process tools
- * run here; renderer tools are forwarded over IPC and their results
- * presented (files written, small images inlined) before they go back out.
+ * The app's MCP server: Streamable HTTP on a fixed loopback port, the URL
+ * agents register and the `dapi` CLI calls. Each client gets its own MCP
+ * session over one catalog. Main-process tools run here; renderer tools are
+ * forwarded over IPC and their results presented (files written, small
+ * images inlined) before they go back out.
  */
 export class DapiServer {
   private readonly deps: DapiServerDeps;
   private readonly renderer = new RendererCalls();
-  private readonly sessions = new Set<McpServer>();
   private readonly http: DapiHttpServer;
-  private server: Server | null = null;
-  private connected = false;
   private instructionsText: string | null = null;
   private httpReady: Promise<boolean> = Promise.resolve(false);
 
@@ -64,7 +56,7 @@ export class DapiServer {
       port: MCP_PORT,
       path: MCP_PATH,
       createSession: () => this.createSession(),
-      onFirstConnection: () => this.firstConnection(),
+      onFirstConnection: () => deps.onFirstConnection(),
     });
   }
 
@@ -74,16 +66,9 @@ export class DapiServer {
   }
 
   start(): void {
-    removeStaleSocket();
     this.renderer.start();
-    this.server = createServer((socket) => void this.accept(socket));
-    this.server.on("error", (error) => console.error("[dapi] server error:", error));
-    this.server.listen(SOCKET_PATH, () => {
-      // Linux shares /tmp between users; the socket file's mode is the auth.
-      if (process.platform !== "win32") chmodSync(SOCKET_PATH, 0o600);
-    });
-    // A taken port is the one way this fails; the socket keeps the CLI and
-    // `dapi mcp` working meanwhile, so it is logged, not fatal.
+    // A taken port is the one way this fails. The app is still usable
+    // without agents, so it is logged, not fatal; `mcpUrl()` says so.
     this.httpReady = this.http.start().then(
       () => true,
       (error: Error) => {
@@ -100,31 +85,6 @@ export class DapiServer {
 
   stop(): void {
     this.http.stop();
-    for (const session of this.sessions) void session.close();
-    this.sessions.clear();
-    this.server?.close();
-    this.server = null;
-    removeStaleSocket();
-  }
-
-  private firstConnection(): void {
-    if (this.connected) return;
-    this.connected = true;
-    this.deps.onFirstConnection();
-  }
-
-  private async accept(socket: Socket): Promise<void> {
-    this.firstConnection();
-    const session = this.createSession();
-    this.sessions.add(session);
-    session.server.onclose = () => this.sessions.delete(session);
-    try {
-      await session.connect(new SocketTransport(socket));
-    } catch (error) {
-      console.error("[dapi] session failed to start:", error);
-      this.sessions.delete(session);
-      socket.destroy();
-    }
   }
 
   /** One MCP server over the whole catalog, plus the skills as prompts. The docs are plain files; the instructions say where. */
@@ -161,17 +121,5 @@ export class DapiServer {
     // Each handler takes its own parsed args; the map's union type cannot
     // express that pairing, so the call site widens.
     return (mainHandlers[name] as (args: unknown, ctx: MainContext) => Promise<unknown>)(args, ctx);
-  }
-}
-
-/**
- * A socket file left by a previous run (Unix). Safe to remove because the
- * single-instance lock guarantees no other instance of ours is running.
- */
-function removeStaleSocket(): void {
-  try {
-    if (process.platform !== "win32" && existsSync(SOCKET_PATH)) unlinkSync(SOCKET_PATH);
-  } catch {
-    // Best-effort.
   }
 }
