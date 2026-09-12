@@ -148,7 +148,7 @@ export function ChatPanel() {
         />
       </div>
 
-      <Transcript items={items()} sendCount={sendCount()} chatKey={chatId() ?? "draft"} running={running()} />
+      <Transcript items={items()} sendCount={sendCount()} chatKey={chatId() ?? "draft"} running={running()} waiting={waiting()} />
 
       <Show when={transcript().pending}>
         {(request) => <QuestionCard request={request()} onSubmit={answer} onSkip={() => answer("skip")} />}

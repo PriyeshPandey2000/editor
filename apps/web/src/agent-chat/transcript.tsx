@@ -6,11 +6,12 @@
 // they overflow: the end of the streaming text stays right above the
 // composer, a wheel-up lets go, scrolling back near the bottom pins again.
 
-import { For, createEffect, createSignal, on } from "solid-js";
+import { For, Show, createEffect, createSignal, on } from "solid-js";
 
 import type { Item } from "@diffusionstudio/agent-chat";
 
 import { ChatItem } from "./items";
+import { RunningIndicator } from "./running-indicator";
 import { createStickToBottom } from "./stick-to-bottom";
 
 type TranscriptProps = {
@@ -21,6 +22,8 @@ type TranscriptProps = {
   chatKey: string;
   /** A turn is running: the last item is where the agent is right now. */
   running: boolean;
+  /** The turn is paused on a question: the card below is the affordance, not a loader. */
+  waiting: boolean;
 };
 
 export function Transcript(props: TranscriptProps) {
@@ -36,6 +39,9 @@ export function Transcript(props: TranscriptProps) {
         <For each={props.items}>
           {(item, index) => <ChatItem item={item} active={props.running && index() === props.items.length - 1} />}
         </For>
+        <Show when={props.running && !props.waiting}>
+          <RunningIndicator last={props.items[props.items.length - 1]} />
+        </Show>
       </div>
     </div>
   );
