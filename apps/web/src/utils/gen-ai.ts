@@ -286,7 +286,7 @@ export class EditorGenAi extends GenAi {
     });
 
     try {
-      console.log(`[gen-ai] generating ${spec.type} with ${spec.model}:`, spec);
+      console.log(`[gen-ai] generating ${spec.type} with ${spec.model}`);
       const { name, results, generationId } = await this.requestGeneration(spec);
       assert(results.length > 0, "No results returned from the model");
 

@@ -337,8 +337,16 @@ if (app.requestSingleInstanceLock()) {
   );
 
   mainBridge.handle(MAIN_CHANNELS.FILE_WRITE_OPEN, async ({ path, exclusive }) => {
-    await mkdir(dirname(path), { recursive: true });
+    // The folders the write has to make are changes to the project like any
+    // other, and the watcher must not hear about ours: a generated asset
+    // landing in a project that had no `assets/` yet would otherwise come
+    // back as an outside edit and reload the library mid-write.
+    const created = await mkdir(dirname(path), { recursive: true });
     markSelfWriteAbsolute(path);
+    for (let folder = dirname(path); created !== undefined; folder = dirname(folder)) {
+      markSelfWriteAbsolute(folder);
+      if (folder === created || folder === dirname(folder)) break;
+    }
     const handle = await open(path, exclusive ? "wx" : "w");
     const id = randomUUID();
     openWrites.set(id, { handle, path });

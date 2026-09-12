@@ -226,6 +226,7 @@ export class AssetLibrary {
 	 * again. Safe to call again: it reconciles rather than replaces.
 	 */
 	public async load(): Promise<void> {
+		await this.flush();
 		const manifest = normalizeManifest(await this.fs.readManifest());
 		this.declared = new Set(manifest.folders);
 
@@ -450,11 +451,12 @@ export class AssetLibrary {
 	 * another key, as a re-take of unchanged speech does.
 	 */
 	public async store(blob: Blob, options: ImportOptions & { name: string }): Promise<Asset> {
-		const path = this.uniquePath(joinPath(options.folder ?? '', options.name));
+		const key = options.generation?.key;
+		const reserved = key === undefined ? undefined : this.partialFor(key);
+		const path = this.uniquePath(joinPath(options.folder ?? '', options.name), reserved);
 		const source = joinPath(ASSETS_DIR, path);
 		await this.fs.write(source, blob);
 		const asset = await this.describeFile(source, { path, generation: options.generation });
-		const key = options.generation?.key;
 		if (key !== undefined) this.dropPartial(key);
 		const stored = this.add(asset);
 		if (options.generation && stored.generation?.key !== key) {
@@ -506,6 +508,11 @@ export class AssetLibrary {
 		current.state = 'error';
 		current.error = error;
 		this.changed();
+	}
+
+	/** The partial document standing for `key`, if one is in the library. */
+	private partialFor(key: string): PartialAsset | undefined {
+		return this.partialsNow().find((partial) => partial.generation.key === key);
 	}
 
 	/** Takes the partial standing for `key` out, its bytes having landed. */
