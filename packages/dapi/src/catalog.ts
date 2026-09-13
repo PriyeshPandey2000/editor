@@ -22,7 +22,6 @@ import { mediaFilmstrip } from "./tools/media-filmstrip";
 import { mediaWaveform } from "./tools/media-waveform";
 import { mediaListen } from "./tools/media-listen";
 import { fonts } from "./tools/fonts";
-import { fetchVideo } from "./tools/fetch";
 import { report } from "./tools/report";
 
 /**
@@ -48,7 +47,6 @@ export const catalog = [
   logs,
   screenshot,
   fonts,
-  fetchVideo,
   report,
 ] as const;
 

@@ -49,7 +49,6 @@ Every tool runs inside the app, so the app has to be running. Over MCP that is a
 | [`logs`](./logs.md) | `dapi logs` | App logs |
 | [`screenshot`](./screenshot.md) | `dapi screenshot` | Window screenshot |
 | [`fonts`](./fonts.md) | `dapi fonts` | Local fonts |
-| [`fetch`](./fetch.md) | `dapi fetch` | Fetch video |
 | [`report`](./report.md) | `dapi report` | Report a bug |
 
 How the surface is divided:
@@ -57,7 +56,11 @@ How the surface is divided:
 - **The project loop.** [`open`](./open.md) a folder, edit its JSX, [`context`](./context.md) for what the source cannot say, [`capture`](./capture.md) and [`check`](./check.md) to verify, [`export`](./export.md) when asked.
 - **Media inspection** (`media_*`): a file by path, without adding it to the project. Absolute paths and URLs work with or without an open project; library paths (`b-roll/clip.mp4`) need one.
 - **What a declaration may name.** [`models`](./models.md), [`voices`](./voices.md), [`fonts`](./fonts.md). Generation itself is declared in the project module (`generate.*`, see [jsx/generate.md](../jsx/generate.md)); no tool generates.
-- **The app and the machine.** [`whoami`](./whoami.md), [`logs`](./logs.md), [`screenshot`](./screenshot.md), [`report`](./report.md), and [`fetch`](./fetch.md) for downloads.
+- **The app and the machine.** [`whoami`](./whoami.md), [`logs`](./logs.md), [`screenshot`](./screenshot.md), [`report`](./report.md).
+
+## Downloading footage
+
+There is no download tool, and none is needed: run **[yt-dlp](https://github.com/yt-dlp/yt-dlp)** from a shell. It handles YouTube, TikTok, Instagram, Vimeo, X, direct media links and most other sites, and a download that lands under the project's `assets/` folder is a library asset (see [jsx/media.md](../jsx/media.md)).
 
 ## Shared types
 

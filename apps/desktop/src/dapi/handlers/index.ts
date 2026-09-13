@@ -4,10 +4,9 @@
 
 import { logs } from "./logs";
 import { fonts } from "./fonts";
-import { fetchVideo } from "./fetch";
 import { report } from "./report";
 
 import type { MainHandlers } from "../handler";
 
 /** Every tool main answers itself, keyed by its catalog name. */
-export const mainHandlers: MainHandlers = { logs, fonts, fetch: fetchVideo, report };
+export const mainHandlers: MainHandlers = { logs, fonts, report };

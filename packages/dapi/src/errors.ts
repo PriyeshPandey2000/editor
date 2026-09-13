@@ -22,7 +22,7 @@ export type DapiErrorCode =
   | "busy"
   /** The tool needs a signed-in account. */
   | "sign-in-required"
-  /** The platform or an external binary (yt-dlp, gh, osascript) cannot do it. */
+  /** The platform or an external binary (gh, osascript) cannot do it. */
   | "unsupported"
   /** The caller or the app canceled the operation. */
   | "canceled";

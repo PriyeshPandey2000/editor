@@ -8,10 +8,10 @@ Write the brief first: the source URL or file, how many clips are wanted, the ta
 
 ## 2. Audio-only pass
 
-Download the audio track alone with `fetch` (`audio: true`, `output: podcast.m4a`). It is a fraction of the bytes, and the best moments are found without visuals. From a shell:
+Download the audio track alone with [yt-dlp](https://github.com/yt-dlp/yt-dlp). It is a fraction of the bytes, and the best moments are found without visuals:
 
 ```bash
-dapi fetch <url> -a -o podcast.m4a
+yt-dlp -x --audio-format m4a -o podcast.m4a <url>
 ```
 
 ## 3. Segment the audio
@@ -41,14 +41,19 @@ The analysis gives you seconds; a clip needs the frame. Tighten both ends agains
 
 ## 6. Download the segment and lay it out
 
-Now fetch the video, and **download with padding** — a few seconds either side of the locked range — so the trim can still be nudged without downloading again.
+Now download the video, and **download with padding** — a few seconds either side of the locked range — so the trim can still be nudged without downloading again. `--download-sections` fetches just that range:
+
+```bash
+yt-dlp -f "bv*[ext=mp4]+ba[ext=m4a]/b[ext=mp4]/bv*+ba/b" --merge-output-format mp4 \
+  --download-sections "*41:08-41:48" -o assets/a-roll/clip-raw.mp4 <url>
+```
 
 `media_probe` on the download gives the source dimensions (a podcast is almost always 1920×1080) and confirms where the padded range actually starts, since a keyframe-aligned download can begin slightly early.
 
 Give the node the **source's own aspect ratio**, scaled to the scene height, rather than the scene's box: the node is then wider than the scene, and the scene crops it. That geometry is what makes the framing in the next step possible.
 
 ```tsx
-const raw = "/Downloads/clip-raw.mp4";
+const raw = "a-roll/clip-raw.mp4"; // library path: the download landed under assets/
 
 // Locked range, expressed in the padded download's own time.
 const IN = 6.4;   // first word of the hook

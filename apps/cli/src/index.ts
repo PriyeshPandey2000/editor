@@ -257,20 +257,6 @@ program
   .option("-l, --limit <n>", field("fonts", "limit"), numeric)
   .action((opts: ToolInput<"fonts">) => run("fonts", opts));
 
-program
-  .command("fetch")
-  .description(describe("fetch"))
-  .argument("<url>", field("fetch", "url"))
-  .option("-o, --output <path>", field("fetch", "output"))
-  .option("-f, --format <selector>", field("fetch", "format"))
-  .option("-a, --audio", field("fetch", "audio"))
-  .allowExcessArguments()
-  .addHelpText("after", `\nForward raw yt-dlp flags after --, e.g. dapi fetch <url> -- --sponsorblock-remove all`)
-  .action((url: string, opts: Omit<ToolInput<"fetch">, "url" | "raw">, cmd: Command) =>
-    // `raw` is every operand after `url` — the yt-dlp passthrough placed after `--`.
-    run("fetch", { url, ...opts, raw: cmd.args.slice(1), output: opts.output && resolve(opts.output) }),
-  );
-
 // Explicit argv convention: the packaged wrapper runs this bundle on
 // Electron in ELECTRON_RUN_AS_NODE mode, where commander would otherwise
 // detect Electron and drop the script path from argv.

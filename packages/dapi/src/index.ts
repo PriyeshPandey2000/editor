@@ -83,5 +83,4 @@ export type MediaWaveformResult = ToolResult<"media_waveform">;
 export type MediaListenRequest = ToolArgs<"media_listen">;
 export type MediaListenResult = ToolResult<"media_listen">;
 export type FontsRequest = ToolArgs<"fonts">;
-export type FetchRequest = ToolArgs<"fetch">;
 export type ReportRequest = ToolArgs<"report">;

@@ -481,7 +481,6 @@ const SCRIPTS: Record<string, string> = {
   logs: "dapi logs",
   screenshot: "dapi screenshot",
   report: "dapi report",
-  fetch: "dapi fetch",
 };
 
 const packageJson = (name: string, displayName: string): PackageJson => ({
@@ -629,7 +628,7 @@ yourself with \`npx tsc --noEmit\`.
 
 Every dapi command is a script here: \`npm run\` lists them, and
 \`npm run <name> -- <args>\` runs one (\`npm run grab -- b-roll/drone.mp4 -c 6\`).
-All of them talk to the running app, except \`fonts\` and \`fetch\`.
+All of them talk to the running app, except \`fonts\`.
 
 | Script | Command | What it does |
 | ------ | ------- | ------------ |
@@ -649,7 +648,6 @@ All of them talk to the running app, except \`fonts\` and \`fetch\`.
 | \`logs\` | \`dapi logs\` | Recent console output from the app. |
 | \`screenshot\` | \`dapi screenshot\` | The whole app window as a PNG. |
 | \`report\` | \`dapi report <title>\` | File a bug against the editor, with diagnostics attached. |
-| \`fetch\` | \`dapi fetch <url>\` | Download a video with yt-dlp (installed separately). |
 
 ## Reference
 

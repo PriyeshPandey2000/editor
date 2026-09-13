@@ -27,14 +27,14 @@ export type { AgentId, McpAgentStatus, McpStatus, CliStatus } from "@desktop/mai
 
 /** The icon each agent is drawn with, by the name in `assets/icons`. */
 export const AGENT_ICONS: Record<AgentId, string> = {
-  "claude-code": "claude-code",
+  "claude-code": "agent.claude-code",
   "claude-desktop": "claude",
-  cursor: "agent-cursor",
-  vscode: "github-copilot",
-  codex: "codex",
-  antigravity: "antigravity",
-  "gemini-cli": "gemini-cli",
-  windsurf: "windsurf",
+  cursor: "agent.cursor",
+  vscode: "agent.vscode-copilot",
+  codex: "agent.codex",
+  antigravity: "agent.google-antigravity",
+  "gemini-cli": "agent.google-gemini-cli",
+  windsurf: "agent.devin-windsurf",
 };
 
 const [connectedAgents, setConnectedAgents] = createSignal<number | null>(null);

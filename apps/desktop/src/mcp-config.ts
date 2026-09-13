@@ -86,7 +86,7 @@ export const AGENT_TARGETS: readonly AgentTarget[] = [
   { id: "codex", label: "Codex", marker: ".codex", config: ".codex/config.toml", format: "toml", entry: http("url") },
   { id: "antigravity", label: "Antigravity", marker: ".gemini/antigravity", config: ".gemini/config/mcp_config.json", format: "mcpServers", entry: http("serverUrl") },
   { id: "gemini-cli", label: "Gemini CLI", marker: ".gemini", config: ".gemini/settings.json", format: "mcpServers", entry: http("httpUrl") },
-  { id: "windsurf", label: "Windsurf", marker: ".codeium/windsurf", config: ".codeium/windsurf/mcp_config.json", format: "mcpServers", entry: http("serverUrl") },
+  { id: "windsurf", label: "Devin (Windsurf)", marker: ".codeium/windsurf", config: ".codeium/windsurf/mcp_config.json", format: "mcpServers", entry: http("serverUrl") },
 ];
 
 export function agentTarget(id: AgentId): AgentTarget {
