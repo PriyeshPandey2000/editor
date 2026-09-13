@@ -15,7 +15,6 @@ import { agentChatEndpoint, deleteProjectChats, startAgentChat, stopAgentChat } 
 import { cliStatus, installCli, uninstallCli } from "./cli-install";
 import { applyMcp, healMcpRegistrations, mcpStatus } from "./mcp-install";
 import { enableHeadless } from "./headless";
-import { pruneLegacySkills } from "./skills-cleanup";
 import { trackInstall } from "./analytics";
 import { setupAppMenu } from "./menu";
 import { mainBridge } from "./main-manager";
@@ -424,7 +423,6 @@ if (app.requestSingleInstanceLock()) {
         version: app.getVersion(),
       }),
     );
-    pruneLegacySkills();
     healMcpRegistrations();
     trackInstall();
     createWindow(!isHiddenLaunch(process.argv));
