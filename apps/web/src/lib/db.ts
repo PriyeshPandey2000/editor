@@ -4,7 +4,6 @@
 
 import { openDB } from 'idb';
 import type * as idb from 'idb';
-import { nanoid } from 'nanoid';
 
 const adjectives = ["Golden", "Silent", "Fast", "Bright", "Dark", "Wild", "Calm"];
 const nouns = ["River", "Mountain", "Dream", "Storm", "Sunset", "Forest", "Ocean"];
@@ -23,32 +22,16 @@ export function generateProjectName(): string {
 }
 
 /**
- * A folder new projects are created in (desktop; see @/projects). A path
- * rather than a handle: on desktop the main process does the creating, and
- * it takes paths. Creating is the folder's one job — nothing looks inside it.
- * The projects the app shows are the ones it has on record (`ProjectRecord`),
- * wherever they live.
+ * A project the app knows: one it created, one it was asked to open — from
+ * the folder picker, or `dapi open <path>` — or one found in the projects
+ * root when that was chosen. The dashboard lists these and nothing else.
+ * Keyed by folder, which is how main addresses a project. The id is a copy of
+ * what the folder's package.json said last time — enough to find the folder
+ * a URL names without reading every record's package.json — and the folder
+ * has the final say (see `resolveProject` in @/projects).
  *
- * Stored as a list because there will be several. The app works against one
- * at a time for now — the most recently used, so no separate "active" flag
- * can end up pointing at a root that was removed.
- */
-export interface ProjectRoot {
-  id: string;
-  path: string; // Absolute path of the folder.
-  name: string;
-  createdAt: string;
-  lastUsedAt: string;
-}
-
-/**
- * A project the app knows: one it created, or one it was asked to open — from
- * the folder picker, or `dapi open <path>`. The dashboard lists these and
- * nothing else; the disk is never searched for projects. Keyed by folder,
- * which is how main addresses a project. The id is a copy of what the
- * folder's package.json said last time — enough to find the folder a URL
- * names without reading every record's package.json — and the folder has the
- * final say (see `resolveProject` in @/projects).
+ * The projects root itself is not in here: there is one, so it lives in
+ * localStorage (see @/projects).
  */
 export interface ProjectRecord {
   dir: string; // Absolute path of the project folder.
@@ -71,14 +54,6 @@ export interface ProjectBundle {
 }
 
 export interface GlobalDBSchema extends idb.DBSchema {
-  roots: {
-    value: ProjectRoot;
-    key: string;
-    indexes: {
-      'by-path': string;
-      'by-last-used': string;
-    };
-  };
   projects: {
     value: ProjectRecord;
     key: string;
@@ -93,16 +68,13 @@ export interface GlobalDBSchema extends idb.DBSchema {
   };
 }
 
+type UpgradeTransaction = Parameters<NonNullable<idb.OpenDBCallbacks<GlobalDBSchema>['upgrade']>>[3];
+
 const DB_NAME = 'diffusion-studio-idb';
 const DB_VERSION = 3;
 
 const dbPromise = openDB<GlobalDBSchema>(DB_NAME, DB_VERSION, {
-  async upgrade(db, oldVersion, _newVersion, tx) {
-    if (!db.objectStoreNames.contains('roots')) {
-      const store = db.createObjectStore('roots', { keyPath: 'id' });
-      store.createIndex('by-path', 'path', { unique: true });
-      store.createIndex('by-last-used', 'lastUsedAt');
-    }
+  async upgrade(db, _oldVersion, _newVersion, tx) {
     if (!db.objectStoreNames.contains('bundles')) {
       db.createObjectStore('bundles', { keyPath: 'projectId' });
     }
@@ -111,67 +83,37 @@ const dbPromise = openDB<GlobalDBSchema>(DB_NAME, DB_VERSION, {
       store.createIndex('by-id', 'id');
       store.createIndex('by-last-opened', 'lastOpenedAt');
     }
-    if (oldVersion > 0 && oldVersion < 3) {
-      const roots = tx.objectStore('roots');
-      const projects = tx.objectStore('projects');
-
-      let cursor = await roots.openCursor();
-      while (cursor) {
-        const { kind, ...root } = cursor.value as ProjectRoot & { kind?: 'multi' | 'single' };
-        if (kind === 'single') {
-          await projects.put({ dir: root.path, id: '', createdAt: root.createdAt, lastOpenedAt: root.lastUsedAt });
-          await cursor.delete();
-        } else if (kind) {
-          await cursor.update(root);
-        }
-        cursor = await cursor.continue();
-      }
-    }
+    if (db.objectStoreNames.contains('roots' as never)) await retireRoots(db, tx);
   },
 });
 
+/**
+ * Versions 1 and 2 kept a `roots` store: folders the dashboard scanned for
+ * projects (`kind: 'multi'`), and single project folders registered on their
+ * own (`kind: 'single'`). Version 3 does away with it. The single ones become
+ * project records; the multi ones are dropped — the projects root lives in
+ * localStorage now, and the projects the old one held come back on record
+ * when the user picks a root again (see `adoptProjectsRoot` in @/projects).
+ */
+async function retireRoots(db: idb.IDBPDatabase<GlobalDBSchema>, tx: UpgradeTransaction): Promise<void> {
+  type LegacyRoot = { path: string; kind?: 'multi' | 'single'; createdAt: string; lastUsedAt: string };
+  const projects = tx.objectStore('projects');
+
+  // The store is not in the schema any more, so it is addressed by name.
+  const roots = (tx as unknown as idb.IDBPTransaction<unknown, string[], 'versionchange'>).objectStore('roots');
+  for (const root of (await roots.getAll()) as LegacyRoot[]) {
+    if (root.kind !== 'single') continue;
+    await projects.put({ dir: root.path, id: '', createdAt: root.createdAt, lastOpenedAt: root.lastUsedAt });
+  }
+
+  db.deleteObjectStore('roots' as never);
+}
 
 /** Last segment of a path, whichever separator it uses. */
 const folderLabel = (path: string): string => path.split(/[\\/]/).filter(Boolean).pop() ?? path;
 
-/**
- * Records `path` as a projects root, or marks the one already recorded for
- * it as just used — which is what makes it the active one.
- */
-export async function rememberProjectRoot(path: string): Promise<ProjectRoot> {
-  const db = await dbPromise;
-  const now = new Date().toISOString();
-  const existing = await db.getFromIndex('roots', 'by-path', path);
-
-  const root: ProjectRoot = existing
-    ? { ...existing, name: folderLabel(path), lastUsedAt: now }
-    : { id: nanoid(), path, name: folderLabel(path), createdAt: now, lastUsedAt: now };
-
-  await db.put('roots', root);
-  return root;
-}
-
-/** Every projects root, most recently used first. */
-export async function listProjectRoots(): Promise<ProjectRoot[]> {
-  const db = await dbPromise;
-  return (await db.getAllFromIndex('roots', 'by-last-used')).reverse();
-}
-
-/** The root the app is working against: the one used last, or null when there is none. */
-export async function lastUsedProjectRoot(): Promise<ProjectRoot | null> {
-  const db = await dbPromise;
-  const cursor = await db
-    .transaction('roots', 'readonly')
-    .store.index('by-last-used')
-    .openCursor(null, 'prev');
-  return cursor?.value ?? null;
-}
-
-/** Forgets a projects root. The folder itself is left alone. */
-export async function forgetProjectRoot(id: string): Promise<void> {
-  const db = await dbPromise;
-  await db.delete('roots', id);
-}
+// ---------------------------------------------------------------------------
+// Project records
 
 /**
  * Puts the project in `dir` on record, or marks the one already recorded
@@ -189,6 +131,27 @@ export async function rememberProject(dir: string, id: string): Promise<ProjectR
 
   await db.put('projects', record);
   return record;
+}
+
+/**
+ * Puts every project in `found` that is not on record yet on it, leaving the
+ * ones that are alone — they were opened when they were opened. Answers with
+ * how many were new. For the projects a freshly chosen root turns out to hold.
+ */
+export async function addProjectRecords(found: Array<{ dir: string; id: string }>): Promise<number> {
+  const db = await dbPromise;
+  const now = new Date().toISOString();
+  const tx = db.transaction('projects', 'readwrite');
+  let added = 0;
+
+  for (const { dir, id } of found) {
+    if (await tx.store.getKey(dir)) continue;
+    await tx.store.put({ dir, id, createdAt: now, lastOpenedAt: now });
+    added++;
+  }
+
+  await tx.done;
+  return added;
 }
 
 /** Every project on record, most recently opened first. */
@@ -232,6 +195,9 @@ export async function forgetProject(dir: string): Promise<void> {
   const db = await dbPromise;
   await db.delete('projects', dir);
 }
+
+// ---------------------------------------------------------------------------
+// Project bundles
 
 /** Records the bundle `projectId` just mounted, replacing the one before it. */
 export async function rememberProjectBundle(projectId: string, code: string): Promise<void> {

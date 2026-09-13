@@ -8,36 +8,39 @@ import { createSignal } from 'solid-js';
 import { MAIN_CHANNELS } from '@desktop/main-channels';
 import { mainBridge } from '@/lib/ipc';
 import {
+	addProjectRecords,
 	findProjectRecords,
 	forgetProject,
-	lastUsedProjectRoot,
 	listProjectRecords,
 	moveProjectRecord,
 	rememberProject,
-	rememberProjectRoot,
 } from '@/lib/db';
 
 import type { CompileResult, ProjectInfo, SourceEdit, WriteResult } from '@desktop/main-channels';
 
 export type { CompileResult, ProjectInfo, SourceEdit, WriteResult };
 
-// The roots live in the app's IndexedDB (see @/lib/db) as a list keyed by
-// path. The app works against one of them — the one used last — but the
-// store is already the list several roots will need, so growing into them is
-// UI rather than a migration.
-//
-// Reading a database is asynchronous, so the root starts null and arrives a
-// tick later. Every call here waits for it, leaving only the UI to tell "no
-// root yet" from "no root picked" — which is what `rootsReady` is for.
+// There is one projects root, so it is one localStorage value rather than a
+// database row — read synchronously, so it is known from the first render.
+// Unset for anyone who has never picked one, and for everyone upgrading from
+// when the roots lived in the database: they get the default, or pick, the
+// next time a project is created, and the projects the old root held come
+// back with it (see `adoptProjectsRoot`).
 
-const [projectsRoot, setProjectsRoot] = createSignal<string | null>(null);
-const [rootsReady, setRootsReady] = createSignal(false);
+const ROOT_STORAGE_KEY = 'diffusion-studio:projects-root';
 
-/** The folder new projects are created in: null until one is picked, and until `rootsReady`. */
+const storedRoot = (): string | null => {
+	try {
+		return window.localStorage.getItem(ROOT_STORAGE_KEY);
+	} catch {
+		return null;
+	}
+};
+
+const [projectsRoot, setProjectsRoot] = createSignal<string | null>(storedRoot());
+
+/** The folder new projects are created in: null until one is picked. */
 export { projectsRoot };
-
-/** Whether the roots have been read back from the database yet. */
-export { rootsReady };
 
 // Bumped whenever the list of known projects changes — one created, opened,
 // renamed, copied, or deleted — so a view listing them can refetch on it.
@@ -48,35 +51,49 @@ export { projectsRevision };
 
 export const isDesktop = (): boolean => !!window.desktop;
 
-const ready = new Promise<void>((resolve) => {
-	lastUsedProjectRoot()
-		.then((root) => setProjectsRoot(root?.path ?? null))
-		.catch((error) => console.error('[projects] could not read the projects database', error))
-		.finally(() => {
-			setRootsReady(true);
-			resolve();
-		});
-});
-
 /** Puts `project` on the list (or marks it just opened) and tells the views. */
 async function remember(project: ProjectInfo): Promise<void> {
 	await rememberProject(project.dir, project.id);
 	setProjectsRevision((revision) => revision + 1);
 }
 
-/** The projects root, waited for: null off the desktop and until one is picked. */
+/**
+ * Makes `root` the projects root, and puts the projects it already holds on
+ * the list — the ones that are not on it yet; the rest were opened when they
+ * were opened. This is the one time the disk is searched for projects, and
+ * what brings a user's projects back after an upgrade that forgot the root,
+ * or a reinstall: pick the folder again, and there they are.
+ */
+async function adoptProjectsRoot(root: string): Promise<void> {
+	try {
+		window.localStorage.setItem(ROOT_STORAGE_KEY, root);
+	} catch (error) {
+		console.warn('[projects] could not store the projects root', error);
+	}
+	setProjectsRoot(root);
+
+	let found: ProjectInfo[] = [];
+	try {
+		found = await mainBridge.call(MAIN_CHANNELS.PROJECTS_SCAN, { root });
+	} catch (error) {
+		console.warn(`[projects] could not look for projects in ${root}`, error);
+	}
+	if (found.length && (await addProjectRecords(found))) {
+		setProjectsRevision((revision) => revision + 1);
+	}
+}
+
+/** The projects root: null off the desktop and until one is picked. */
 export async function getProjectsRoot(): Promise<string | null> {
-	await ready;
 	return projectsRoot();
 }
 
-/** Opens the native folder picker and remembers the chosen root. */
+/** Opens the native folder picker and adopts the chosen root. */
 export async function pickProjectsRoot(): Promise<string | null> {
 	const root = await mainBridge.call(MAIN_CHANNELS.PROJECTS_PICK_ROOT, undefined);
 	if (!root) return null;
 
-	await rememberProjectRoot(root);
-	setProjectsRoot(root);
+	await adoptProjectsRoot(root);
 	return root;
 }
 
@@ -91,13 +108,12 @@ export async function pickProjectFolder(): Promise<string | null> {
 }
 
 /**
- * The root to work against, waited for and — when there is none to wait for —
- * defaulted to. Null off the desktop, where there is no folder at all, and
- * when the user is asked where to put projects and declines to say.
+ * The root to work against, defaulted to when there is none. Null off the
+ * desktop, where there is no folder at all, and when the user is asked where
+ * to put projects and declines to say.
  */
 export async function ensureProjectsRoot(): Promise<string | null> {
 	if (!isDesktop()) return null;
-	await ready;
 
 	const current = projectsRoot();
 	if (current) return current;
@@ -108,8 +124,7 @@ export async function ensureProjectsRoot(): Promise<string | null> {
 	const root = await mainBridge.call(MAIN_CHANNELS.PROJECTS_DEFAULT_ROOT, undefined);
 	if (!root) return pickProjectsRoot();
 
-	await rememberProjectRoot(root);
-	setProjectsRoot(root);
+	await adoptProjectsRoot(root);
 	return root;
 }
 
@@ -119,7 +134,6 @@ export async function ensureProjectsRoot(): Promise<string | null> {
  * that is not mounted) is skipped, not forgotten: it may well come back.
  */
 export async function listProjects(): Promise<ProjectInfo[]> {
-	await ready;
 	if (!isDesktop()) return [];
 
 	const records = await listProjectRecords();
@@ -129,7 +143,6 @@ export async function listProjects(): Promise<ProjectInfo[]> {
 
 /** Creates a project folder under the root, named after `displayName`, and puts it on the list. */
 export async function createProject(displayName: string): Promise<ProjectInfo> {
-	await ready;
 	const root = projectsRoot();
 	if (!root) throw new Error('No projects folder selected.');
 
@@ -147,7 +160,6 @@ export async function createProject(displayName: string): Promise<ProjectInfo> {
  * here, so the app can put an id in the URL).
  */
 export async function resolveProject(ref: string): Promise<ProjectInfo | null> {
-	await ready;
 	if (!ref || !isDesktop()) return null;
 
 	for (const record of await findProjectRecords(ref)) {
@@ -168,7 +180,6 @@ export async function resolveProject(ref: string): Promise<ProjectInfo | null> {
  * `dapi open <path>` lands anywhere on disk.
  */
 export async function openProjectFolder(dir: string): Promise<ProjectInfo> {
-	await ready;
 	if (!isDesktop()) throw new Error('Opening a project folder requires the desktop app.');
 
 	const project = await mainBridge.call(MAIN_CHANNELS.PROJECTS_INIT, { dir });

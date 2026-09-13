@@ -400,6 +400,26 @@ export async function listProjects(dirs: string[]): Promise<ProjectInfo[]> {
   return projects.filter((project): project is ProjectInfo => project !== null);
 }
 
+/** Direct child folders of `root` that could hold a project, in a stable order. */
+async function childDirs(root: string): Promise<string[]> {
+  const entries = await readdir(root, { withFileTypes: true });
+  return entries
+    .filter((entry) => entry.isDirectory() && !entry.name.startsWith(".") && entry.name !== "node_modules")
+    .map((entry) => entry.name)
+    .sort()
+    .map((name) => join(root, name));
+}
+
+/**
+ * Every direct child folder of `root` that holds an entry file. The one
+ * search of the disk for projects there is: the app runs it when a projects
+ * root is chosen, to put the projects already in it on its list. Reads only.
+ */
+export async function scanProjects(root: string): Promise<ProjectInfo[]> {
+  const projects = await Promise.all((await childDirs(root)).map(describe));
+  return projects.filter((project): project is ProjectInfo => project !== null);
+}
+
 /**
  * The project in `dir`, left holding an id — this is where a folder that
  * predates ids, or was made by hand, gets one — so the caller can send the
