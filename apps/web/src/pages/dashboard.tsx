@@ -2,8 +2,9 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-import { useSearchParams } from "@solidjs/router";
-import { Match, Show, Switch, createEffect, createSignal, onMount } from "solid-js";
+import { useNavigate, useSearchParams } from "@solidjs/router";
+import { Match, Show, Switch, createEffect, createSignal, onCleanup, onMount } from "solid-js";
+import { toast } from "somoto";
 
 import { DashboardAccountView } from "@/components/dashboard/account-view";
 import { DashboardAiCreditsView } from "@/components/dashboard/ai-credits-view";
@@ -14,6 +15,7 @@ import { DashboardHomeView } from "@/components/dashboard/home-view";
 import { DashboardMcpView } from "@/components/dashboard/mcp-view";
 import { DashboardProjectsView } from "@/components/dashboard/projects-view";
 import { DashboardSettingsView } from "@/components/dashboard/settings-view";
+import { createNewProject } from "@/components/dashboard/shared";
 import {
   DashboardSidebarConnectCard,
   DashboardSidebarHeader,
@@ -25,8 +27,11 @@ import {
 } from "@/components/dashboard/sidebar";
 import { Separator } from "@/components/ui/separator";
 import { useFullscreenState } from "@/hooks/use-fullscreen-state";
+import { projectRoute } from "@/hooks/use-project-route";
+import { track } from "@/lib/analytics";
 import { connectedAgents, fetchMcpStatus } from "@/lib/mcp";
-import { isDesktop } from "@/projects";
+import { isDesktop, projectKey } from "@/projects";
+import { isInputTarget } from "@/utils";
 
 import type { DashboardView } from "@/components/dashboard/types";
 
@@ -63,8 +68,35 @@ function isSettingsView(view: DashboardView): boolean {
 }
 
 export function DashboardPage() {
+  const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
   const isFullscreen = useFullscreenState();
+
+  let creating = false;
+  const handleShortcut = async (event: KeyboardEvent) => {
+    if (!(event.metaKey || event.ctrlKey) || event.shiftKey || event.altKey) return;
+    if (event.key.toLowerCase() !== "i" || isInputTarget(event)) return;
+
+    event.preventDefault();
+    if (creating) return;
+    creating = true;
+
+    try {
+      const project = await createNewProject();
+      if (!project) return;
+      track("project_opened");
+      navigate(projectRoute(projectKey(project)));
+    } catch (e) {
+      toast.error("Failed to create project", { description: (e as Error).message });
+    } finally {
+      creating = false;
+    }
+  };
+
+  onMount(() => {
+    window.addEventListener("keydown", handleShortcut);
+    onCleanup(() => window.removeEventListener("keydown", handleShortcut));
+  });
 
   const view = (): DashboardView => parseView(params.dashboard);
   const setView = (next: DashboardView) => setParams({ dashboard: next }, { replace: true });

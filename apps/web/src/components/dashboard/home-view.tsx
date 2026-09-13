@@ -61,6 +61,7 @@ import {
   DashboardCardMeta,
   DashboardCardPreview,
   createBackgroundClickHandler,
+  createNewProject,
 } from "./shared";
 import { parseTimestamp } from "./utils";
 
@@ -251,15 +252,9 @@ export function DashboardHomeView() {
     setBusy(true);
 
     try {
-      if (!isDesktop()) {
-        toast.error("Projects on disk are only available in the desktop app");
-        return;
-      }
-      if (!(await ensureProjectsRoot())) return;
-
-      const project = await createProject(generateProjectName());
+      const project = await createNewProject();
+      if (!project) return;
       setSelectedProject(null);
-      track("project_created");
       refetchProjects();
       openProject(project);
     } catch (e) {

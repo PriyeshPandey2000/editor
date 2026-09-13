@@ -2,7 +2,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-import { generateProjectName } from "@/lib/db";
 import { toast } from "somoto";
 import { For, createMemo, createResource, createSignal } from "solid-js";
 import { useNavigate } from "@solidjs/router";
@@ -20,6 +19,7 @@ import {
   DashboardCardButton,
   DashboardCardPreview,
   DashboardViewSection,
+  createNewProject,
 } from "./shared";
 import { DeleteProjectDialog } from "./delete-project-dialog";
 import { DashboardProjectCard } from "./project-card";
@@ -30,9 +30,6 @@ import { projectRoute } from "@/hooks/use-project-route";
 import { Icon } from "../ui/icon";
 import { track } from "@/lib/analytics";
 import {
-  createProject,
-  ensureProjectsRoot,
-  isDesktop,
   listProjects,
   projectKey,
   projectsRevision,
@@ -99,16 +96,8 @@ export function DashboardProjectsView() {
     setCreating(true);
 
     try {
-      if (!isDesktop()) {
-        toast.error("Projects on disk are only available in the desktop app");
-        return;
-      }
-      // Waits for the roots to come back from the database, and asks for one
-      // when there is none to wait for.
-      if (!(await ensureProjectsRoot())) return;
-
-      const project = await createProject(generateProjectName());
-      track('project_created');
+      const project = await createNewProject();
+      if (!project) return;
       refetchProjects();
       openProject(project);
     } catch (e) {

@@ -20,9 +20,16 @@ import {
 import { projectCoverKey, readProjectCover } from "@/projects";
 import { Separator } from "../ui/separator";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { toast } from "somoto";
 import { track } from "@/lib/analytics";
-import { forgetProjectBundle } from "@/lib/db";
-import { deleteProject, type ProjectInfo } from "@/projects";
+import { forgetProjectBundle, generateProjectName } from "@/lib/db";
+import {
+  createProject,
+  deleteProject,
+  ensureProjectsRoot,
+  isDesktop,
+  type ProjectInfo,
+} from "@/projects";
 
 
 type DashboardLabelValueProps = {
@@ -531,6 +538,27 @@ export function createBackgroundClickHandler(onCLick: () => void): JSX.EventHand
 
     onCLick();
   };
+}
+
+/**
+ * Creates a fresh, randomly named project under the projects root and puts
+ * it on the list. Null — with the reason already shown — when there is no
+ * desktop to create it on, and when the user is asked where to put it and
+ * declines to say. The one flow behind every "new project": the card on each
+ * view, and the dashboard's keyboard shortcut.
+ */
+export async function createNewProject(): Promise<ProjectInfo | null> {
+  if (!isDesktop()) {
+    toast.error("Projects on disk are only available in the desktop app");
+    return null;
+  }
+  // Waits for the roots to come back from the database, and asks for one
+  // when there is none to wait for.
+  if (!(await ensureProjectsRoot())) return null;
+
+  const project = await createProject(generateProjectName());
+  track("project_created");
+  return project;
 }
 
 /**
