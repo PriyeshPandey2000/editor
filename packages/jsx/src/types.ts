@@ -458,6 +458,15 @@ export type SceneProps = IdentityProps & PositionProps & Required<Pick<SizeProps
    */
   timeline?: TimelineView;
   /**
+   * Where the playhead stands when the project is opened, in any time format.
+   * Editor state carried by the source the way `timeline` is: nothing
+   * rendered or exported depends on it, and the editor writes it when the
+   * playhead is scrubbed or placed on the timeline — not as playback moves
+   * it, so the file lags playback until the next scrub. Absent means the
+   * first frame; there is no need to write one.
+   */
+  playhead?: Time;
+  /**
    * Decibels on the scene's own bus, which everything in it mixes into: the
    * master fader. 0 = unity, negative attenuates (-6 = half as loud),
    * -Infinity = silence. A clip's own `volume` composes with this one.

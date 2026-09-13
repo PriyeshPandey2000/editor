@@ -38,7 +38,7 @@ import type { CapturedNode, DocumentEditor, EntityEdit } from './editor';
  * is not what anyone means by undo, so they pass through to the file without
  * entering the history.
  */
-const EXCLUDED_PROPS: ReadonlySet<string> = new Set(['selected', 'active', 'camera', 'expanded', 'clipHeight', 'timeline']);
+const EXCLUDED_PROPS: ReadonlySet<string> = new Set(['selected', 'active', 'camera', 'expanded', 'clipHeight', 'timeline', 'playhead']);
 
 /**
  * How long after one step a same-shaped step still merges into it. Edits
