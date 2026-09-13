@@ -405,16 +405,17 @@ export type StageProps = {
   /** Canvas color, any CSS color. */
   background?: string;
   /**
-   * The editor's viewport when the project is opened: `[1, 0, 0, 1, 0, 0]` is
+   * The editor's viewport when the project is opened; `[1, 0, 0, 1, 0, 0]` is
    * the origin at 100%. Not part of the composition — nothing rendered or
-   * exported depends on it — so a project that never says where to look opens
-   * at the origin, with most of the frame off screen.
+   * exported depends on it. A project that never says where to look opens on
+   * `[0.3, 0, 0, 0.3, 85, 150]`, which frames a 1920×1080 scene at the origin,
+   * so such a project needs no camera.
    *
-   * Give every authored project one, so it opens framed on its composition:
-   * `[s, 0, 0, s, x, y]` for a scene at the origin, `s` sized to fit the frame
-   * in roughly 580×330 screen pixels — `[0.3, 0, 0, 0.3, 85, 150]` for
-   * 1920×1080, `[0.6, 0, 0, 0.6, 85, 150]` for 960×540. The first pan or zoom
-   * overwrites it, so the exact numbers do not matter.
+   * Give a project one when its composition is anything else, so it still
+   * opens framed: `[s, 0, 0, s, x, y]` for a scene at the origin, `s` sized to
+   * fit the frame in roughly 580×330 screen pixels — `[0.25, 0, 0, 0.25, 235,
+   * 70]` for 1080×1920, `[0.6, 0, 0, 0.6, 85, 150]` for 960×540. The first pan
+   * or zoom overwrites it, so the exact numbers do not matter.
    */
   camera?: CameraMatrix;
   children?: SolidJSX.Element;

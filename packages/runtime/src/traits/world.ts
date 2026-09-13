@@ -23,7 +23,7 @@ export const Root = trait(() => null as Entity | null);
  * stage. The render system multiplies this by RenderSurface.resolution
  * to derive the canvas transform.
  */
-export const Camera = trait({ a: 1, b: 0, c: 0, d: 1, e: 0, f: 0 });
+export const Camera = trait({ a: 0.3, b: 0, c: 0, d: 0.3, e: 85, f: 150 });
 
 export type Camera2D = { a: number; b: number; c: number; d: number; e: number; f: number };
 

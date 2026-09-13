@@ -22,9 +22,9 @@ The stage is a **singleton**: it is the canvas already on screen rather than som
 | Prop | Type | Default | Meaning |
 | ---- | ---- | ------- | ------- |
 | `background` | `string` | `#161616` | Canvas color behind the scenes, any CSS color. Not part of a render: it is what surrounds the frame, not what is in it. |
-| `camera` | `[a, b, c, d, e, f]` | `[1, 0, 0, 1, 0, 0]` | The editor's viewport when the project is opened, as a 2D affine matrix in the order CSS `matrix()` and canvas `setTransform` take: `a`/`d` scale, `b`/`c` skew, `e`/`f` translate. |
+| `camera` | `[a, b, c, d, e, f]` | `[0.3, 0, 0, 0.3, 85, 150]` | The editor's viewport when the project is opened, as a 2D affine matrix in the order CSS `matrix()` and canvas `setTransform` take: `a`/`d` scale, `b`/`c` skew, `e`/`f` translate. |
 
-Both are editor state rather than composition: nothing rendered or exported depends on either, but the source is the document, so a panned canvas has nowhere else to be written back to. A project that never says where to look opens at the origin, at 100% — the frame's top-left corner in the canvas's top-left corner, most of it off screen. **Write a camera into every project you author**, so the first open is already framed on the composition.
+Both are editor state rather than composition: nothing rendered or exported depends on either, but the source is the document, so a panned canvas has nowhere else to be written back to. A project that never says where to look opens framed on a 1920×1080 frame at the origin, roughly centered in a default window — so a single landscape scene at `x={0} y={0}` needs no camera. Write one when the composition is anything else: a portrait or unusual format, a scene placed away from the origin, or several scenes side by side.
 
 The matrix that frames a scene sitting at the origin is `[s, 0, 0, s, x, y]`: `s` scales the frame to fit the canvas — roughly 750×620 CSS pixels in a default window — and `x`/`y` inset it from the corner. A landscape frame around 580 px wide, a portrait one around 480 px tall, leaves room for the scene's label above it and the floating toolbar below:
 
