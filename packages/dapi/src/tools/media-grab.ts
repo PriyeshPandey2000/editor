@@ -40,7 +40,7 @@ export const mediaGrab = defineTool({
       start: windowFields.start.describe("with count or auto, start of the window to sample (default: 0)"),
       end: windowFields.end.describe("with count or auto, end of the window to sample (default: asset duration)"),
       quality: FrameQuality.optional().describe(
-        "frame resolution: small (384x384), medium (768x768), large (1536x1536), or fullres (native); default: as large as the sheet cell allows, or small with separate: true",
+        "frame resolution as a pixel budget, aspect ratio kept and never enlarged past the source: small (384² pixels, 512x288 for 16:9), medium (768², 1024x576), large (1536², 2048x1152), or fullres (native); default: as large as the sheet cell allows, or small with separate: true",
       ),
       ...sheetFields,
       uncapped: z

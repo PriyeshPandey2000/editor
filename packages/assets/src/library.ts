@@ -759,6 +759,9 @@ export class AssetLibrary {
 
 	/** Describes a file or frames directory at `source`. */
 	private async describeSource(source: string, meta: DescribeMeta): Promise<Asset> {
+		// A path that is not there fails as that, not as an unsupported file
+		// once the mime sniff finds nothing to read.
+		if (!(await this.fs.stat(source))) throw new Error(`No such file: ${source}`);
 		const entries = await this.fs.list(source);
 		if (entries.length && isSequenceListing(entries.map((entry) => entry.name))) {
 			return this.describeSequence(source, sortFrames(entries).filter((entry) => entry.kind === 'file'), meta);

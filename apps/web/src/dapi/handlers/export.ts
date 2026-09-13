@@ -5,6 +5,7 @@
 import { canEncodeVideo } from "mediabunny";
 import { computeOutputSize } from "@diffusionstudio/encoder";
 import { Computed, FrameRate, Workarea } from "@diffusionstudio/runtime";
+import { isAbsoluteSource } from "@diffusionstudio/assets";
 import { DapiError } from "@diffusionstudio/dapi";
 
 import { renderOverlay, renderScene } from "@/context/render";
@@ -16,6 +17,7 @@ import { mainBridge } from "@/lib/ipc";
 import { MAIN_CHANNELS } from "@desktop/main-channels";
 import { requireScene } from "../lib/scene";
 
+import type { AudioCodec, OutputFormat, VideoCodec } from "mediabunny";
 import type { ExportSettings } from "@diffusionstudio/dapi";
 import type { ContainerFormat, ExportConfig } from "@/engine/project-config";
 import type { ToolHandler } from "../handler";
@@ -29,6 +31,9 @@ import type { ToolHandler } from "../handler";
 function resolveFormat(path: string | undefined, config: ExportConfig): ContainerFormat {
   const supported = VIDEO_FORMAT_OPTIONS.map((format) => `.${format}`).join(", ");
   if (path !== undefined) {
+    if (!isAbsoluteSource(path)) {
+      throw new DapiError("invalid-input", `The output path must be absolute (got "${path}").`);
+    }
     const extension = /\.([a-z0-9]+)$/i.exec(path)?.[1]?.toLowerCase();
     if (!extension || !VIDEO_FORMAT_OPTIONS.includes(extension as ContainerFormat)) {
       throw new DapiError("invalid-input", `The output path must end in a container extension: ${supported}.`);
@@ -45,6 +50,47 @@ function resolveFormat(path: string | undefined, config: ExportConfig): Containe
   return format;
 }
 
+/** The container's format class, imported on demand: the muxers are not part of the main bundle. */
+async function outputFormat(format: ContainerFormat): Promise<OutputFormat> {
+  const { MovOutputFormat, Mp4OutputFormat, OggOutputFormat, WebMOutputFormat } = await import("mediabunny");
+  switch (format) {
+    case "webm":
+      return new WebMOutputFormat();
+    case "ogg":
+      return new OggOutputFormat();
+    case "mov":
+      return new MovOutputFormat();
+    default:
+      return new Mp4OutputFormat();
+  }
+}
+
+/** What each container is given when the entry's codec cannot go in it. */
+const FALLBACK_VIDEO: Record<ContainerFormat, VideoCodec> = { mp4: "avc", mov: "avc", webm: "vp9", ogg: "vp9" };
+const FALLBACK_AUDIO: Record<ContainerFormat, AudioCodec> = { mp4: "aac", mov: "aac", webm: "opus", ogg: "opus" };
+
+/**
+ * The entry's codecs, reconciled with the container the extension picked: an
+ * entry written for MP4 names AAC, which WebM and Ogg cannot hold, so an
+ * export to `.webm` would fail on the codec rather than produce the file the
+ * name asks for. A codec the container cannot contain is swapped for the
+ * container's own (Opus for WebM and Ogg audio, VP9 for WebM video); the
+ * echoed config carries the swap. Codecs the container can hold stay as
+ * written, including ones the entry leaves to the encoder's default.
+ */
+async function reconcileCodecs(settings: ExportConfig, format: ContainerFormat): Promise<ExportConfig> {
+  const container = await outputFormat(format);
+  const video = settings.video?.codec;
+  const audio = settings.audio?.codec;
+  const videoCodec = video && !container.getSupportedVideoCodecs().includes(video) ? FALLBACK_VIDEO[format] : video;
+  const audioCodec = audio && !container.getSupportedAudioCodecs().includes(audio) ? FALLBACK_AUDIO[format] : audio;
+  return {
+    ...settings,
+    ...(videoCodec !== video ? { video: { ...settings.video, codec: videoCodec } } : {}),
+    ...(audioCodec !== audio ? { audio: { ...settings.audio, codec: audioCodec } } : {}),
+  };
+}
+
 export const exportScene: ToolHandler<"export"> = async ({ id, path }, ctx) => {
   const { world, project, engine } = ctx.requireSession();
   const scene = requireScene(world, id, "export");
@@ -54,9 +100,8 @@ export const exportScene: ToolHandler<"export"> = async ({ id, path }, ctx) => {
   // reproduces the in-app one; a scene without an entry uses the default
   // template, the way ⌘E does. `template` is only the preset's label.
   const base = world.get(ProjectConfigTrait)?.exportOf(scene) ?? getDefaultExportTemplate();
-  const settings: ExportConfig = { format: base.format, video: base.video, audio: base.audio };
-
-  const format = resolveFormat(path, settings);
+  const format = resolveFormat(path, { format: base.format, video: base.video, audio: base.audio });
+  const settings = await reconcileCodecs({ format, video: base.video, audio: base.audio }, format);
   const key = sceneConfigKey(scene) ?? id;
   const target = path ?? `${project.dir()}/exports/${key.replace(/[^\w.-]+/g, "-")}.${format}`;
 

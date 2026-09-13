@@ -14,7 +14,7 @@ Transcribe the speech in a video or audio file and write the timed transcript to
 | `path` | `string`, required | `<path>` | absolute file path or URL (works with or without an open project), or a library path like `b-roll/clip.mp4` (needs an open project) |
 | `output` | `string` | `-o, --output <path>` | absolute path to write the transcript JSON to (default: a fresh file under the system temp dir) |
 
-Times are in **seconds** of source/content time. The whole asset is transcribed once per app session (cached in memory, keyed by file content; an app restart or an edited file re-transcribes). Every call writes the file again, so a cached transcript returns at once.
+Times are in **seconds** of source/content time. An `output` naming an existing directory gets a fresh `dapi-transcript-*.json` inside it. The whole asset is transcribed once per app session (cached in memory, keyed by file content; an app restart or an edited file re-transcribes). Every call writes the file again, so a cached transcript returns at once.
 
 ## Output
 

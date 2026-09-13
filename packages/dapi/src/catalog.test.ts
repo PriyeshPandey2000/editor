@@ -5,6 +5,7 @@
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 import { catalog, isToolName, toolByName } from "./catalog";
+import { JSON_SCHEMA_DIALECT, toolJsonSchemas } from "./json-schema";
 
 describe("catalog", () => {
   it("has unique MCP-legal names", () => {
@@ -31,6 +32,16 @@ describe("catalog", () => {
       expect(() => z.toJSONSchema(tool.input, { io: "input" }), `${tool.name} input`).not.toThrow();
       expect(() => z.toJSONSchema(tool.output), `${tool.name} output`).not.toThrow();
       expect(tool.output, `${tool.name} output must be an object for structured content`).toBeInstanceOf(z.ZodObject);
+    }
+  });
+
+  it("publishes every schema as JSON Schema 2020-12, the dialect MCP clients validate", () => {
+    for (const tool of catalog) {
+      const { inputSchema, outputSchema } = toolJsonSchemas(tool);
+      expect(inputSchema.$schema, `${tool.name} input`).toBe(JSON_SCHEMA_DIALECT);
+      expect(outputSchema.$schema, `${tool.name} output`).toBe(JSON_SCHEMA_DIALECT);
+      expect(inputSchema.type, `${tool.name} input`).toBe("object");
+      expect(outputSchema.type, `${tool.name} output`).toBe("object");
     }
   });
 

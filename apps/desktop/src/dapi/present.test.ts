@@ -2,9 +2,9 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { basename, dirname, join } from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
 import { present, toCallToolResult } from "./present";
 
@@ -35,6 +35,21 @@ describe("present", () => {
     const file = join(dir, "wave.png");
     const presented = await present("media_waveform", { path: "/c.mp4", output: file }, { png: png(4), silences: [{ start: 0, end: 1 }] });
     expect(presented.output).toEqual({ path: file, silences: [{ start: 0, end: 1 }] });
+  });
+
+  it("writes a preview or transcript into an output that names an existing directory", async () => {
+    const out = join(dir, "into");
+    mkdirSync(out, { recursive: true });
+    const preview = await present("media_waveform", { path: "/c.mp4", output: out }, { png: png(7), silences: [] });
+    const previewPath = (preview.output as { path: string }).path;
+    expect(dirname(previewPath)).toBe(out);
+    expect(basename(previewPath)).toMatch(/^dapi-waveform-.*\.png$/);
+    expect(readFileSync(previewPath)).toEqual(Buffer.from(png(7)));
+
+    const transcript = await present("media_transcribe", { path: "/c.mp4", output: out }, { segments: [] });
+    const transcriptPath = (transcript.output as { path: string }).path;
+    expect(transcriptPath).toMatch(/dapi-transcript-.*\.json$/);
+    expect(JSON.parse(readFileSync(transcriptPath, "utf8"))).toEqual({ segments: [] });
   });
 
   it("names screenshots by time and never overwrites one", async () => {

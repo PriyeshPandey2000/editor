@@ -20,6 +20,8 @@ export type { DapiErrorCode } from "./errors";
 export { MAX_FRAMES_PER_SHEET, Bytes } from "./schemas";
 
 export { MCP_HOST, MCP_PORT, MCP_PATH, MCP_URL } from "./mcp";
+export { JSON_SCHEMA_DIALECT, toolJsonSchemas } from "./json-schema";
+export type { ToolJsonSchemas } from "./json-schema";
 export { DAPI_WIRE } from "./ipc";
 export type { DapiCall, DapiCancel, DapiReply } from "./ipc";
 export { FRAME_CAP } from "./tools/media-grab";

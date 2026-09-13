@@ -19,9 +19,10 @@ Open a folder as a project in the running app, creating the project files if the
 The folder may live anywhere on disk, and does not have to be a project yet. Opening is what makes it one, writing as little as that takes:
 
 - a missing folder is created;
-- a folder with no entry file (package.json `main`, or `index.tsx` and friends) gains an `index.tsx` holding an empty stage.
+- a folder with no entry file (package.json `main`, or `index.tsx` and friends) gains an `index.tsx` holding an empty stage;
+- a folder with no project record gains one in `package.json` — `projectId`, `displayName`, `main`, and the dapi commands as `scripts` — which is what the app remembers the folder by. A package.json that is already there keeps everything it has and only gains the fields it lacks.
 
-Nothing else is written — no package.json, tsconfig, README, or manifest. A project is its JSX; the rest of the scaffold appears lazily, each piece when something first needs it. A folder that is already a project is opened untouched, wherever it lives.
+Nothing else is written — no tsconfig, README, or .gitignore. Those come with a project created from the app's dashboard; a folder opened from anywhere on disk stays the user's. A folder that is already a project is opened untouched, wherever it lives. A JavaScript project (an entry ending in `.js` or `.jsx`) is left entirely alone, record included.
 
 The app remembers the folder, so the project reopens across app relaunches and stays addressable by folder name or project id.
 
@@ -37,7 +38,7 @@ The opened project:
 
 ```ts
 {
-  id:   string;   // package.json `projectId`; "" until the project has a record
+  id:   string;   // package.json `projectId`; "" only for a JavaScript project, which gets no record
   name: string;   // display name (falls back to the folder name)
   dir:  string;   // absolute project folder, as opened
 }
@@ -45,5 +46,6 @@ The opened project:
 
 ## Errors
 
+- The path is not absolute (`The project folder must be an absolute path`).
 - The path exists but is not a folder.
 - From a shell off macOS, the app cannot be launched; the command then requires it to already be running.

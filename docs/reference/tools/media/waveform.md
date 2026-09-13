@@ -18,9 +18,9 @@ Render the audio track of a video or audio file as a waveform PNG (local render,
 | `output` | `string` | `-o, --output <path>` | absolute path to write the PNG to (default: a fresh file under the system temp dir) |
 | `scale` | `number` | `-x, --scale <factor>` | scale factor for the thumbnails; smaller fits more rows and columns, larger fits fewer (default: 1) |
 
-Loudness over time is drawn from decoded audio peaks. Tick labels use `HH:MM:SS:FF` timecode (hours, minutes, seconds, frame within the second) at every zoom level, so labels stay comparable regardless of the window's span. For a video, frames count against the video's frame rate; for a standalone audio asset, the ruler counts against a nominal 30 fps.
+Loudness over time is drawn from decoded audio peaks. An `end` past the asset's duration is clamped to it; a `start` at or past the end is an error, since the window would be empty. Tick labels use `HH:MM:SS:FF` timecode (hours, minutes, seconds, frame within the second) at every zoom level, so labels stay comparable regardless of the window's span. For a video, frames count against the video's frame rate; for a standalone audio asset, the ruler counts against a nominal 30 fps.
 
-The overall canvas size stays fixed, so a smaller `scale` (clamped to `0.25`–`4`) fits **more rows and columns** — a denser time axis — and a larger one fits fewer but taller rows. Without `output` the PNG lands in a fresh file under the system temp directory.
+The overall canvas size stays fixed, so a smaller `scale` (clamped to `0.25`–`4`) fits **more rows and columns** — a denser time axis — and a larger one fits fewer but taller rows. Without `output` the PNG lands in a fresh file under the system temp directory; an `output` naming an existing directory gets that fresh file inside it.
 
 ## Output
 
@@ -35,4 +35,4 @@ One JSON object: the absolute path to the written PNG plus the silent stretches 
 
 ## Errors
 
-Fails when the path can't be resolved, the asset has no decodable audio track, `start`/`end` fall outside the asset or cross (`start` >= `end`), `scale` isn't a positive number, or the PNG can't be written.
+Fails when the path can't be resolved, the asset has no decodable audio track, the window is empty (`start` at or past the asset's end) or crosses (`start` >= `end`), `scale` isn't a positive number, or the PNG can't be written.

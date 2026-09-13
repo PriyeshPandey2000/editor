@@ -17,7 +17,7 @@ Download a video with yt-dlp (installed separately). Writes files to disk only a
 | `audio` | `boolean` | `-a, --audio` | extract audio only (yt-dlp -x) |
 | `raw` | `string[]` | `-- <yt-dlp flags...>` | raw yt-dlp flags passed through, e.g. ["--sponsorblock-remove", "all"] |
 
-[yt-dlp](https://github.com/yt-dlp/yt-dlp) is not bundled: install it separately (`brew install yt-dlp`, or `pipx install yt-dlp`). The download runs in the app's main process, so no project needs to be open; yt-dlp is looked up on the app's `PATH`, or at `YT_DLP_PATH` in the app's environment when set. Without it the call fails with an install hint before anything is downloaded.
+[yt-dlp](https://github.com/yt-dlp/yt-dlp) is not bundled: install it separately (`brew install yt-dlp`, or `pipx install yt-dlp`). The download runs in the app's main process, so no project needs to be open. yt-dlp is looked up on the login shell's `PATH` (read once, so a Dock-launched app finds a Homebrew or pipx install the way a terminal does), then in the usual install folders (`~/.local/bin`, `/opt/homebrew/bin`, `/usr/local/bin`), or at `YT_DLP_PATH` when set; it runs with that same `PATH`, so it finds `ffmpeg` for merging and extraction the same way. Without it the call fails with an install hint before anything is downloaded.
 
 This writes files to disk only; it does not touch the open project. A download becomes an asset by landing under the project's `assets/` folder (see [jsx/media.md](../jsx/media.md)).
 

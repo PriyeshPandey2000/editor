@@ -705,20 +705,12 @@ async function ensurePackage(dir: string, name: string, displayName: string, ent
  * from @diffusionstudio/jsx (jsxImportSource), installed by the project.
  */
 export async function scaffold(dir: string, displayName = basename(dir)): Promise<void> {
-  const name = basename(dir);
-  let entry = await findEntry(dir);
+  const entry = await ensureRecord(dir, displayName);
   // JavaScript projects are left alone.
-  if (entry && !/\.tsx?$/.test(entry)) return;
-
-  if (!entry) {
-    await writeIfMissing(dir, "index.tsx", STARTER);
-    entry = "index.tsx";
-  }
-  await ensurePackage(dir, name, displayName, entry);
+  if (!entry) return;
   await writeIfMissing(dir, "tsconfig.json", TSCONFIG);
   await writeIfMissing(dir, ".gitignore", GITIGNORE);
   await writeIfMissing(dir, "README.md", readme(displayName));
-
 
   if (!(await exists(join(dir, MANIFEST_FILE)))) {
     await writeManifest(dir, EMPTY_MANIFEST);
@@ -726,22 +718,46 @@ export async function scaffold(dir: string, displayName = basename(dir)): Promis
 }
 
 /**
+ * The part of the scaffold every project needs: an entry file, and the
+ * package.json record (`projectId`, `displayName`, `main`) the app remembers
+ * the folder by. Nothing a folder already has is touched. Returns the entry,
+ * or undefined for a JavaScript project, which is left entirely alone.
+ */
+async function ensureRecord(dir: string, displayName = basename(dir)): Promise<string | undefined> {
+  let entry = await findEntry(dir);
+  if (entry && !/\.tsx?$/.test(entry)) return undefined;
+  if (!entry) {
+    await writeIfMissing(dir, "index.tsx", STARTER);
+    entry = "index.tsx";
+  }
+  await ensurePackage(dir, basename(dir), displayName, entry);
+  return entry;
+}
+
+/**
  * Makes `dir` openable as a project, writing as little as that takes: the
- * folder if it does not exist, and — when nothing in it can be an entry — an
- * `index.tsx` holding an empty stage. Nothing else; a project is its JSX, and
- * the record, manifest, and the rest of the scaffold appear lazily, each when
- * something first needs it. A folder that is already a project comes back
- * untouched. How `dapi open <path>` opens a folder anywhere on disk.
+ * folder if it does not exist, an `index.tsx` holding an empty stage when
+ * nothing in it can be an entry, and the package.json record the app
+ * remembers the folder by. Nothing else — no tsconfig, README, or
+ * .gitignore, which come with a project created from the dashboard (see
+ * `scaffold`); a folder opened from anywhere on disk stays the user's. A
+ * folder that is already a project comes back untouched. How
+ * `dapi open <path>` opens a folder.
  */
 export async function initProject(window: BrowserWindow | null, dir: string): Promise<ProjectInfo> {
+  if (!isAbsolute(dir)) {
+    throw new Error(`The project folder must be an absolute path (got "${dir}").`);
+  }
+  const existing = await stat(dir).catch(() => null);
+  if (existing && !existing.isDirectory()) {
+    throw new Error(`${dir} exists but is not a folder.`);
+  }
   if (!(await confirmCloudLocation(window, dir, "Cancel"))) {
     throw new Error("Cancelled: that folder is synced.");
   }
 
   await mkdir(dir, { recursive: true });
-  if (!(await findEntry(dir))) {
-    await writeIfMissing(dir, "index.tsx", STARTER);
-  }
+  await ensureRecord(dir);
   const project = await describe(dir);
   if (!project) throw new Error(noEntryError());
   return project;
@@ -905,8 +921,9 @@ export async function compileProject(dir: string): Promise<CompileResult> {
   const entry = await findEntry(dir);
   if (!entry) return { ok: false, error: noEntryError() };
 
-  // Fills in package.json/tsconfig for folders that predate the record.
-  await scaffold(dir);
+  // Fills in the package.json record for folders that predate it; the rest
+  // of the scaffold is the dashboard's (see `initProject`).
+  await ensureRecord(dir);
 
   // Names every element before it is numbered, so the ids this compile hands
   // the canvas are durable ones. A fully keyed project is not written to.

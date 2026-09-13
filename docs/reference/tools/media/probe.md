@@ -34,4 +34,4 @@ One JSON object. The shape is **not yet stable**: it reports whatever mediabunny
 
 ## Errors
 
-Fails when the path can't be resolved.
+Fails when the path can't be resolved: a file that is not there (`No such file`), a library path the project has no asset at, or a relative path (only library paths are relative; a file on disk is named by its absolute path).

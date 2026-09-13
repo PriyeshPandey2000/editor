@@ -7,10 +7,10 @@ import { MCP_HOST, MCP_PATH, MCP_PORT, tools } from "@diffusionstudio/dapi";
 import { mainHandlers } from "./handlers";
 import { DapiHttpServer } from "./http";
 import { instructions } from "./docs";
-import { present, toCallToolResult, toErrorResult } from "./present";
 import { RendererCalls } from "./renderer-calls";
+import { serveCatalog } from "./tools-session";
 
-import type { GenericTool, LogEntry, ToolName } from "@diffusionstudio/dapi";
+import type { LogEntry } from "@diffusionstudio/dapi";
 import type { MainContext, MainToolName } from "./handler";
 
 /**
@@ -93,26 +93,12 @@ export class DapiServer {
     // `name` is the machine identity, and matches the key we write into agent
     // configs; `title` is what a client shows a person.
     const session = new McpServer({ name: SERVER_NAME, title: "Diffusion Studio", version: this.deps.version }, { instructions: this.instructionsText });
-    for (const tool of tools) this.register(session, tool);
-    return session;
-  }
-
-  private register(session: McpServer, tool: GenericTool): void {
-    session.registerTool(
-      tool.name,
-      { title: tool.title, description: tool.description, inputSchema: tool.input, outputSchema: tool.output },
-      async (args, extra) => {
-        try {
-          const result =
-            tool.environment === "main"
-              ? await this.runInMain(tool.name as MainToolName, args, extra.signal)
-              : await this.renderer.call(tool.name, args, extra.signal);
-          return toCallToolResult(await present(tool.name as ToolName, args, result));
-        } catch (error) {
-          return toErrorResult(error);
-        }
-      },
+    serveCatalog(session, (tool, args, signal) =>
+      tool.environment === "main" ?
+        this.runInMain(tool.name as MainToolName, args, signal)
+        : this.renderer.call(tool.name, args, signal),
     );
+    return session;
   }
 
   private runInMain(name: MainToolName, args: unknown, signal: AbortSignal): Promise<unknown> {

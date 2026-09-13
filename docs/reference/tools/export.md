@@ -1,6 +1,6 @@
 # export
 
-Encode a scene to a video file — the same render the app's export runs, covering the scene's workarea. Settings come from the scene's `diffusion.export.<id>` entry in the project's package.json (the entry the app's export panel writes); a scene without one exports with the defaults (1080p H.264 MP4, AAC audio). The output path's extension picks the container, overriding the configured format. Returns the written path and the settings used. One export runs at a time; progress shows in the app. Only export when asked to: capture is the tool for checking a composition.
+Encode a scene to a video file — the same render the app's export runs, covering the scene's workarea. Settings come from the scene's `diffusion.export.<id>` entry in the project's package.json (the entry the app's export panel writes); a scene without one exports with the defaults (1080p H.264 MP4, AAC audio). The output path's extension picks the container, overriding the configured format; a codec the container cannot hold is swapped for the container's own (Opus for WebM and Ogg audio, VP9 for WebM video). Returns the written path and the settings used. One export runs at a time; progress shows in the app. Only export when asked to: capture is the tool for checking a composition.
 
 | | |
 | --- | --- |
@@ -26,7 +26,9 @@ Scenes only: a scene is the unit an export renders, and the error names the scen
 
 ## Output path
 
-The `path` extension picks the container — `.mp4`, `.webm`, `.ogg` (audio only), `.mov` — overriding the configured format, so the file is always what its name says. A path without one of those extensions is an error. Omitted, the file lands at `exports/<id>.<format>` in the project folder (parent directories are created); an existing file is overwritten. From a shell, a relative path resolves against the working directory.
+The `path` extension picks the container — `.mp4`, `.webm`, `.ogg` (audio only), `.mov` — overriding the configured format, so the file is always what its name says. A path without one of those extensions is an error. Omitted, the file lands at `exports/<id>.<format>` in the project folder (parent directories are created); an existing file is overwritten. The path must be absolute over MCP; from a shell, a relative path resolves against the working directory.
+
+A container decides which codecs it can hold, and an entry is usually written for one: the default entry names AAC audio, which WebM and Ogg cannot contain. Rather than fail the export on the codec, a codec the chosen container cannot hold is swapped for the container's own — Opus for WebM and Ogg audio, VP9 for WebM video, AVC and AAC the other way round — and the echoed `config` says which codecs the file was actually made with. Codecs the container can hold stay as the entry wrote them, so a `.mp4` export of a VP9/Opus entry is exactly that.
 
 ## Settings
 
@@ -82,4 +84,4 @@ The echoed `config` is the confirmation of what a `package.json` edit actually d
 
 ## Errors
 
-Fails when no project is open (`No project open` — run [`open`](./open.md) first), the id is unknown or ambiguous (pass `file:id`), the id names a node that is not a scene (the error names the scene to export instead), the output path lacks a container extension, the entry's format is unknown, the configuration is unencodable on this machine (codec × resolution × bitrate — the error says what to lower), another export is already running, or the export is canceled in the app. A failed or canceled export deletes the partial file.
+Fails when no project is open (`No project open` — run [`open`](./open.md) first), the id is unknown or ambiguous (pass `file:id`), the id names a node that is not a scene (the error names the scene to export instead), the output path is not absolute or lacks a container extension, the entry's format is unknown, the configuration is unencodable on this machine (codec × resolution × bitrate — the error says what to lower), another export is already running, or the export is canceled in the app. A failed or canceled export deletes the partial file.

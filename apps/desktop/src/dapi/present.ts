@@ -2,8 +2,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
- import { existsSync } from "node:fs";
-import { mkdir, mkdtemp, writeFile } from "node:fs/promises";
+import { existsSync } from "node:fs";
+import { mkdir, mkdtemp, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { randomUUID } from "node:crypto";
@@ -58,14 +58,26 @@ async function presentImages(images: TimecodedImage[], output: string | undefine
   return { output: { images: refs }, images: written };
 }
 
+/**
+ * Where a single-file tool writes: `output` when given, a fresh name under
+ * the temp dir otherwise. An `output` that names an existing directory gets
+ * the fresh name inside it rather than an EISDIR from writeFile.
+ */
+async function singleFilePath(output: string | undefined, name: string): Promise<string> {
+  if (output === undefined) return join(tmpdir(), name);
+  const existing = await stat(output).catch(() => null);
+  if (existing?.isDirectory()) return join(output, name);
+  await mkdir(dirname(output), { recursive: true });
+  return output;
+}
+
 async function presentPreview(
   result: { png: Uint8Array } & Record<string, unknown>,
   output: string | undefined,
   kind: string,
 ): Promise<Presented> {
   const { png, ...rest } = result;
-  const path = output ?? join(tmpdir(), `dapi-${kind}-${randomUUID()}.png`);
-  await mkdir(dirname(path), { recursive: true });
+  const path = await singleFilePath(output, `dapi-${kind}-${randomUUID()}.png`);
   await writeFile(path, png);
   return { output: { path, ...rest }, images: [{ path, png }] };
 }
@@ -83,8 +95,7 @@ async function presentScreenshot(result: ToolResult<"screenshot">, output: strin
 }
 
 async function presentTranscript(transcript: ToolResult<"media_transcribe">, output: string | undefined): Promise<Presented> {
-  const path = output ?? join(tmpdir(), `dapi-transcript-${randomUUID()}.json`);
-  await mkdir(dirname(path), { recursive: true });
+  const path = await singleFilePath(output, `dapi-transcript-${randomUUID()}.json`);
   await writeFile(path, JSON.stringify(transcript, null, 2));
   const words = transcript.segments.reduce((sum, segment) => sum + segment.words.length, 0);
   const presented: ToolOutput<"media_transcribe"> = { path, segments: transcript.segments.length, words };

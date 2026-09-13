@@ -11,12 +11,12 @@ import { NonNegativeTime, TIME_FORMS } from "./time";
 export const NodeId = z
   .string()
   .min(1)
-  .describe("node id from the project's JSX, or `file:id` when two files use the same id");
+  .describe("node id from the project's JSX, or `file:id` (`intro.tsx:hero`) when two files use the same id");
 
 export const SceneId = z
   .string()
   .min(1)
-  .describe("scene id from the project's JSX, or `file:id` when two files use the same id");
+  .describe("scene id from the project's JSX, or `file:id` (`intro.tsx:main`) when two files use the same id");
 
 export const AssetPath = z
   .string()

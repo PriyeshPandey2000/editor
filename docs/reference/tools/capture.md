@@ -19,7 +19,7 @@ Render single frames of a scene to PNGs — each frame is the frame an export of
 
 ## Frames
 
-Each frame is **the frame an export of that scene would encode**: the scene is re-rendered from a fresh mount at its own size, position `0` is the workarea's first frame, and the requested positions are evaluated in timeline order, forward only — the way an export advances — so a composition whose look depends on having played (an `<html>` node's own animation state, for instance) captures exactly as it exports.
+Each frame is **the frame an export of that scene would encode**: the scene is re-rendered from a fresh mount at its own size, position `0` is the workarea's first frame, and the requested positions are evaluated in timeline order, forward only — the way an export advances — so a composition whose look depends on having played (an `<html>` node's own animation state, for instance) captures exactly as it exports. A position past the workarea's end is not an error: the scene keeps playing past it, and the frame is what plays there — just not one an export would include.
 
 Scenes only: a single element renders inside its scene, so capture the scene at the times the element plays. To grab a video asset's own pixels instead of a composited frame, use [`media_grab`](./media/grab.md).
 
@@ -31,7 +31,7 @@ Cell labels, the `timecode` field, and the filenames all use the same stamp, whi
 
 ## Layout
 
-A sheet never exceeds 2576x1456, the largest image a vision model reads at full detail. Within that budget the grid is the one that draws each frame largest, and the last row may be partially filled. Cells render at their own size rather than the flat 720p of `separate`, so a few positions are sharper than a standalone capture and never coarser; a scene smaller than 1080p tall is rendered up to that height, and nothing is rendered beyond it. Sheets are named after the span they cover, e.g. `0f-11s.png`. For a 16:9 scene the cell sizes are:
+A sheet never exceeds 2576x1456, the largest image a vision model reads at full detail. Within that budget the grid is the one that draws each frame largest, and the last row may be partially filled. Cells render at their own size rather than the flat 720p of `separate`, so a few positions are sharper than a standalone capture and never coarser; a scene smaller than 1080p tall is rendered up to that height, and nothing is rendered beyond it. Sheets are named after the span they cover, e.g. `0f-11s.png`. A sheet carries a 4px margin around the grid (so a single 1080p cell makes a 1928x1088 image) and an 8px gutter between cells. For a 16:9 scene the cell sizes are:
 
 | Positions | Grid | Per-frame |
 |---|---|---|

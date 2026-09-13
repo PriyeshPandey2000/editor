@@ -1,6 +1,6 @@
 # context
 
-Report the current app context: the application root folder (always reported), the folder of the project the app has open (null when none is), where its playhead sits in seconds, the registered font families, and where its `generate.*` declarations stand. Poll it to wait for generations without blocking.
+Report the current app context: the folder new projects are created in (always reported), the folder of the project the app has open (null when none is), where its playhead sits in seconds, the registered font families, and where its `generate.*` declarations stand. Poll it to wait for generations without blocking.
 
 | | |
 | --- | --- |
