@@ -286,7 +286,6 @@ export class EditorGenAi extends GenAi {
     });
 
     try {
-      console.log(`[gen-ai] generating ${spec.type} with ${spec.model}`);
       const { name, results, generationId } = await this.requestGeneration(spec);
       assert(results.length > 0, "No results returned from the model");
 
@@ -330,11 +329,9 @@ export class EditorGenAi extends GenAi {
 
     const uploadId = crypto.randomUUID();
     const audioFile = new File([result.data], `${uploadId}.ogg`, { type: "audio/ogg" });
-    console.log(`[gen-ai] uploading scene audio for ${key} (${audioFile.size} bytes)`);
     const fileRef = await uploadBlob(audioFile, uploadId);
     assert(fileRef, "Failed to upload the scene audio for transcription");
 
-    console.log(`[gen-ai] transcribing scene audio for ${key}`);
     const { results: transcript } = await trpc.transcribe.mutate({ audio: fileRef });
     assert(
       transcript.length > 0 && transcript.some((segment) => segment.words.length > 0),
@@ -373,7 +370,6 @@ export class EditorGenAi extends GenAi {
     track("generation_started", { mode: spec.type });
 
     try {
-      console.log(`[gen-ai] running ${spec.type} on ${asset.path}`);
       const input = await this.uploadInput(asset.id);
       const { url, generationId } = await this.requestTransform(spec.type, asset, input);
       const stored = await this.store(url, assetName(partial), { key: partial.generation.key, id: generationId });

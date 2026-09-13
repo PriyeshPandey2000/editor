@@ -86,7 +86,6 @@ const MENU_PROJECTS = 8;
 const PROMPT_EXAMPLES = [
   "Turn this footage into a polished YouTube video. Add readable captions and an attention-grabbing graphic in the opening to give viewers a strong visual hook.",
   "Can you pull the best 30-second moment from https://youtu.be/MtQ0qxyf-Ds and make a vertical version for social?",
-  "In three bullets, explain what starts the conflict. Include timestamps. https://youtu.be/aqz-KE-bpKQ",
   "Name three recurring locations and give one visual cue that distinguishes each. https://youtu.be/dQw4w9WgXcQ",
 ];
 

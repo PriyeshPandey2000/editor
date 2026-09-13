@@ -49,13 +49,13 @@ const BUILD_OPTIONS: BuildOptions = {
 
 // esbuild and babel are kept external to the main bundle (esbuild ships a
 // native binary). In development they resolve from the workspace; a packaged
-// app has no node_modules of its own, so they load from the CLI's staged
-// runtime at Contents/Resources/cli/node_modules (see scripts/stage-cli.mjs).
+// app has no node_modules of its own, so they load from the staged runtime at
+// Contents/Resources/runtime/node_modules (see scripts/stage-runtime.mjs).
 let stagedRequire: NodeJS.Require | undefined;
 
 function load<T>(name: string): T {
   if (!app.isPackaged) return require(name) as T;
-  stagedRequire ??= createRequire(join(process.resourcesPath, "cli", "package.json"));
+  stagedRequire ??= createRequire(join(process.resourcesPath, "runtime", "package.json"));
   return stagedRequire(name) as T;
 }
 
