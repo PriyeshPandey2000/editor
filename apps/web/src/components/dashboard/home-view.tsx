@@ -94,6 +94,7 @@ const PROMPT_EXAMPLES = [
 /** Milliseconds a line takes to fade in or out, and how long it stays readable. */
 const FADE_MS = 500;
 const HOLD_MS = 2400;
+const PROMPT_MAX_HEIGHT_PX = 200;
 
 export function DashboardHomeView() {
   const navigate = useNavigate();
@@ -107,6 +108,16 @@ export function DashboardHomeView() {
   const [attachments, setAttachments] = createSignal<Attachment[]>([]);
 
   const drop = createDropZone((dropped) => setAttachments((current) => mergeAttachments(current, dropped)));
+
+
+  let textarea: HTMLTextAreaElement | undefined;
+
+  createEffect(() => {
+    if (!textarea) return;
+    prompt();
+    textarea.style.height = "auto";
+    textarea.style.height = `${Math.min(textarea.scrollHeight, PROMPT_MAX_HEIGHT_PX)}px`;
+  });
 
   // Only worth animating while the field is empty — the placeholder is not on
   // screen behind text the user has typed.
@@ -377,6 +388,7 @@ export function DashboardHomeView() {
                 </Show>
 
                 <textarea
+                  ref={textarea}
                   value={prompt()}
                   onInput={(event) => setPrompt(event.currentTarget.value)}
                   onKeyDown={handleKeyDown}
@@ -385,7 +397,7 @@ export function DashboardHomeView() {
                   aria-placeholder={placeholder.line()}
                   aria-keyshortcuts={prompt().length === 0 ? "Tab" : undefined}
                   rows={2}
-                  class="[grid-area:1/1] max-h-60 min-h-12 w-full resize-none overflow-auto bg-transparent p-1 text-[12px] leading-5 text-foreground outline-none selection:bg-selection selection:text-selection-foreground"
+                  class="[grid-area:1/1] max-h-60 min-h-12 w-full resize-none overflow-y-auto bg-transparent p-1 text-[12px] leading-5 text-foreground outline-none selection:bg-selection selection:text-selection-foreground"
                 />
               </div>
 
