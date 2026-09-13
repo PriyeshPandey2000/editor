@@ -6,7 +6,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { MCP_HOST, MCP_PATH, MCP_PORT, tools } from "@diffusionstudio/dapi";
 import { mainHandlers } from "./handlers";
 import { DapiHttpServer } from "./http";
-import { instructions, registerPrompts } from "./docs";
+import { instructions } from "./docs";
 import { present, toCallToolResult, toErrorResult } from "./present";
 import { RendererCalls } from "./renderer-calls";
 
@@ -15,8 +15,8 @@ import type { MainContext, MainToolName } from "./handler";
 
 /**
  * The name the server introduces itself with, and so the namespace an agent
- * shows us under: `mcp__diffusion__<tool>` and `/diffusion:<prompt>`. The
- * same word as our URL scheme, and not `dapi`, which is the CLI.
+ * shows the tools under: `mcp__diffusion__<tool>`. The same word as our URL
+ * scheme, and not `dapi`, which is the CLI.
  */
 const SERVER_NAME = "diffusion";
 
@@ -26,7 +26,7 @@ export type DapiServerDeps = {
   logs(): LogEntry[];
   /** Called once, on the first connection: an agent is driving, so the UI may step back. */
   onFirstConnection(): void;
-  /** The staged docs: INSTRUCTIONS.md and their path for every session, the skill pages as prompts. Null when not staged. */
+  /** The staged docs: INSTRUCTIONS.md, their path, and the skill headers, all for every session. Null when not staged. */
   docsDir: string | null;
 };
 
@@ -87,14 +87,13 @@ export class DapiServer {
     this.http.stop();
   }
 
-  /** One MCP server over the whole catalog, plus the skills as prompts. The docs are plain files; the instructions say where. */
+  /** One MCP server over the whole catalog. The docs and skills are plain files; the instructions say where. */
   private createSession(): McpServer {
     this.instructionsText ??= instructions(this.deps.docsDir);
     // `name` is the machine identity, and matches the key we write into agent
     // configs; `title` is what a client shows a person.
     const session = new McpServer({ name: SERVER_NAME, title: "Diffusion Studio", version: this.deps.version }, { instructions: this.instructionsText });
     for (const tool of tools) this.register(session, tool);
-    registerPrompts(session, this.deps.docsDir);
     return session;
   }
 

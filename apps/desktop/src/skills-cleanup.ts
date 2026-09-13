@@ -2,17 +2,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// Removes the skill directories older builds planted in agents' skill
-// folders. The guidance they carried is served over MCP now (see
-// `dapi/docs.ts`), so a copy on disk is a second, staler answer to the
-// same question — and it points at a `dapi` binary that may no longer be
-// where it was linked.
-//
-// Two kinds were ever installed: real directories copied by the skills CLI
-// (`npx skills add diffusionstudio/skills`), and symlinks into the app
-// bundle's staged copy. Both go, and nothing else does: a directory has to
-// name itself as ours before it is touched.
-
 import { lstatSync, readFileSync, readlinkSync, rmSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";

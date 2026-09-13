@@ -61,7 +61,7 @@ Download the desktop app, it walks you through setting everything up:
 
 <a href="https://www.diffusion.studio/download"><img src="https://img.shields.io/badge/Download-Diffusion%20Studio-161616?style=for-the-badge&logo=apple&logoColor=F8F8F8&labelColor=000000" alt="Download Diffusion Studio" /></a>
 
-Use with Claude Code, Codex, Cursor, Copilot, or Gemini CLI. The app registers its MCP server with your agent, so just ask for what you want in plain language. Agents that list a server's prompts also offer `/diffusion:editor` and `/diffusion:watch`, which pull in the editing and watching guidance up front. `dapi` is the same set of tools as a CLI.
+Use with Claude Code, Codex, Cursor, Copilot, or Gemini CLI. The app registers its MCP server with your agent, so just ask for what you want in plain language. Every session's instructions carry the editing and watching skills, so the agent reads the guidance it needs up front. `dapi` is the same set of tools as a CLI.
 
 ## Prompt examples
 
