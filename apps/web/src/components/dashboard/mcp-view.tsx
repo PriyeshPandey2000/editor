@@ -2,16 +2,16 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-import { For, Match, Show, Switch, createResource, createSignal } from "solid-js";
+import { For, Match, Show, Switch, createResource, createSignal, onCleanup } from "solid-js";
 import { toast } from "somoto";
 
 import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
+import { Switch as Toggle, SwitchControl, SwitchInput, SwitchThumb } from "@/components/ui/switch";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   AGENT_ICONS,
   applyMcp,
-  displayPath,
   fetchCliStatus,
   fetchMcpStatus,
   installCli,
@@ -30,17 +30,182 @@ import {
   DashboardTitledSection,
 } from "./shared";
 
+const MCP_DOCS_URL = "https://modelcontextprotocol.io/docs/2026-07-28/develop/connect-local-servers";
+
+// --- Agents ------------------------------------------------------------------
+
+type AgentRowProps = {
+  agent: McpAgentStatus;
+  /** The state the switch is moving to while a write is in flight. */
+  pending: boolean | undefined;
+  onChange: (connected: boolean) => void;
+};
+
+function AgentRow(props: AgentRowProps) {
+  const checked = () => props.pending ?? props.agent.connected;
+
+  return (
+    <DashboardInfoActionRow
+      layout="inline"
+      leadingSize="sm"
+      title={props.agent.label}
+      leading={<Icon name={AGENT_ICONS[props.agent.id]} class="text-foreground" />}
+      action={
+        <Toggle
+          checked={checked()}
+          disabled={props.pending !== undefined}
+          onChange={props.onChange}
+          class="flex shrink-0 items-center"
+        >
+          <SwitchInput aria-label={`Connect ${props.agent.label}`} />
+          <SwitchControl variant="compact">
+            <SwitchThumb variant="compact" />
+          </SwitchControl>
+        </Toggle>
+      }
+    />
+  );
+}
+
+function DashboardAgentsSection() {
+  const [status, { refetch }] = createResource(fetchMcpStatus);
+  const [pending, setPending] = createSignal<Partial<Record<AgentId, boolean>>>({});
+
+  const labelOf = (id: AgentId) => status()?.agents.find((agent) => agent.id === id)?.label ?? id;
+
+  /** Every agent not yet connected. */
+  const connectable = () => (status()?.agents ?? []).filter((agent) => !agent.connected);
+
+  /**
+   * Writes the change straight into the agents' configs — a switch is not a
+   * draft. Whatever fails snaps back, with the reason in a toast.
+   */
+  const apply = async (add: AgentId[], remove: AgentId[]) => {
+    if (add.length + remove.length === 0) return;
+    setPending((current) => ({
+      ...current,
+      ...Object.fromEntries(add.map((id) => [id, true])),
+      ...Object.fromEntries(remove.map((id) => [id, false])),
+    }));
+    try {
+      const result = await applyMcp({ add, remove });
+      const changed = result.added.length + result.removed.length;
+      if (result.failures.length > 0) {
+        toast.error(changed > 0 ? "Some agents could not be updated" : "Agents could not be updated", {
+          description: result.failures.map((failure) => `${labelOf(failure.id)}: ${failure.error}`).join("\n"),
+        });
+      }
+    } catch (e) {
+      toast.error("Could not update the agents", { description: (e as Error).message });
+    } finally {
+      await refetch();
+      setPending((current) => {
+        const next = { ...current };
+        for (const id of [...add, ...remove]) delete next[id];
+        return next;
+      });
+    }
+  };
+
+  const setConnected = (agent: McpAgentStatus, connected: boolean) =>
+    apply(connected ? [agent.id] : [], connected ? [] : [agent.id]);
+
+  const enableAll = () => apply(connectable().map((agent) => agent.id), []);
+
+  return (
+    <DashboardTitledSection
+      title="Agents"
+      description="Connect to Diffusion Studio’s MCP server to create and edit videos with your agents."
+      action={
+        <Button variant="link" class="h-4" disabled={connectable().length === 0} onClick={enableAll}>
+          Enable all
+        </Button>
+      }
+    >
+      <DashboardSurfaceCard class="flex flex-col gap-3">
+        <Show
+          when={status()}
+          fallback={<p class="text-xs text-muted-foreground">Checking agents...</p>}
+        >
+          {(current) => (
+            <DashboardDividedStack>
+              <For each={current().agents}>
+                {(agent) => (
+                  <AgentRow
+                    agent={agent}
+                    pending={pending()[agent.id]}
+                    onChange={(connected) => void setConnected(agent, connected)}
+                  />
+                )}
+              </For>
+            </DashboardDividedStack>
+          )}
+        </Show>
+      </DashboardSurfaceCard>
+    </DashboardTitledSection>
+  );
+}
+
+// --- MCP server --------------------------------------------------------------
+
+const COPIED_LABEL_MS = 2000;
+
+function DashboardMcpServerSection() {
+  const [status] = createResource(fetchMcpStatus);
+  const [copied, setCopied] = createSignal(false);
+  let copiedTimer: ReturnType<typeof setTimeout> | undefined;
+  onCleanup(() => clearTimeout(copiedTimer));
+
+  const copy = async () => {
+    const url = status()?.url;
+    if (!url) return;
+    try {
+      await navigator.clipboard.writeText(url);
+      // The button itself says so for a moment, then goes back to its label.
+      setCopied(true);
+      clearTimeout(copiedTimer);
+      copiedTimer = setTimeout(() => setCopied(false), COPIED_LABEL_MS);
+    } catch (e) {
+      toast.error("Failed to copy", { description: (e as Error).message });
+    }
+  };
+
+  return (
+    <DashboardTitledSection title="MCP Server">
+      <DashboardSurfaceCard class="flex flex-col gap-3">
+        <DashboardInfoActionRow
+          layout="inline"
+          leadingSize="sm"
+          title="Diffusion Studio MCP"
+          leading={<Icon name="ai-mcp-cli" class="text-foreground" />}
+          description="Connect any other agent that supports MCP over Streamable HTTP."
+          action={
+            <div class="flex shrink-0 items-center gap-2">
+              <div class="flex h-7 w-41 items-center rounded-md bg-input px-2">
+                <span class="min-w-0 flex-1 truncate text-xs text-foreground">{status()?.url ?? "..."}</span>
+              </div>
+              <Button variant="secondary" disabled={!status()} onClick={copy}>
+                {copied() ? "Copied!" : "Copy URL"}
+              </Button>
+            </div>
+          }
+        />
+      </DashboardSurfaceCard>
+      <p class="px-2 pt-3 text-xs text-muted-foreground">
+        <span>Available locally while Diffusion Studio is running. </span>
+        <a href={MCP_DOCS_URL} target="_blank" class="text-primary hover:underline">
+          What is MCP?
+        </a>
+      </p>
+    </DashboardTitledSection>
+  );
+}
+
+// --- CLI ---------------------------------------------------------------------
+
 function DashboardCliSection() {
   const [status, { refetch }] = createResource(fetchCliStatus);
   const [busy, setBusy] = createSignal(false);
-
-  const description = () => {
-    const current = status();
-    if (!current) return "Checking...";
-    if (current.installed) return `Installed at ${current.path}`;
-    if (!current.available) return "Not installed. Available in the packaged app; in development, run npm run symlink:create.";
-    return "Not installed";
-  };
 
   const handleInstall = async () => {
     setBusy(true);
@@ -72,13 +237,15 @@ function DashboardCliSection() {
 
   return (
     <DashboardSurfaceSection
-      title="Command line"
-      description="With the CLI installed, agents can launch Diffusion Studio on their own, in the background if they like."
+      title="CLI"
+      description="Give agents access to Diffusion Studio through terminal commands."
     >
       <DashboardInfoActionRow
-        title="dapi"
-        leading={<Icon name="command-slash" class="text-foreground" />}
-        description={description()}
+        layout="inline"
+        leadingSize="sm"
+        title="dapi CLI"
+        leading={<Icon name="dapi-cli" class="text-foreground" />}
+        description="Diffusion Studio’s command-line tool for accessing its media tools and managing projects."
         action={
           <Switch>
             <Match when={!status()}>
@@ -87,247 +254,27 @@ function DashboardCliSection() {
               </Button>
             </Match>
             <Match when={status()?.installed && status()?.managed}>
-              <Button variant="secondary" disabled={busy()} onClick={handleUninstall}>
-                Uninstall
-              </Button>
+              <Tooltip>
+                <TooltipTrigger as={Button} variant="secondary" disabled={busy()} onClick={handleUninstall}>
+                  Uninstall
+                </TooltipTrigger>
+                <TooltipContent>Installed at {status()?.path}</TooltipContent>
+              </Tooltip>
             </Match>
             <Match when={status()?.installed}>
               <Tooltip>
                 <TooltipTrigger as={Button} variant="on">
                   Installed
                 </TooltipTrigger>
-                <TooltipContent>Not a link, so it is left alone.</TooltipContent>
+                <TooltipContent>Found at {status()?.path}. Not a link, so it is left alone.</TooltipContent>
               </Tooltip>
             </Match>
-            <Match when={status()?.available}>
-              <Button disabled={busy()} onClick={handleInstall}>
+            <Match when={true}>
+              <Button variant="secondary" disabled={busy()} onClick={handleInstall}>
                 Install
               </Button>
             </Match>
-            <Match when={true}>
-              <Button variant="secondary" disabled>
-                Unavailable
-              </Button>
-            </Match>
           </Switch>
-        }
-      />
-    </DashboardSurfaceSection>
-  );
-}
-
-// --- Agents ------------------------------------------------------------------
-
-type PendingChange = "add" | "remove";
-type Pending = Partial<Record<AgentId, PendingChange>>;
-
-type AgentRowProps = {
-  agent: McpAgentStatus;
-  pending: PendingChange | undefined;
-  onToggle: () => void;
-};
-
-function AgentRow(props: AgentRowProps) {
-  const description = () => {
-    const { agent } = props;
-    if (props.pending === "add") return <span class="text-primary">Will be added</span>;
-    if (props.pending === "remove") return <span class="text-destructive">Will be removed</span>;
-    if (agent.connected) return `Connected · ${displayPath(agent.config)}`;
-    if (agent.unavailable) return agent.unavailable;
-    if (!agent.detected) return "Not found on this Mac";
-    return "Not connected";
-  };
-
-  return (
-    <DashboardInfoActionRow
-      layout="inline"
-      title={props.agent.label}
-      leading={<Icon name={AGENT_ICONS[props.agent.id]} class="text-foreground" />}
-      description={description()}
-      action={
-        <Switch>
-          <Match when={props.pending}>
-            <Button variant="secondary" onClick={props.onToggle}>
-              Undo
-            </Button>
-          </Match>
-          <Match when={props.agent.connected}>
-            <Tooltip>
-              <TooltipTrigger
-                as={Button}
-                variant="ghost"
-                size="icon"
-                aria-label={`Remove from ${props.agent.label}`}
-                onClick={props.onToggle}
-              >
-                <Icon name="minus" />
-              </TooltipTrigger>
-              <TooltipContent>Remove from {props.agent.label}</TooltipContent>
-            </Tooltip>
-          </Match>
-          <Match when={true}>
-            <Tooltip>
-              <TooltipTrigger
-                as={Button}
-                variant="ghost"
-                size="icon"
-                aria-label={`Add to ${props.agent.label}`}
-                disabled={props.agent.unavailable !== null}
-                onClick={props.onToggle}
-              >
-                <Icon name="plus-add" />
-              </TooltipTrigger>
-              <TooltipContent>Add to {props.agent.label}</TooltipContent>
-            </Tooltip>
-          </Match>
-        </Switch>
-      }
-    />
-  );
-}
-
-function DashboardAgentsSection() {
-  const [status, { refetch }] = createResource(fetchMcpStatus);
-  const [pending, setPending] = createSignal<Pending>({});
-  const [saving, setSaving] = createSignal(false);
-
-  const ids = (change: PendingChange): AgentId[] =>
-    (Object.entries(pending()) as [AgentId, PendingChange][])
-      .filter(([, value]) => value === change)
-      .map(([id]) => id);
-  const toAdd = () => ids("add");
-  const toRemove = () => ids("remove");
-  const hasChanges = () => toAdd().length + toRemove().length > 0;
-
-  const summary = () => {
-    const parts = [
-      toAdd().length > 0 ? `${toAdd().length} to add` : null,
-      toRemove().length > 0 ? `${toRemove().length} to remove` : null,
-    ].filter((part): part is string => part !== null);
-    return parts.join(" · ");
-  };
-
-  const toggle = (agent: McpAgentStatus) => {
-    setPending((current) => {
-      const next = { ...current };
-      if (next[agent.id]) delete next[agent.id];
-      else next[agent.id] = agent.connected ? "remove" : "add";
-      return next;
-    });
-  };
-
-  const discard = () => setPending({});
-
-  const labelOf = (id: AgentId) => status()?.agents.find((agent) => agent.id === id)?.label ?? id;
-
-  const save = async () => {
-    if (!hasChanges() || saving()) return;
-    setSaving(true);
-    try {
-      const result = await applyMcp({ add: toAdd(), remove: toRemove() });
-
-      // Only what failed stays pending, so a retry is one click away.
-      setPending((current) => {
-        const next: Pending = {};
-        for (const failure of result.failures) {
-          const change = current[failure.id];
-          if (change) next[failure.id] = change;
-        }
-        return next;
-      });
-
-      const changed = result.added.length + result.removed.length;
-      if (result.failures.length > 0) {
-        toast.error(changed > 0 ? "Some agents could not be updated" : "Agents could not be updated", {
-          description: result.failures.map((failure) => `${labelOf(failure.id)}: ${failure.error}`).join("\n"),
-        });
-      } else {
-        toast("Agents updated", { description: "Restart the agent to pick up the change." });
-      }
-    } catch (e) {
-      toast.error("Could not update the agents", { description: (e as Error).message });
-    } finally {
-      setSaving(false);
-      void refetch();
-    }
-  };
-
-  return (
-    <DashboardTitledSection
-      title="Agents"
-      description="Adds Diffusion Studio as an MCP server to each agent's configuration, so the agent can inspect, generate, and edit your projects."
-    >
-      <DashboardSurfaceCard class="flex flex-col gap-3">
-        <Show
-          when={status()}
-          fallback={<p class="text-xs text-muted-foreground">Checking agents...</p>}
-        >
-          {(current) => (
-            <DashboardDividedStack>
-              <For each={current().agents}>
-                {(agent) => (
-                  <AgentRow agent={agent} pending={pending()[agent.id]} onToggle={() => toggle(agent)} />
-                )}
-              </For>
-            </DashboardDividedStack>
-          )}
-        </Show>
-      </DashboardSurfaceCard>
-      <Show when={hasChanges()}>
-        <div class="flex items-center gap-2 px-2 pt-3">
-          <p class="min-w-0 flex-1 truncate text-xs text-muted-foreground">{summary()}</p>
-          <Button variant="ghost" disabled={saving()} onClick={discard}>
-            Discard
-          </Button>
-          <Button disabled={saving()} onClick={save}>
-            Save changes
-          </Button>
-        </div>
-      </Show>
-    </DashboardTitledSection>
-  );
-}
-
-// --- Any other agent ---------------------------------------------------------
-
-function DashboardEndpointSection() {
-  const [status] = createResource(fetchMcpStatus);
-
-  const copy = async () => {
-    const url = status()?.url;
-    if (!url) return;
-    try {
-      await navigator.clipboard.writeText(url);
-      toast("Copied!", { description: "The MCP endpoint has been copied to your clipboard." });
-    } catch (e) {
-      toast.error("Failed to copy", { description: (e as Error).message });
-    }
-  };
-
-  return (
-    <DashboardSurfaceSection title="Other agents">
-      <DashboardInfoActionRow
-        title="MCP endpoint"
-        description={
-          <>
-            Any agent that speaks Streamable HTTP can be pointed at{" "}
-            <span class="font-mono text-foreground">{status()?.url ?? "..."}</span> while the app is running.
-          </>
-        }
-        action={
-          <Tooltip>
-            <TooltipTrigger
-              as={Button}
-              variant="ghost"
-              size="icon"
-              aria-label="Copy the MCP endpoint"
-              disabled={!status()}
-              onClick={copy}
-            >
-              <Icon name="clipboard" />
-            </TooltipTrigger>
-            <TooltipContent>Copy</TooltipContent>
-          </Tooltip>
         }
       />
     </DashboardSurfaceSection>
@@ -347,20 +294,10 @@ export function DashboardMcpView() {
           </DashboardSurfaceSection>
         }
       >
-        <DashboardCliSection />
         <DashboardAgentsSection />
-        <DashboardEndpointSection />
+        <DashboardMcpServerSection />
+        <DashboardCliSection />
       </Show>
-      <div class="px-2 pt-1 text-xs text-muted-foreground">
-        <span>Other agents can be connected by hand. </span>
-        <a
-          href="https://modelcontextprotocol.io/docs/2026-07-28/develop/connect-local-servers"
-          target="_blank"
-          class="text-primary hover:underline"
-        >
-          Learn more
-        </a>
-      </div>
     </DashboardScrollView>
   );
 }

@@ -69,6 +69,7 @@ export function DashboardSurfaceCard(props: DashboardSurfaceCardProps) {
 type DashboardTitledSectionProps = {
   title: string;
   description?: string;
+  action?: JSX.Element;
   class?: string;
   children: JSX.Element;
 };
@@ -82,7 +83,10 @@ export function DashboardTitledSection(props: DashboardTitledSectionProps) {
           {props.title}
         </span>
         <Show when={props.description}>
-          <p class="pb-1 text-xs text-muted-foreground">{props.description}</p>
+          <div class="flex items-center gap-2 pb-1">
+            <p class="min-w-0 flex-1 text-xs text-muted-foreground">{props.description}</p>
+            {props.action}
+          </div>
         </Show>
       </div>
       {props.children}
@@ -350,6 +354,8 @@ type DashboardInfoActionRowProps = {
   description?: JSX.Element;
   action: JSX.Element;
   leading?: JSX.Element;
+  /** The box the leading icon is centred in; "sm" lets a 24px icon overhang a 16px slot. */
+  leadingSize?: "sm" | "md";
   layout?: "responsive" | "responsive-md" | "inline";
 };
 
@@ -369,7 +375,7 @@ export function DashboardInfoActionRow(props: DashboardInfoActionRowProps) {
   const renderTitleText = (value: string) => (
     <p
       class={cx(
-        "text-xs text-foreground",
+        "text-xs leading-4 text-foreground",
         props.layout === "inline" ? "min-w-0 flex-1 truncate" : undefined,
       )}
     >
@@ -392,7 +398,7 @@ export function DashboardInfoActionRow(props: DashboardInfoActionRowProps) {
     <div class="flex min-w-0 flex-1 flex-col gap-1">
       {titleContent()}
       <Show when={props.description}>
-        <p class="text-muted-foreground text-xs">
+        <p class="text-muted-foreground text-xs leading-4">
           {props.description}
         </p>
       </Show>
@@ -408,7 +414,14 @@ export function DashboardInfoActionRow(props: DashboardInfoActionRowProps) {
         }
       >
         <div class={cx("flex min-w-0 flex-1 gap-2", leadingAlignClass())}>
-          <span class="grid size-6 shrink-0 place-items-center text-muted-foreground">
+          <span
+            class={cx(
+              // Flex centring overhangs an oversized icon evenly on every side; a
+              // grid track would grow to fit it and pin it to the top-left.
+              "flex shrink-0 items-center justify-center text-muted-foreground",
+              props.leadingSize === "sm" ? "size-4" : "size-6",
+            )}
+          >
             {props.leading}
           </span>
           {textContent()}

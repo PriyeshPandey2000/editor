@@ -167,7 +167,9 @@ export function DashboardPage() {
             </DashboardSidebarSection>
           </Show>
         </DashboardSidebarNav>
-        <DashboardSidebarUser onClick={openProfile} />
+        <Show when={!settingsNavOpen()}>
+          <DashboardSidebarUser onClick={openProfile} />
+        </Show>
       </aside>
 
       <Separator orientation="vertical" class="bg-border-strong" />
