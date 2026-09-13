@@ -24,7 +24,7 @@ import { attachProjectConfig, isProjectConfigFile } from '@/engine/project-confi
 import { loadProjectBundle, rememberProjectBundle } from '@/lib/db';
 import { isCacheFile } from '@diffusionstudio/assets';
 import { createEditWriter } from '@/projects/edits';
-import { compileProject, watchProject } from '@/projects/host';
+import { compileProject, refreshProject, watchProject } from '@/projects/host';
 import { captureProjectCover } from '@/projects/cover';
 import { useProject } from "@/context/project";
 import { useEngineContext } from "@/engine";
@@ -178,6 +178,7 @@ export function EditorPage() {
     onCleanup(() => {
       disposed = true;
       captureProjectCover(dir, engine.snapshot());
+      refreshProject(dir);
       unwatch();
       unmount();
       config.dispose();

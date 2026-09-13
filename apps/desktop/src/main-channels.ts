@@ -43,7 +43,6 @@ export const MAIN_CHANNELS = {
   PROJECTS_PICK_ROOT: "projects:pick-root",
   PROJECTS_PICK_FOLDER: "projects:pick-folder",
   PROJECTS_DEFAULT_ROOT: "projects:default-root",
-  PROJECTS_LIST: "projects:list",
   PROJECTS_SCAN: "projects:scan",
   PROJECTS_GET: "projects:get",
   PROJECTS_INIT: "projects:init",
@@ -221,10 +220,6 @@ export type MainRequestMap = {
   [MAIN_CHANNELS.PROJECTS_DEFAULT_ROOT]: {
     request: void;
     response: string | null;
-  };
-  [MAIN_CHANNELS.PROJECTS_LIST]: {
-    request: { dirs: string[] };
-    response: ProjectInfo[];
   };
   // Every project folder directly under `root`: what the app puts on its
   // list when `root` is chosen as the projects root.

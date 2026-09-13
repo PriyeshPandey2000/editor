@@ -5,6 +5,8 @@
 import { openDB } from 'idb';
 import type * as idb from 'idb';
 
+import type { ProjectInfo } from '@desktop/main-channels';
+
 const adjectives = ["Golden", "Silent", "Fast", "Bright", "Dark", "Wild", "Calm"];
 const nouns = ["River", "Mountain", "Dream", "Storm", "Sunset", "Forest", "Ocean"];
 
@@ -25,19 +27,12 @@ export function generateProjectName(): string {
  * A project the app knows: one it created, one it was asked to open — from
  * the folder picker, or `dapi open <path>` — or one found in the projects
  * root when that was chosen. The dashboard lists these and nothing else.
- * Keyed by folder, which is how main addresses a project. The id is a copy of
- * what the folder's package.json said last time — enough to find the folder
- * a URL names without reading every record's package.json — and the folder
- * has the final say (see `resolveProject` in @/projects).
- *
- * The projects root itself is not in here: there is one, so it lives in
- * localStorage (see @/projects).
+ * Keyed by folder, which is how main addresses a project.
  */
-export interface ProjectRecord {
-  dir: string; // Absolute path of the project folder.
-  id: string; // package.json `projectId`; "" while the folder has none.
-  createdAt: string; // When the app first put it on record.
+export interface ProjectRecord extends ProjectInfo {
+  recordedAt: string; // When the app first put it on record.
   lastOpenedAt: string;
+  cover: Blob | null;
 }
 
 /**
@@ -87,6 +82,20 @@ const dbPromise = openDB<GlobalDBSchema>(DB_NAME, DB_VERSION, {
   },
 });
 
+/** Last segment of a path, whichever separator it uses. */
+const folderLabel = (path: string): string => path.split(/[\\/]/).filter(Boolean).pop() ?? path;
+
+/**
+ * A record for a project the app has not looked at yet: the folder name
+ * stands in for the display name, and the record's own dates for the
+ * folder's. What a legacy root is upgraded to; the first open replaces it
+ * with what the folder actually says.
+ */
+function placeholderRecord(dir: string, recordedAt: string, lastOpenedAt: string): ProjectRecord {
+  const name = folderLabel(dir);
+  return { dir, id: '', name, displayName: name, entry: '', modifiedAt: lastOpenedAt, createdAt: recordedAt, recordedAt, lastOpenedAt, cover: null };
+}
+
 /**
  * Versions 1 and 2 kept a `roots` store: folders the dashboard scanned for
  * projects (`kind: 'multi'`), and single project folders registered on their
@@ -103,34 +112,43 @@ async function retireRoots(db: idb.IDBPDatabase<GlobalDBSchema>, tx: UpgradeTran
   const roots = (tx as unknown as idb.IDBPTransaction<unknown, string[], 'versionchange'>).objectStore('roots');
   for (const root of (await roots.getAll()) as LegacyRoot[]) {
     if (root.kind !== 'single') continue;
-    await projects.put({ dir: root.path, id: '', createdAt: root.createdAt, lastOpenedAt: root.lastUsedAt });
+    await projects.put(placeholderRecord(root.path, root.createdAt, root.lastUsedAt));
   }
 
   db.deleteObjectStore('roots' as never);
 }
 
-/** Last segment of a path, whichever separator it uses. */
-const folderLabel = (path: string): string => path.split(/[\\/]/).filter(Boolean).pop() ?? path;
-
 // ---------------------------------------------------------------------------
 // Project records
 
 /**
- * Puts the project in `dir` on record, or marks the one already recorded
- * there as just opened. `id` is what its package.json says now — the record
- * keeps a copy, so a folder that has since been given an id gets it here.
+ * Puts `project` on record as just opened — what its folder says now,
+ * replacing the copy the record held — or on record for the first time.
  */
-export async function rememberProject(dir: string, id: string): Promise<ProjectRecord> {
+export async function rememberProject(project: ProjectInfo): Promise<ProjectRecord> {
   const db = await dbPromise;
   const now = new Date().toISOString();
-  const existing = await db.get('projects', dir);
+  const existing = await db.get('projects', project.dir);
 
   const record: ProjectRecord = existing
-    ? { ...existing, id, lastOpenedAt: now }
-    : { dir, id, createdAt: now, lastOpenedAt: now };
+    ? { ...existing, ...project, lastOpenedAt: now }
+    : { ...project, recordedAt: now, lastOpenedAt: now, cover: null };
 
   await db.put('projects', record);
   return record;
+}
+
+/**
+ * Brings the record for `project` up to date with what its folder says,
+ * without marking it opened — for a project that changed while it was open,
+ * and for one that is closing. Nothing to do when it is not on record.
+ */
+export async function updateProjectRecord(project: ProjectInfo): Promise<void> {
+  const db = await dbPromise;
+  const tx = db.transaction('projects', 'readwrite');
+  const existing = await tx.store.get(project.dir);
+  if (existing) await tx.store.put({ ...existing, ...project });
+  await tx.done;
 }
 
 /**
@@ -138,15 +156,15 @@ export async function rememberProject(dir: string, id: string): Promise<ProjectR
  * ones that are alone — they were opened when they were opened. Answers with
  * how many were new. For the projects a freshly chosen root turns out to hold.
  */
-export async function addProjectRecords(found: Array<{ dir: string; id: string }>): Promise<number> {
+export async function addProjectRecords(found: ProjectInfo[]): Promise<number> {
   const db = await dbPromise;
   const now = new Date().toISOString();
   const tx = db.transaction('projects', 'readwrite');
   let added = 0;
 
-  for (const { dir, id } of found) {
-    if (await tx.store.getKey(dir)) continue;
-    await tx.store.put({ dir, id, createdAt: now, lastOpenedAt: now });
+  for (const project of found) {
+    if (await tx.store.getKey(project.dir)) continue;
+    await tx.store.put({ ...project, recordedAt: now, lastOpenedAt: now, cover: null });
     added++;
   }
 
@@ -187,6 +205,19 @@ export async function moveProjectRecord(from: string, to: string): Promise<void>
     await tx.store.delete(from);
     await tx.store.put({ ...existing, dir: to });
   }
+  await tx.done;
+}
+
+/**
+ * Records `cover` as the picture of the project in `dir`, replacing the one
+ * before it. Nothing to do when the project is not on record: one deleted
+ * while its cover was still being taken is not put back.
+ */
+export async function rememberProjectCover(dir: string, cover: Blob): Promise<void> {
+  const db = await dbPromise;
+  const tx = db.transaction('projects', 'readwrite');
+  const existing = await tx.store.get(dir);
+  if (existing) await tx.store.put({ ...existing, cover });
   await tx.done;
 }
 

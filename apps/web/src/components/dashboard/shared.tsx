@@ -17,16 +17,17 @@ import {
   onCleanup,
   type JSX,
 } from "solid-js";
-import { projectCoverKey, readProjectCover } from "@/projects";
 import { Separator } from "../ui/separator";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { toast } from "somoto";
 import { track } from "@/lib/analytics";
 import { forgetProjectBundle, generateProjectName } from "@/lib/db";
 import {
+  checkProject,
   createProject,
   deleteProject,
   ensureProjectsRoot,
+  forgetProject,
   isDesktop,
   type ProjectInfo,
 } from "@/projects";
@@ -562,6 +563,33 @@ export async function createNewProject(): Promise<ProjectInfo | null> {
 }
 
 /**
+ * The project as its folder holds it now, for opening it from the list: what
+ * the list shows is its record, and the folder is only looked at here. Null —
+ * with the reason shown, and a way to take the project off the list — when
+ * the folder is gone or no longer a project. The list is not touched on its
+ * own: a folder on a volume that is not mounted comes back with the volume.
+ */
+export async function openProjectFromList(project: ProjectInfo): Promise<ProjectInfo | null> {
+  if (!isDesktop()) return project;
+
+  const current = await checkProject(project);
+  if (current) return current;
+
+  toast.error(`Could not find ${project.displayName}`, {
+    description: `There is no project at ${project.dir}. It may be on a disk that is not connected.`,
+    action: {
+      label: "Remove from list",
+      onClick: () => {
+        forgetProject(project.dir).catch((e) => {
+          toast.error("Failed to remove project", { description: (e as Error).message });
+        });
+      },
+    },
+  });
+  return null;
+}
+
+/**
  * Moves `project` to the Trash, and drops the bundle we were holding for it —
  * the folder is gone, so the cached copy of it is stale.
  */
@@ -607,16 +635,12 @@ export function DashboardViewSection(props: DashboardViewSectionProps) {
 }
 
 /** The saved cover of the project in `dir`, or nothing when it has none yet. */
-export function DashboardProjectThumbnail(props: { dir: string }) {
-  const [cover] = createResource(
-    () => projectCoverKey(props.dir),
-    () => readProjectCover(props.dir),
-  );
-
+/** The project's cover, off its record; nothing while it has none. */
+export function DashboardProjectThumbnail(props: { cover: Blob | null }) {
   // The URL the last cover was under is released as this one takes its place.
   const url = createMemo<string | null>((previous) => {
     if (previous) URL.revokeObjectURL(previous);
-    const blob = cover();
+    const blob = props.cover;
     return blob ? URL.createObjectURL(blob) : null;
   }, null);
 

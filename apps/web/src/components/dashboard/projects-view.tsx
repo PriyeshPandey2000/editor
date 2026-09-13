@@ -20,6 +20,7 @@ import {
   DashboardCardPreview,
   DashboardViewSection,
   createNewProject,
+  openProjectFromList,
 } from "./shared";
 import { DeleteProjectDialog } from "./delete-project-dialog";
 import { DashboardProjectCard } from "./project-card";
@@ -78,9 +79,11 @@ export function DashboardProjectsView() {
     return entries;
   });
 
-  const openProject = (project: ProjectInfo) => {
+  const openProject = async (project: ProjectInfo) => {
+    const found = await openProjectFromList(project);
+    if (!found) return;
     track('project_opened');
-    navigate(projectRoute(projectKey(project)));
+    navigate(projectRoute(projectKey(found)));
   };
 
   const handleDeleted = (project: ProjectInfo) => {

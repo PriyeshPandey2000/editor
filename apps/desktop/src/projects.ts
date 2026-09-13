@@ -389,17 +389,6 @@ async function confirmCloudLocation(
   return response === 1;
 }
 
-/**
- * The projects among `dirs`, in that order. A folder that is gone or holds
- * no entry is left out rather than reported: the app keeps its own list of
- * projects (see the web app's projects host), and this is how it reads the
- * list back off the disk. Reads only.
- */
-export async function listProjects(dirs: string[]): Promise<ProjectInfo[]> {
-  const projects = await Promise.all(dirs.map(describe));
-  return projects.filter((project): project is ProjectInfo => project !== null);
-}
-
 /** Direct child folders of `root` that could hold a project, in a stable order. */
 async function childDirs(root: string): Promise<string[]> {
   const entries = await readdir(root, { withFileTypes: true });

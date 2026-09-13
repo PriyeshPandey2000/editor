@@ -62,6 +62,7 @@ import {
   DashboardCardPreview,
   createBackgroundClickHandler,
   createNewProject,
+  openProjectFromList,
 } from "./shared";
 import { parseTimestamp } from "./utils";
 
@@ -156,7 +157,8 @@ export function DashboardHomeView() {
    */
   const resolveTarget = async (): Promise<ProjectInfo | null> => {
     const current = target();
-    if (current.kind === "project") return current.project;
+    // A project off the list is its record; the folder is looked at now.
+    if (current.kind === "project") return openProjectFromList(current.project);
     if (current.kind === "folder") return openProjectFolder(current.dir);
 
     // Waits for the roots to come back from the database, and asks for one
@@ -242,9 +244,11 @@ export function DashboardHomeView() {
     refetchProjects();
   };
 
-  const openProject = (project: ProjectInfo) => {
+  const openProject = async (project: ProjectInfo) => {
+    const found = await openProjectFromList(project);
+    if (!found) return;
     track("project_opened");
-    navigate(projectRoute(projectKey(project)));
+    navigate(projectRoute(projectKey(found)));
   };
 
   const handleCreateProject = async () => {
@@ -411,7 +415,7 @@ export function DashboardHomeView() {
         <div class="flex shrink-0 flex-col">
           <div class="flex items-end gap-6 px-6 pt-4 pb-3">
             <h2 class="min-w-0 flex-1 text-2xl leading-6 font-450 text-foreground">
-              Recent
+              Recents
             </h2>
           </div>
           <div

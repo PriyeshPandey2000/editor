@@ -15,13 +15,13 @@ import {
 } from "@/components/ui/context-menu";
 import { TextField, TextFieldInput } from "@/components/ui/text-field";
 import { track } from "@/lib/analytics";
-import { duplicateProject, renameProject, type ProjectInfo } from "@/projects";
+import { duplicateProject, renameProject, type ProjectRecord } from "@/projects";
 
 import { DashboardCardButton, DashboardCardPreview, DashboardProjectThumbnail } from "./shared";
 import { formatEditedAt } from "./utils";
 
 type DashboardProjectCardProps = {
-  project: ProjectInfo;
+  project: ProjectRecord;
   /** Whether the card is the selected one in its grid. */
   active: boolean;
   /** A single click, or a right-click, landed on the card. */
@@ -146,7 +146,7 @@ export function DashboardProjectCard(props: DashboardProjectCardProps) {
           onDelete={props.onDelete}
         >
           <DashboardCardPreview>
-            <DashboardProjectThumbnail dir={props.project.dir} />
+            <DashboardProjectThumbnail cover={props.project.cover} />
           </DashboardCardPreview>
           <div class="flex flex-col gap-1 px-2">
             <div class="relative h-4 w-full">

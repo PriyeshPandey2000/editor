@@ -10,15 +10,17 @@ import { mainBridge } from '@/lib/ipc';
 import {
 	addProjectRecords,
 	findProjectRecords,
-	forgetProject,
+	forgetProject as forgetProjectRecord,
 	listProjectRecords,
 	moveProjectRecord,
 	rememberProject,
+	updateProjectRecord,
 } from '@/lib/db';
 
 import type { CompileResult, ProjectInfo, SourceEdit, WriteResult } from '@desktop/main-channels';
+import type { ProjectRecord } from '@/lib/db';
 
-export type { CompileResult, ProjectInfo, SourceEdit, WriteResult };
+export type { CompileResult, ProjectInfo, ProjectRecord, SourceEdit, WriteResult };
 
 // There is one projects root, so it is one localStorage value rather than a
 // database row — read synchronously, so it is known from the first render.
@@ -49,11 +51,16 @@ const [projectsRevision, setProjectsRevision] = createSignal(1);
 /** Changes whenever the list `listProjects` answers with would; a source for `createResource`. */
 export { projectsRevision };
 
+/** Tells the views the list changed, for a change made to the records directly (a cover landing). */
+export function markProjectsChanged(): void {
+	setProjectsRevision((revision) => revision + 1);
+}
+
 export const isDesktop = (): boolean => !!window.desktop;
 
 /** Puts `project` on the list (or marks it just opened) and tells the views. */
 async function remember(project: ProjectInfo): Promise<void> {
-	await rememberProject(project.dir, project.id);
+	await rememberProject(project);
 	setProjectsRevision((revision) => revision + 1);
 }
 
@@ -129,16 +136,48 @@ export async function ensureProjectsRoot(): Promise<string | null> {
 }
 
 /**
- * The projects the app knows that are still on disk, most recently opened
- * first. A record whose folder is gone (moved, trashed by hand, on a volume
- * that is not mounted) is skipped, not forgotten: it may well come back.
+ * The projects the app knows, most recently opened first, as their records
+ * describe them — no folder is read. The dashboard shows this at launch, and
+ * reading a folder under Desktop or Documents there is what would make macOS
+ * ask for permission before the user has done anything; a project's folder
+ * is looked at when the project is opened (see `checkProject`). So a record
+ * whose folder is gone stays on the list until then: it may well come back
+ * (a volume that is not mounted), and if not, opening it says so.
  */
-export async function listProjects(): Promise<ProjectInfo[]> {
+export async function listProjects(): Promise<ProjectRecord[]> {
 	if (!isDesktop()) return [];
+	return listProjectRecords();
+}
 
-	const records = await listProjectRecords();
-	if (!records.length) return [];
-	return mainBridge.call(MAIN_CHANNELS.PROJECTS_LIST, { dirs: records.map((record) => record.dir) });
+/**
+ * What the folder of `project` holds now, its record brought up to date with
+ * it: the project as it is, or null when the folder is gone or no longer a
+ * project. For the moment before a project on the list is opened.
+ */
+export async function checkProject(project: ProjectInfo): Promise<ProjectInfo | null> {
+	const current = await getProject(project.dir);
+	if (current) await updateProjectRecord(current);
+	return current;
+}
+
+/**
+ * Re-reads the project in `dir` and brings its record up to date — for a
+ * project whose folder changed while it was open, and for one that is
+ * closing, so the dashboard shows what it was last edited as. Null when the
+ * folder is gone.
+ */
+export async function refreshProject(dir: string): Promise<ProjectInfo | null> {
+	const current = await getProject(dir);
+	if (!current) return null;
+	await updateProjectRecord(current);
+	setProjectsRevision((revision) => revision + 1);
+	return current;
+}
+
+/** Takes the project in `dir` off the list, leaving its folder alone, and tells the views. */
+export async function forgetProject(dir: string): Promise<void> {
+	await forgetProjectRecord(dir);
+	setProjectsRevision((revision) => revision + 1);
 }
 
 /** Creates a project folder under the root, named after `displayName`, and puts it on the list. */
@@ -166,7 +205,7 @@ export async function resolveProject(ref: string): Promise<ProjectInfo | null> {
 		const project = await mainBridge.call(MAIN_CHANNELS.PROJECTS_RESOLVE, { dir: record.dir });
 		if (!project || (project.id !== ref && project.name !== ref)) continue;
 		// Just opened, and holding an id the record may not have had yet.
-		await rememberProject(project.dir, project.id);
+		await rememberProject(project);
 		return project;
 	}
 	return null;
@@ -223,7 +262,6 @@ export async function deleteProject(dir: string): Promise<void> {
 
 	await mainBridge.call(MAIN_CHANNELS.PROJECTS_DELETE, { dir });
 	await forgetProject(dir);
-	setProjectsRevision((revision) => revision + 1);
 }
 
 /**
