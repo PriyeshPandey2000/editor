@@ -28,10 +28,10 @@ export const context = defineTool({
   name: "context",
   title: "App context",
   description:
-    "Report the current app context: the application root folder (always reported), the folder of the project the app has open (null when none is), where its playhead sits in seconds, the registered font families, and where its `generate.*` declarations stand. Poll it to wait for generations without blocking.",
+    "Report the current app context: the folder new projects are created in (always reported), the folder of the project the app has open (null when none is), where its playhead sits in seconds, the registered font families, and where its `generate.*` declarations stand. Poll it to wait for generations without blocking.",
   input: z.object({}),
   output: z.object({
-    rootDir: z.string().nullable().describe("folder projects live under; null until one has been chosen"),
+    rootDir: z.string().nullable().describe("folder new projects are created in; null until one has been chosen"),
     projectDir: z.string().nullable().describe("absolute path of the open project; null when none is open"),
     currentTime: z
       .number()

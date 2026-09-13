@@ -50,7 +50,7 @@ import {
   openProjectFolder,
   pickProjectFolder,
   projectKey,
-  projectsRoot,
+  projectsRevision,
   type ProjectInfo,
 } from "@/projects";
 
@@ -110,8 +110,10 @@ export function DashboardHomeView() {
   // screen behind text the user has typed.
   const placeholder = createFadingPlaceholder(() => prompt().length === 0);
 
+  // The projects the app knows — created here, or opened from a folder —
+  // refetched whenever that list changes.
   const [projects, { refetch: refetchProjects }] = createResource(
-    projectsRoot,
+    projectsRevision,
     () => listProjects(),
   );
   // The model is shared with the chat panel and remembered across sessions;

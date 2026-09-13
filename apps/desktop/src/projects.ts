@@ -389,78 +389,28 @@ async function confirmCloudLocation(
   return response === 1;
 }
 
-/** Direct child folders of `root` that could hold a project, in a stable order. */
-async function childDirs(root: string): Promise<string[]> {
-  const entries = await readdir(root, { withFileTypes: true });
-  return entries
-    .filter((entry) => entry.isDirectory() && !entry.name.startsWith(".") && entry.name !== "node_modules")
-    .map((entry) => entry.name)
-    .sort()
-    .map((name) => join(root, name));
-}
-
-/** Every direct child folder of `root` that holds an entry file. Reads only. */
-export async function listProjects(root: string): Promise<ProjectInfo[]> {
-  const dirs = await childDirs(root);
+/**
+ * The projects among `dirs`, in that order. A folder that is gone or holds
+ * no entry is left out rather than reported: the app keeps its own list of
+ * projects (see the web app's projects host), and this is how it reads the
+ * list back off the disk. Reads only.
+ */
+export async function listProjects(dirs: string[]): Promise<ProjectInfo[]> {
   const projects = await Promise.all(dirs.map(describe));
   return projects.filter((project): project is ProjectInfo => project !== null);
 }
 
 /**
- * Where an id was last seen, so opening the project the URL names usually
- * costs one package.json read instead of a scan of the root. Never trusted
- * without rereading the file: a stale entry (folder renamed behind our back,
- * project deleted) just falls through to the scan.
+ * The project in `dir`, left holding an id — this is where a folder that
+ * predates ids, or was made by hand, gets one — so the caller can send the
+ * app to that id's URL. What the app calls when it opens a project; null
+ * when `dir` holds none.
  */
-const dirsById = new Map<string, string>();
-
-const cacheKey = (root: string, id: string): string => `${root}\n${id}`;
-
-/** Drops every cached id that pointed at `dir` (it moved, or is gone). */
-function forgetDir(dir: string): void {
-  for (const [key, cached] of dirsById) {
-    if (cached === dir) dirsById.delete(key);
-  }
-}
-
-/**
- * The project `ref` names under `root`: an id first, then a folder name, so
- * links made before ids existed still open. Whatever is found is left holding
- * an id — this is where a folder that predates them gets one — and the caller
- * can send the app to that id's URL.
- *
- * Ids live in a file the user can copy, so two folders can end up with the
- * same one. Nothing here can tell which was meant, so it settles for being
- * predictable: the cache answers first, so a project stays the one that was
- * already open, and a cold scan is ordered by folder name.
- */
-export async function resolveProject(root: string, ref: string): Promise<ProjectInfo | null> {
-  if (!ref) return null;
-
-  const found = async (dir: string): Promise<ProjectInfo | null> => {
-    dirsById.set(cacheKey(root, await ensureProjectId(dir)), dir);
-    return describe(dir);
-  };
-
-  const cached = dirsById.get(cacheKey(root, ref));
-  if (cached && recordedId(await readPackage(cached)) === ref) {
-    const project = await describe(cached);
-    if (project) return project;
-  }
-
-  let dirs: string[];
-  try {
-    dirs = await childDirs(root);
-  } catch {
-    return null;
-  }
-  const ids = await Promise.all(dirs.map(async (dir) => recordedId(await readPackage(dir))));
-
-  const byId = dirs[ids.indexOf(ref)];
-  if (byId) return found(byId);
-
-  const byName = dirs.find((dir) => basename(dir) === ref);
-  return byName ? found(byName) : null;
+export async function resolveProject(dir: string): Promise<ProjectInfo | null> {
+  const project = await describe(dir);
+  if (!project || project.id) return project;
+  await ensureProjectId(dir);
+  return describe(dir);
 }
 
 // ---------------------------------------------------------------------------
@@ -841,7 +791,6 @@ async function renameFolder(dir: string, displayName: string): Promise<string> {
     // as soon as it hears where the project went.
     unwatchProject(dir);
     await rename(dir, target);
-    forgetDir(dir);
     return target;
   } catch {
     return dir;
@@ -877,7 +826,6 @@ export async function deleteProject(dir: string): Promise<string> {
   const id = recordedId(await readPackage(dir));
   unwatchProject(dir);
   await shell.trashItem(dir);
-  forgetDir(dir);
   return id;
 }
 

@@ -78,9 +78,9 @@ export const MAIN_CHANNELS = {
 } as const;
 
 /**
- * A project folder under the projects root: a real npm package with a JSX
- * entry. Its package.json is the project record: `projectId` is what the
- * project is, `displayName` the human name, `main` the entry file.
+ * A project folder, wherever it lives: a real npm package with a JSX entry.
+ * Its package.json is the project record: `projectId` is what the project
+ * is, `displayName` the human name, `main` the entry file.
  */
 export type ProjectInfo = {
   /**
@@ -222,7 +222,7 @@ export type MainRequestMap = {
     response: string | null;
   };
   [MAIN_CHANNELS.PROJECTS_LIST]: {
-    request: { root: string };
+    request: { dirs: string[] };
     response: ProjectInfo[];
   };
   [MAIN_CHANNELS.PROJECTS_GET]: {
@@ -234,7 +234,7 @@ export type MainRequestMap = {
     response: ProjectInfo;
   };
   [MAIN_CHANNELS.PROJECTS_RESOLVE]: {
-    request: { root: string; ref: string };
+    request: { dir: string };
     response: ProjectInfo | null;
   };
   [MAIN_CHANNELS.PROJECTS_CREATE]: {

@@ -2,33 +2,29 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// Renderer half of on-disk projects. Projects live as folders under a root
-// (persisted) — a default one until the user picks another; each project's
-// package.json is its record (`projectId`, `displayName`, `main`). The
-// desktop main process scans, scaffolds, renames, copies, trashes, compiles,
-// and watches them. Desktop only for now: without the bridge every call
-// rejects and the root is null.
-//
-// A project is addressed by its folder — an absolute path, which is what main
-// takes — and identified by its id, which is what the app's URLs carry and
-// what survives the folder being renamed. `resolveProject` is the one bridge
-// between the two; callers get the folder from the `ProjectInfo` it answers
-// with (and the open project's from `@/context/project`).
 
 import { createSignal } from 'solid-js';
 
 import { MAIN_CHANNELS } from '@desktop/main-channels';
 import { mainBridge } from '@/lib/ipc';
-import { lastUsedProjectRoot, listProjectRoots, rememberProjectRoot } from '@/lib/db';
+import {
+	findProjectRecords,
+	forgetProject,
+	lastUsedProjectRoot,
+	listProjectRecords,
+	moveProjectRecord,
+	rememberProject,
+	rememberProjectRoot,
+} from '@/lib/db';
 
 import type { CompileResult, ProjectInfo, SourceEdit, WriteResult } from '@desktop/main-channels';
 
 export type { CompileResult, ProjectInfo, SourceEdit, WriteResult };
 
-// The roots live in the app's IndexedDB (see @/lib/db) as a list
-// keyed by path. The app works against one of them — the one used last — but
-// the store is already the list several roots will need, so growing into them
-// is UI rather than a migration.
+// The roots live in the app's IndexedDB (see @/lib/db) as a list keyed by
+// path. The app works against one of them — the one used last — but the
+// store is already the list several roots will need, so growing into them is
+// UI rather than a migration.
 //
 // Reading a database is asynchronous, so the root starts null and arrives a
 // tick later. Every call here waits for it, leaving only the UI to tell "no
@@ -37,23 +33,36 @@ export type { CompileResult, ProjectInfo, SourceEdit, WriteResult };
 const [projectsRoot, setProjectsRoot] = createSignal<string | null>(null);
 const [rootsReady, setRootsReady] = createSignal(false);
 
-/** The projects root folder: null until one is picked, and until `rootsReady`. */
+/** The folder new projects are created in: null until one is picked, and until `rootsReady`. */
 export { projectsRoot };
 
 /** Whether the roots have been read back from the database yet. */
 export { rootsReady };
 
+// Bumped whenever the list of known projects changes — one created, opened,
+// renamed, copied, or deleted — so a view listing them can refetch on it.
+const [projectsRevision, setProjectsRevision] = createSignal(1);
+
+/** Changes whenever the list `listProjects` answers with would; a source for `createResource`. */
+export { projectsRevision };
+
+export const isDesktop = (): boolean => !!window.desktop;
+
 const ready = new Promise<void>((resolve) => {
 	lastUsedProjectRoot()
 		.then((root) => setProjectsRoot(root?.path ?? null))
-		.catch((error) => console.error('[projects] could not read the projects roots', error))
+		.catch((error) => console.error('[projects] could not read the projects database', error))
 		.finally(() => {
 			setRootsReady(true);
 			resolve();
 		});
 });
 
-export const isDesktop = (): boolean => !!window.desktop;
+/** Puts `project` on the list (or marks it just opened) and tells the views. */
+async function remember(project: ProjectInfo): Promise<void> {
+	await rememberProject(project.dir, project.id);
+	setProjectsRevision((revision) => revision + 1);
+}
 
 /** The projects root, waited for: null off the desktop and until one is picked. */
 export async function getProjectsRoot(): Promise<string | null> {
@@ -104,41 +113,49 @@ export async function ensureProjectsRoot(): Promise<string | null> {
 	return root;
 }
 
+/**
+ * The projects the app knows that are still on disk, most recently opened
+ * first. A record whose folder is gone (moved, trashed by hand, on a volume
+ * that is not mounted) is skipped, not forgotten: it may well come back.
+ */
 export async function listProjects(): Promise<ProjectInfo[]> {
 	await ready;
-	const root = projectsRoot();
-	if (!root || !isDesktop()) return [];
-	return mainBridge.call(MAIN_CHANNELS.PROJECTS_LIST, { root });
+	if (!isDesktop()) return [];
+
+	const records = await listProjectRecords();
+	if (!records.length) return [];
+	return mainBridge.call(MAIN_CHANNELS.PROJECTS_LIST, { dirs: records.map((record) => record.dir) });
 }
 
-/** Creates a project folder under the root, named after `displayName`. */
+/** Creates a project folder under the root, named after `displayName`, and puts it on the list. */
 export async function createProject(displayName: string): Promise<ProjectInfo> {
 	await ready;
 	const root = projectsRoot();
 	if (!root) throw new Error('No projects folder selected.');
-	return mainBridge.call(MAIN_CHANNELS.PROJECTS_CREATE, { root, displayName });
+
+	const project = await mainBridge.call(MAIN_CHANNELS.PROJECTS_CREATE, { root, displayName });
+	await remember(project);
+	return project;
 }
 
 /**
  * The project `ref` names: its id, or — for links made before ids existed,
- * and folders opened by name — its folder name. The active root is searched
- * first (and hands out ids, so the app can put one in the URL); on a miss,
- * the single-project roots answer for projects living anywhere else on disk,
- * matched by id or folder name, most recently used first.
+ * and folders opened by name — its folder name. Only projects on the list
+ * can be found; the records say which folders to look in, and the folders
+ * say what they are now (one may have been renamed or replaced behind our
+ * back, or be a folder that predates ids — in which case main gives it one
+ * here, so the app can put an id in the URL).
  */
 export async function resolveProject(ref: string): Promise<ProjectInfo | null> {
 	await ready;
 	if (!ref || !isDesktop()) return null;
 
-	const root = projectsRoot();
-	if (root) {
-		const found = await mainBridge.call(MAIN_CHANNELS.PROJECTS_RESOLVE, { root, ref });
-		if (found) return found;
-	}
-
-	for (const single of await listProjectRoots('single')) {
-		const project = await getProject(single.path);
-		if (project && (project.id === ref || project.name === ref)) return project;
+	for (const record of await findProjectRecords(ref)) {
+		const project = await mainBridge.call(MAIN_CHANNELS.PROJECTS_RESOLVE, { dir: record.dir });
+		if (!project || (project.id !== ref && project.name !== ref)) continue;
+		// Just opened, and holding an id the record may not have had yet.
+		await rememberProject(project.dir, project.id);
+		return project;
 	}
 	return null;
 }
@@ -146,21 +163,16 @@ export async function resolveProject(ref: string): Promise<ProjectInfo | null> {
 /**
  * Opens the folder `dir` as a project, making it one first when it is not:
  * the folder is created if missing and, when nothing in it can be an entry,
- * given an `index.tsx` holding an empty stage — and nothing else. Remembered
- * as a single-project root unless it lives under the active root (where the
- * ordinary resolution already finds it), so it stays reachable by name or id
- * across relaunches. How `dapi open <path>` lands anywhere on disk.
+ * given an `index.tsx` holding an empty stage — and nothing else. Put on the
+ * list, so it stays reachable by name or id across relaunches. How
+ * `dapi open <path>` lands anywhere on disk.
  */
 export async function openProjectFolder(dir: string): Promise<ProjectInfo> {
 	await ready;
 	if (!isDesktop()) throw new Error('Opening a project folder requires the desktop app.');
 
 	const project = await mainBridge.call(MAIN_CHANNELS.PROJECTS_INIT, { dir });
-
-	const root = projectsRoot();
-	const underRoot = root !== null && project.dir.startsWith(root.replace(/\/+$/, '') + '/');
-	if (!underRoot) await rememberProjectRoot(project.dir, 'single');
-
+	await remember(project);
 	return project;
 }
 
@@ -173,23 +185,34 @@ export async function getProject(dir: string): Promise<ProjectInfo | null> {
 /**
  * Renames the project: `displayName` in the record, and the folder with it.
  * The folder moves, so the answer says where the project now lives — hold on
- * to it. Its id has not changed, and neither has its URL.
+ * to it. Its id has not changed, and neither has its URL; the list follows
+ * the folder.
  */
 export async function renameProject(dir: string, displayName: string): Promise<ProjectInfo> {
 	if (!dir) throw new Error('No project folder.');
-	return mainBridge.call(MAIN_CHANNELS.PROJECTS_RENAME, { dir, displayName });
+
+	const project = await mainBridge.call(MAIN_CHANNELS.PROJECTS_RENAME, { dir, displayName });
+	await moveProjectRecord(dir, project.dir);
+	await remember(project);
+	return project;
 }
 
-/** Copies the project in `dir` next to itself and returns the copy (a new id). */
+/** Copies the project in `dir` next to itself and returns the copy (a new id), on the list. */
 export async function duplicateProject(dir: string): Promise<ProjectInfo> {
 	if (!dir) throw new Error('No project folder.');
-	return mainBridge.call(MAIN_CHANNELS.PROJECTS_DUPLICATE, { dir });
+
+	const project = await mainBridge.call(MAIN_CHANNELS.PROJECTS_DUPLICATE, { dir });
+	await remember(project);
+	return project;
 }
 
-/** Moves the project in `dir` to the trash. */
+/** Moves the project in `dir` to the trash and takes it off the list. */
 export async function deleteProject(dir: string): Promise<void> {
 	if (!dir) throw new Error('No project folder.');
-	return mainBridge.call(MAIN_CHANNELS.PROJECTS_DELETE, { dir });
+
+	await mainBridge.call(MAIN_CHANNELS.PROJECTS_DELETE, { dir });
+	await forgetProject(dir);
+	setProjectsRevision((revision) => revision + 1);
 }
 
 /**
@@ -232,7 +255,7 @@ export function writeProjectConfig(dir: string, config: unknown): Promise<void> 
  * amount of waiting here is load-bearing.
  */
 export function watchProject(dir: string, onChange: (paths: string[]) => void, debounceMs = 80): () => void {
-	if (!isDesktop()) return () => {};
+	if (!isDesktop()) return () => { };
 
 	let pending: ReturnType<typeof setTimeout> | undefined;
 	let changed = new Set<string>();
@@ -252,6 +275,6 @@ export function watchProject(dir: string, onChange: (paths: string[]) => void, d
 	return () => {
 		clearTimeout(pending);
 		stop();
-		mainBridge.call(MAIN_CHANNELS.PROJECTS_UNWATCH, { dir }).catch(() => {});
+		mainBridge.call(MAIN_CHANNELS.PROJECTS_UNWATCH, { dir }).catch(() => { });
 	};
 }

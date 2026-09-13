@@ -35,7 +35,7 @@ import {
   isDesktop,
   listProjects,
   projectKey,
-  projectsRoot,
+  projectsRevision,
   type ProjectInfo,
 } from "@/projects";
 
@@ -45,7 +45,7 @@ export function DashboardProjectsView() {
   const navigate = useNavigate();
   const [search, setSearch] = createSignal("");
   const [sort, setSort] = createSignal<ProjectSortOption>("last-viewed");
-  const [projects, { refetch: refetchProjects }] = createResource(projectsRoot, () => listProjects());
+  const [projects, { refetch: refetchProjects }] = createResource(projectsRevision, () => listProjects());
   const [selectedProject, setSelectedProject] = createSignal<string | null>(null);
   const [creating, setCreating] = createSignal(false);
   const [pendingDelete, setPendingDelete] = createSignal<ProjectInfo | null>(null);

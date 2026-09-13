@@ -13,7 +13,7 @@ import type { ToolHandler } from "../handler";
  * What the project's source cannot say. The JSX is the composition — its
  * scenes, what is selected, which scene is active, the work area are all in
  * the file, and a caller that wants them reads it. What is left over is which
- * folder projects live under, which project folder the app has open, where its
+ * folder new projects go in, which project folder the app has open, where its
  * playhead sits, which font families are actually registered in the world
  * drawing it. With no project open only the root is left to report.
  */
