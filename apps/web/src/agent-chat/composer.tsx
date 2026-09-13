@@ -76,11 +76,12 @@ export function Composer(props: ComposerProps) {
         {/* The remove buttons overhang the tiles' corners, and a scrolling
             row clips at its edge — so the row pads for them and pulls itself
             back up by the same amount. */}
-        <div class="-mt-2.5 flex w-full items-start gap-2 overflow-x-auto pt-2.5 pr-2.5">
+        <div class="-mt-2.5 flex w-full items-start gap-1.5 overflow-x-auto pt-2.5 pr-2.5">
           <For each={props.attachments}>
             {(entry) => (
               <AttachmentTile
                 attachment={entry}
+                class="size-9 [&>div]:rounded-md"
                 onRemove={() => props.onAttachments(props.attachments.filter((item) => item.key !== entry.key))}
               />
             )}

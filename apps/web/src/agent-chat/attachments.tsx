@@ -11,6 +11,7 @@ import { Show, createSignal } from "solid-js";
 
 import { Icon } from "@/components/ui/icon";
 import { RemoveButton } from "@/components/ui/remove-button";
+import { cx } from "@/lib/cva";
 
 /**
  * A file or folder dropped onto a composer. Only what the tile and the
@@ -142,6 +143,7 @@ export function DropOverlay(props: { radius?: string }) {
 
 type AttachmentTileProps = {
   attachment: Attachment;
+  class?: string;
   onRemove(): void;
 };
 
@@ -153,7 +155,10 @@ type AttachmentTileProps = {
  */
 export function AttachmentTile(props: AttachmentTileProps) {
   return (
-    <div class="group relative size-10 shrink-0" title={props.attachment.name}>
+    <div
+      class={cx("group relative size-10 shrink-0", props.class)}
+      title={props.attachment.name}
+    >
       <div class="grid size-full place-items-center overflow-hidden rounded-lg bg-input text-muted-foreground">
         <Show
           when={props.attachment.kind === "folder"}
