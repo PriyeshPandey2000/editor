@@ -81,11 +81,16 @@ export function isAppDown(e: unknown): boolean {
  * Launches the app, or surfaces the running instance: `open -a` on a running
  * app only activates it, so this is safe to always run. macOS only; elsewhere
  * it resolves false and the caller falls through to the connection.
+ *
+ * The bundled `dapi` runs as Electron with ELECTRON_RUN_AS_NODE=1, and `open`
+ * hands its environment to the app it launches — left in, the app boots as
+ * plain Node and never answers.
  */
 export function launchApp(background: boolean): Promise<boolean> {
   if (process.platform !== "darwin") return Promise.resolve(false);
   const args = background ? ["-g", "-a", APP_NAME, "--args", "--hidden"] : ["-a", APP_NAME];
-  return new Promise((res) => execFile("open", args, (err) => res(!err)));
+  const { ELECTRON_RUN_AS_NODE: _, ...env } = process.env;
+  return new Promise((res) => execFile("open", args, { env }, (err) => res(!err)));
 }
 
 /**
