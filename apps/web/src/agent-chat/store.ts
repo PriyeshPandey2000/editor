@@ -147,13 +147,25 @@ export function refreshHarnesses(): void {
 
 export const readyHarnesses = (): HarnessInfo[] => state.harnesses.filter((harness) => harness.status === "ready");
 
-/** The model the composers send with: the remembered one if its harness is ready, else the first ready default. */
+/** Families picked before anything is remembered, best first, across every ready harness. */
+const PREFERRED_MODELS = [/fable/i, /astra/i, /opus/i];
+
+/**
+ * The model the composers send with: the remembered one if its harness is
+ * ready, else the best preferred family on offer, else the first ready default.
+ */
 export function currentModel(): ModelRef | null {
   const ready = readyHarnesses();
   const remembered = root.model();
   if (remembered) {
     const harness = ready.find((entry) => entry.id === remembered.harness);
     if (harness && harness.models.some((model) => model.id === remembered.model)) return remembered;
+  }
+  for (const pattern of PREFERRED_MODELS) {
+    for (const harness of ready) {
+      const match = harness.models.find((model) => pattern.test(model.id) || pattern.test(model.label));
+      if (match) return { harness: harness.id, model: match.id };
+    }
   }
   const first = ready[0];
   if (!first) return null;
