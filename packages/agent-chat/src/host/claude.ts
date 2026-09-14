@@ -215,6 +215,7 @@ class ClaudeSession implements HarnessSession {
       model,
       pathToClaudeCodeExecutable: this.claudePath,
       permissionMode: this.policy.mode,
+      disallowedTools: ["Agent", "Task"],
       ...(bypass ? { allowDangerouslySkipPermissions: true } : {}),
       ...(this.started ? { resume: this.sessionId } : { sessionId: this.sessionId }),
       includePartialMessages: true,
