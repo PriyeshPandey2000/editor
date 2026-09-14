@@ -17,6 +17,7 @@ import { createRoot } from 'solid-js';
 import { authoredElement, authoredTree, getRuntimeDocument, insert, isSceneNode, renderAuthored, withDocument } from '@diffusionstudio/reconciler';
 
 import { findInspectEntry } from './inspect';
+import { AssetSelection } from './traits';
 
 import type { SceneNode } from '@diffusionstudio/runtime';
 import type { AssetRef, InspectValue, PropValue, SerializedAssetRef } from '@diffusionstudio/jsx';
@@ -398,6 +399,10 @@ export class DocumentEditor {
 	 */
 	public select(entities: Entity | Entity[], options: { extend?: boolean } = {}): void {
 		const next = new Set(Array.isArray(entities) ? entities : [entities]);
+
+		if (this.world.has(AssetSelection) && this.world.get(AssetSelection)?.id !== null) {
+			this.world.set(AssetSelection, { id: null });
+		}
 
 		if (!options.extend) {
 			for (const entity of [...this.world.query(Selected)]) {

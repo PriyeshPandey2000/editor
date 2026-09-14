@@ -559,7 +559,7 @@ export function createBackgroundClickHandler(onCLick: () => void): JSX.EventHand
  * it on the list. Null — with the reason already shown — when there is no
  * desktop to create it on, and when the user is asked where to put it and
  * declines to say. The one flow behind every "new project": the card on each
- * view, and the dashboard's keyboard shortcut.
+ * view.
  */
 export async function createNewProject(): Promise<ProjectInfo | null> {
   if (!isDesktop()) {
