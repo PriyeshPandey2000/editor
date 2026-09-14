@@ -67,7 +67,7 @@ Download the desktop app, it walks you through setting everything up:
 
 <a href="https://www.diffusion.studio/download"><img src="https://img.shields.io/badge/Download-Diffusion%20Studio-161616?style=for-the-badge&logo=apple&logoColor=F8F8F8&labelColor=000000" alt="Download Diffusion Studio" /></a>
 
-Use with Claude Code, Codex, Cursor, Copilot, or Gemini CLI. `/editor` is the main skill you'll use. Ask for what you want in plain language. Behind it is `dapi`, the CLI that drives the app.
+Use with Claude Code, Codex, Cursor, Copilot, or Gemini CLI. The app registers its MCP server with your agent, so just ask for what you want in plain language. Every session's instructions carry the editing and watching skills, so the agent reads the guidance it needs up front. `dapi` is the same set of tools as a CLI.
 
 ## Prompt examples
 
@@ -75,11 +75,11 @@ Use with Claude Code, Codex, Cursor, Copilot, or Gemini CLI. `/editor` is the ma
 <summary><b>Motion graphics</b></summary>
 
 ```text
-/editor Create a ~20-second promo for vercel-labs/native in Vercel's presentation style. Research its official website, GitHub, and brand guidelines; use authentic assets and verified product features, with crisp typography, polished motion, and a strong final CTA.
+Create a ~20-second promo for vercel-labs/native in Vercel's presentation style. Research its official website, GitHub, and brand guidelines; use authentic assets and verified product features, with crisp typography, polished motion, and a strong final CTA.
 ```
 
 ```text
-/editor Recreate the 3blue1brown animation from https://youtu.be/HEfHFsfGXjs, closely matching its visual style, pacing, framing, colors, labels, and transitions. Use the exact collision mathematics from Gregory Galperin's original paper, do not approximate the physics.
+Recreate the 3blue1brown animation from https://youtu.be/HEfHFsfGXjs, closely matching its visual style, pacing, framing, colors, labels, and transitions. Use the exact collision mathematics from Gregory Galperin's original paper, do not approximate the physics.
 ```
 
 </details>
@@ -88,11 +88,11 @@ Use with Claude Code, Codex, Cursor, Copilot, or Gemini CLI. `/editor` is the ma
 <summary><b>Video editing</b></summary>
 
 ```text
-/editor edit the footage in /path/to/folder
+Edit the footage in /path/to/folder
 ```
 
 ```text
-/editor turn this footage into a polished YouTube video. Add readable captions and an attention-grabbing graphic in the opening to give viewers a strong visual hook.
+Turn this footage into a polished YouTube video. Add readable captions and an attention-grabbing graphic in the opening to give viewers a strong visual hook.
 ```
 
 </details>
@@ -101,11 +101,11 @@ Use with Claude Code, Codex, Cursor, Copilot, or Gemini CLI. `/editor` is the ma
 <summary><b>Clipping</b></summary>
 
 ```text
-/editor Can you pull the best 30-second moment from https://youtu.be/MtQ0qxyf-Ds and make a vertical version for social?
+Can you pull the best 30-second moment from https://youtu.be/MtQ0qxyf-Ds and make a vertical version for social?
 ```
 
 ```text
-/editor Make a 15-second version of this launch video. https://x.com/claudeai/status/2045156267690213649
+Make a 15-second version of this launch video. https://x.com/claudeai/status/2045156267690213649
 ```
 
 </details>
@@ -114,11 +114,11 @@ Use with Claude Code, Codex, Cursor, Copilot, or Gemini CLI. `/editor` is the ma
 <summary><b>Video understanding and reasoning</b></summary>
 
 ```text
-/watch In three bullets, explain what starts the conflict. Include timestamps. https://youtu.be/aqz-KE-bpKQ
+In three bullets, explain what starts the conflict. Include timestamps. https://youtu.be/aqz-KE-bpKQ
 ```
 
 ```text
-/watch Name three recurring locations and give one visual cue that distinguishes each. https://youtu.be/dQw4w9WgXcQ
+Name three recurring locations and give one visual cue that distinguishes each. https://youtu.be/dQw4w9WgXcQ
 ```
 
 </details>
@@ -133,7 +133,7 @@ Both were created by prompting. The compositions are published in [diffusionstud
 
 ## Compositions as code
 
-A project is a folder of that JSX: `dapi open <dir>` once, then edit the files. Saving recompiles the entry file and mounts it directly into the editor's ECS.
+A project is a folder of that JSX: `open` a folder once (`dapi open <dir>` from a shell), then edit the files. Saving recompiles the entry file and mounts it directly into the editor's ECS.
 
 Every element carries an `id`, which is how the write-back finds its target: a rect dragged on the canvas, a clip trimmed on the timeline, or a retyped line lands as a prop on the element that authored it.
 
@@ -182,7 +182,7 @@ Everything a mount produces stays a first-class editor node, so a person can pic
 
 ## Seeing and hearing the media
 
-Cutting footage requires understanding it. The CLI ships the inspection tools an agent needs to work with media it cannot watch:
+Cutting footage requires understanding it. The app exposes the inspection tools an agent needs to work with media it cannot watch — as MCP tools, and as the same commands in a shell:
 
 ```sh
 dapi media probe clip.mp4                                # container + codec metadata, like ffprobe
@@ -194,6 +194,8 @@ dapi media listen interview.mp4 -p "what is said in the intro?"   # ask a multim
 dapi capture intro -t 0 2 4                              # the frames a render would produce, by scene id
 ```
 
+Each command is the MCP tool of the same name: `dapi media grab` is `media_grab`, `--per-sheet` is `perSheet`.
+
 | Command | Purpose |
 | --- | --- |
 | `dapi open` | Launch the app and open (or create) a project folder, anywhere on disk |
@@ -203,17 +205,16 @@ dapi capture intro -t 0 2 4                              # the frames a render w
 | `dapi media …` | Inspect a file by id or path: `probe`, `grab`, `filmstrip`, `waveform`, `transcribe`, `listen` |
 | `dapi models` / `dapi voices` / `dapi fonts` | Discover generation models, speech voices, local fonts |
 | `dapi screenshot` / `dapi logs` | The app itself: capture the window, read recent console output |
-| `dapi fetch` | Download a video from yt/tt/ig |
 | `dapi whoami` | The authenticated account |
-| `dapi report` | Report a bug in the CLI or the app: diagnostics bundled, filed as a GitHub issue via `gh` |
+| `dapi report` | Report a bug in the tools or the app: diagnostics bundled, filed as a GitHub issue via `gh` |
 
-Conventions throughout: single results are one JSON value, collections are JSON Lines, errors go to stderr with exit code `1`. Everything is built to be piped, grepped, and driven by a program.
+Conventions throughout: every result is one JSON object, the same structured content the MCP tool returns; errors go to stderr with exit code `1`. Everything is built to be piped, grepped, and driven by a program.
 
 ## Documentation
 
-- [CLI reference](reference/README.md): every command, its options, and its output
-- [JSX reference](reference/jsx/README.md): the composition markup with elements, timing, paints, generative assets, and captions
-- [Examples](examples/README.md): runnable compositions, from basic scenes and generative assets to three.js and raw WebGPU
+- [Tool reference](docs/reference/tools/README.md): every tool and CLI command, its options, and its output
+- [JSX reference](docs/reference/jsx/README.md): the composition markup with elements, timing, paints, generative assets, and captions
+- [Examples](docs/examples/README.md): runnable compositions, from basic scenes and generative assets to three.js and raw WebGPU
 
 ## Repository layout
 
@@ -221,7 +222,7 @@ Conventions throughout: single results are one JSON value, collections are JSON 
 | --- | --- | --- |
 | `apps/web` | `@diffusionstudio/web` | The editor UI (Solid + Vite) |
 | `apps/desktop` | `@diffusionstudio/desktop` | Electron shell hosting the editor |
-| `apps/cli` | `@diffusionstudio/cli` | The `dapi` CLI |
+| `apps/cli` | `@diffusionstudio/cli` | The `dapi` CLI: a client of the app's MCP server |
 | `packages/runtime` | `@diffusionstudio/runtime` | Headless editor runtime: the koota world, traits, actions, systems, media decoding, capture. No DOM, no Solid |
 | `packages/reconciler` | `@diffusionstudio/reconciler` | Evaluates a compiled project bundle and reconciles its element tree onto runtime entities, via Solid's universal renderer |
 | `packages/jsx` | `@diffusionstudio/jsx` | The authoring API: element vocabulary, types, and generated assets (`generate.*`) |

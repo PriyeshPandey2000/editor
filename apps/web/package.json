@@ -1,7 +1,7 @@
 {
   "name": "@diffusionstudio/web",
   "private": true,
-  "version": "0.204.2",
+  "version": "0.205.0",
   "license": "MPL-2.0",
   "type": "module",
   "scripts": {
@@ -13,9 +13,10 @@
     "lint": "eslint ."
   },
   "dependencies": {
+    "@diffusionstudio/agent-chat": "*",
     "@diffusionstudio/api-contract": "^0.1.0",
     "@diffusionstudio/assets": "*",
-    "@diffusionstudio/cli": "*",
+    "@diffusionstudio/dapi": "*",
     "@diffusionstudio/encoder": "*",
     "@diffusionstudio/jsx": "*",
     "@diffusionstudio/koota-solid": "*",
@@ -34,8 +35,10 @@
     "cmdk-solid": "^1.1.2",
     "colord": "^2.9.3",
     "cva": "^1.0.0-beta.4",
+    "dompurify": "^3.4.15",
     "idb": "^8.0.3",
     "koota": "^0.6.6",
+    "marked": "^18.0.12",
     "mediabunny": "^1.32.2",
     "solid-js": "^1.9.10",
     "somoto": "^0.0.2",

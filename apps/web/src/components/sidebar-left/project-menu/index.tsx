@@ -19,7 +19,7 @@ import {
 import { useNavigate } from "@solidjs/router";
 import { Show, onCleanup, onMount } from "solid-js";
 import { isInputTarget } from "@/utils";
-import { useEditorApi } from "@/context/dapi";
+import { useEditorApi } from "@/dapi";
 import { downloadDesktopApp } from "@/lib/desktop-app";
 import { FileMenu } from "./file-menu";
 import { EditMenu } from "./edit-menu";
@@ -34,7 +34,7 @@ export function ProjectMenu() {
 
   const handleOpenDashboard = () => {
     (document.activeElement as HTMLElement)?.blur?.();
-    navigate("/?dashboard=projects");
+    navigate("/");
   };
 
   const handleOpenAccount = () => {

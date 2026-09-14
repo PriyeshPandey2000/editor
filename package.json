@@ -1,6 +1,6 @@
 {
   "name": "@diffusionstudio/editor",
-  "version": "0.204.2",
+  "version": "0.205.0",
   "private": true,
   "license": "MPL-2.0",
   "type": "module",
@@ -19,7 +19,8 @@
     "release": "node scripts/release.mjs",
     "postinstall": "patch-package",
     "lint": "npm run lint --workspaces --if-present",
-    "check": "npm run check --workspaces --if-present && tsc -p examples --noEmit"
+    "check": "npm run check --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present"
   },
   "devDependencies": {
     "patch-package": "^8.0.1"
