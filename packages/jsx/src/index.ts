@@ -73,6 +73,7 @@ export type {
   Fit,
   GradientPaintProps,
   GroupProps,
+  HorizontalConstraint,
   HtmlPaintProps,
   HtmlProps,
   ImageProps,
@@ -99,5 +100,6 @@ export type {
   Time,
   TransitionSpec,
   TransitionType,
+  VerticalConstraint,
   VideoProps,
 } from "./types";

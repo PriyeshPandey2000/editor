@@ -49,6 +49,7 @@ function advancePlayhead(world: World, entity: Entity): void {
 	const computed = store(world, Computed);
 	const eid = entity.id();
 	const fps = world.get(FrameRate)?.value ?? 30;
+	const speed = playback.speed[eid] || 1;
 	let looped = false;
 
 	// Only advance the playhead while playing. The audio play/stop bookkeeping
@@ -58,7 +59,6 @@ function advancePlayhead(world: World, entity: Entity): void {
 	// and play silently.
 	if (playback.playing[eid] === true) {
 		const dt = (world.get(Time)?.delta ?? 0) / 1000;
-		const speed = playback.speed[eid] || 1;
 		const previousTime = computed.localTimeInSeconds[eid]!;
 		let time = previousTime + dt * speed;
 
@@ -103,7 +103,8 @@ function advancePlayhead(world: World, entity: Entity): void {
 	const playing = playback.playing[eid] ?? false;
 	const wasPlaying = audioPlayback.wasPlaying[eid] ?? false;
 
-	if ((playing && !wasPlaying) || looped) {
+	// Shuttling (J/L at anything but 1x) plays silent
+	if ((playing && !wasPlaying) || looped || (playing && speed !== 1)) {
 		audioPlayback.contextOffsetInSeconds[eid] = ctx?.currentTime ?? 0;
 		audioPlayback.timelineOffsetInSeconds[eid] = computed.localTimeInSeconds[eid]!;
 	}
@@ -184,7 +185,7 @@ function forwardAudioDecoder(world: World, scene: Entity, entity: Entity, audioS
 
 	if (!decoder.ready) {
 		framePromises(world)?.push(initPromise);
-	} else if (computed.visibility[eid] === 1 && playback.playing[sid] === true) {
+	} else if (computed.visibility[eid] === 1 && playback.playing[sid] === true && (playback.speed[sid] || 1) === 1) {
 		const playPromise = decoder.playTo(bus, {
 			relativeFrom: localFrame / fps,
 			relativeTo: (localFrame + 15) / fps,

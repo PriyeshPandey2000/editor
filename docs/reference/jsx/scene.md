@@ -26,6 +26,8 @@ A scene is the **clipped, playable frame** a composition is made in, and the onl
 
 A scene also takes paints as children, exactly as a `<rect>` does (see [paints.md](./paints.md)); `fill` is the shorthand for a solid one.
 
+What happens to the children when the frame is resized is theirs to say: see [`constrainX`/`constrainY`](./elements.md#constraints).
+
 ## Editor state in the source
 
 `active`, `selected`, `x`, `y`, `timeline` and `playhead` are editor concerns rather than part of the composition, but they live in the file for the same reason [`<stage>`](./stage.md)'s `camera` does: the source is the document, so a scene dragged or clicked on the canvas — or a timeline scrolled, zoomed or scrubbed — has nowhere else to be written back to. The editor writes them and removes them again; there is no need to author a `timeline` or a `playhead`, and the first scroll or zoom overwrites one. The playhead is written only by a scrub or a click on the ruler, never as playback moves it, so the file lags playback until the next scrub.
