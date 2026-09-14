@@ -74,7 +74,7 @@ function threadIdOf(result: unknown): string | null {
 }
 
 function spawnAppServer(binary: string, cwd: string, env: Record<string, string>, mcpUrl: string | null): ChildProcess {
-  const args = ["app-server"];
+  const args = ["app-server", "-c", "features.multi_agent=false", "-c", "features.multi_agent_v2=false"];
   if (mcpUrl) args.push("-c", `mcp_servers.diffusion.url="${mcpUrl}"`);
   const shell = needsShell(binary);
   return spawn(shell ? `"${binary}"` : binary, shell ? args.map(quoteArg) : args, {
