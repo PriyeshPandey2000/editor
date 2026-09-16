@@ -4,6 +4,7 @@
 
 import type { ForgeConfig } from '@electron-forge/shared-types';
 import { MakerDMG } from '@electron-forge/maker-dmg';
+import { MakerSquirrel } from '@electron-forge/maker-squirrel';
 import { MakerZIP } from '@electron-forge/maker-zip';
 import { PublisherGithub } from '@electron-forge/publisher-github';
 import { readFileSync } from 'node:fs';
@@ -18,6 +19,11 @@ const config: ForgeConfig = {
     appCategoryType: 'public.app-category.video',
     appVersion: version,
     icon: './assets/icon',
+    win32metadata: {
+      CompanyName: 'Diffusion Studio',
+      ProductName: 'Diffusion Studio',
+      FileDescription: 'Diffusion Studio',
+    },
     protocols: [{ name: 'Diffusion Studio', schemes: ['diffusion'] }],
     prune: false,
     ignore: (path) =>
@@ -42,6 +48,16 @@ const config: ForgeConfig = {
   },
   makers: [
     new MakerZIP({}, ['darwin']),
+    new MakerSquirrel({
+      name: 'DiffusionStudio',
+      authors: 'Diffusion Studio',
+      exe: 'Diffusion Studio.exe',
+      setupExe: `Diffusion-Studio-${process.arch}-Setup.exe`,
+      setupIcon: './assets/icon.ico',
+      // Shown by Add/Remove Programs; Squirrel only takes a URL.
+      iconUrl: 'https://raw.githubusercontent.com/diffusionstudio/editor/main/apps/desktop/assets/icon.ico',
+      noMsi: true,
+    }),
     new MakerDMG({
       name: `Diffusion-Studio-${process.arch}`,
       icon: './assets/icon.icns',

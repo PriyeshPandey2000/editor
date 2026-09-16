@@ -14,6 +14,7 @@ import { spawn, execFileSync } from "node:child_process";
 import { get } from "node:http";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { npm } from "./lib/npm.mjs";
 
 const ROOT = fileURLToPath(new URL("..", import.meta.url));
 const BIN = join(ROOT, "node_modules", ".bin");
@@ -135,7 +136,7 @@ async function reclaimPort(port) {
 
 // 1. Build the CLI (blocking) so `dapi` and the app agree on the latest code.
 console.log("[dev:desktop] building CLI…");
-execFileSync("npm", ["run", "build", "--workspace=@diffusionstudio/cli"], { stdio: "inherit" });
+npm(["run", "build", "--workspace=@diffusionstudio/cli"]);
 
 // 2. Start the web dev server, on a port that is free.
 await reclaimPort(DEV_PORT);
@@ -151,6 +152,6 @@ try {
   shutdown(1);
 }
 console.log("[dev:desktop] building desktop app…");
-execFileSync("npm", ["run", "build", "--workspace=@diffusionstudio/desktop"], { stdio: "inherit" });
+npm(["run", "build", "--workspace=@diffusionstudio/desktop"]);
 console.log("[dev:desktop] starting desktop app…");
 run("desktop", "electron-forge", ["start"], join(ROOT, "apps", "desktop"));

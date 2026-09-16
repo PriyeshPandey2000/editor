@@ -72,6 +72,12 @@ Goal: a `Diffusion Studio Setup.exe` built by CI (unsigned) that installs,
 launches, opens a project, and exports a video. Nothing about CLI, MCP, or
 chrome yet.
 
+Status: implemented on macOS, not yet run on Windows. Every task below is
+in place; `.github/workflows/build-windows.yml` (workflow_dispatch) is the
+next step, followed by the acceptance checks on a Windows machine. Squirrel's
+`iconUrl` points at `assets/icon.ico` on `main`, so Add/Remove Programs
+shows the icon only once this lands there.
+
 Tasks:
 
 1. **npm scripts that survive `cmd.exe`.**

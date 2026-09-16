@@ -7,7 +7,7 @@
     "dapi": "./dist/index.js"
   },
   "scripts": {
-    "build": "esbuild src/index.ts --bundle --platform=node --format=cjs --outfile=dist/index.js && chmod +x dist/index.js",
+    "build": "esbuild src/index.ts --bundle --platform=node --format=cjs --outfile=dist/index.js && node -e \"process.platform !== 'win32' && require('node:fs').chmodSync('dist/index.js', 0o755)\"",
     "check": "tsc --noEmit",
     "symlink:remove": "rm -f /opt/homebrew/bin/dapi",
     "symlink:create": "npm run build && ln -sf \"$PWD/dist/index.js\" /opt/homebrew/bin/dapi"

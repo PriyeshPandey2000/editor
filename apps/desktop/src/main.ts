@@ -17,6 +17,7 @@ import { applyMcp, healMcpRegistrations, mcpStatus } from "./mcp-install";
 import { enableHeadless } from "./headless";
 import { trackInstall } from "./analytics";
 import { setupAppMenu } from "./menu";
+import { handleSquirrelEvent } from "./squirrel";
 import { mainBridge } from "./main-manager";
 import { MAIN_CHANNELS } from "./main-channels";
 import {
@@ -55,6 +56,11 @@ const AUTH_PROTOCOL = "diffusion";
 const MACOS_CORNER_RADIUS = 18;
 const MACOS_BACKDROP = { blur: 80, red: 0.07, green: 0.07, blue: 0.07, alpha: 0.9 };
 
+// A Squirrel.Windows install/update/uninstall launch: housekeeping only, the
+// app quits on its own. Decided first so nothing below starts a service or
+// checks for updates on a launch that is about to end.
+const squirrelLaunch = handleSquirrelEvent();
+
 app.setName("Diffusion Studio");
 app.commandLine.appendSwitch("enable-blink-features", "CanvasDrawElement");
 app.commandLine.appendSwitch("enable-features", "SharedArrayBuffer");
@@ -85,7 +91,7 @@ function applyBackdrop() {
   setNativeBackdrop(mainWindow.getNativeWindowHandle(), blur, red, green, blue, alpha);
 }
 
-if (app.isPackaged && !process.argv.includes("--hidden")) {
+if (app.isPackaged && !squirrelLaunch && !process.argv.includes("--hidden")) {
   updateElectronApp({ repo: "diffusionstudio/editor" });
 }
 
@@ -261,7 +267,9 @@ if (process.defaultApp && process.argv.length >= 2) {
   app.setAsDefaultProtocolClient(AUTH_PROTOCOL);
 }
 
-if (app.requestSingleInstanceLock()) {
+if (squirrelLaunch) {
+  // Update.exe is at work; handleSquirrelEvent quits the app when it is done.
+} else if (app.requestSingleInstanceLock()) {
   app.on("second-instance", (_event, argv) => {
     const url = findProtocolUrl(argv);
     if (url) deliverDeepLink(url);
