@@ -7,6 +7,7 @@ import { createEncoder, computeOutputSize } from "@diffusionstudio/encoder";
 import { Computed, FrameRate, Workarea } from "@diffusionstudio/runtime";
 
 import { createCapture } from "@/engine/capture";
+import { track } from "@/lib/analytics";
 import { version } from "../../package.json";
 
 import type { Entity } from "koota";
@@ -16,10 +17,11 @@ import type { Engine } from "@/engine";
 import type { ExportConfig } from "@/components/sidebar-right/inspector/export-progress";
 
 /**
- * Unified scene render path, used by the UI export (`ExportProvider.exportScene`):
- * the "Exporting Composition" overlay, the engine stop/start lifecycle, the
- * capture world the encode runs against, progress reporting, and cancel wiring
- * all live in {@link renderScene}.
+ * Unified scene render path, used by the UI export (`ExportProvider.exportScene`)
+ * and the agent's export tool (`dapi/handlers/export`): the "Exporting
+ * Composition" overlay, the engine stop/start lifecycle, the capture world the
+ * encode runs against, progress reporting, cancel wiring, and the export
+ * analytics events all live in {@link renderScene}.
  */
 
 export type RenderOverlayState = {
@@ -54,11 +56,13 @@ export type RenderSceneOptions = {
   config?: Partial<EncoderConfig>;
   /** The project's folder, so the encode compiles the sources as they are now. */
   dir?: string;
+  /** Who asked for the render: the in-app export, or an agent through the export tool. */
+  source: "ui" | "agent";
 };
 
 export async function renderScene(
   engine: Engine,
-  { scene, target, config, dir }: RenderSceneOptions,
+  { scene, target, config, dir, source }: RenderSceneOptions,
 ): Promise<ExportResult> {
   const world = engine.world;
 
@@ -88,6 +92,27 @@ export async function renderScene(
   };
 
   engine.stop();
+
+  const event = {
+    source,
+    format: config?.format,
+    resolution: config?.video?.resolution,
+    fps: config?.video?.fps,
+    scene_duration_s: Math.round(duration),
+  };
+  const startedAt = performance.now();
+  const elapsed = () => Math.round(performance.now() - startedAt);
+  const failed = (error: unknown) =>
+    track("export_failed", {
+      ...event,
+      duration_ms: elapsed(),
+      error: (error as Error)?.message?.slice(0, 200) ?? "unknown",
+    });
+  track("export_started", {
+    ...event,
+    video_codec: config?.video?.codec,
+    audio_codec: config?.audio?.codec,
+  });
 
   let capture: Capture | undefined;
   try {
@@ -120,7 +145,19 @@ export async function renderScene(
     });
 
     cancelActive = encoder.cancel;
-    return await encoder.render();
+    const result = await encoder.render();
+
+    if (result.type === "success") {
+      track("export_completed", { ...event, duration_ms: elapsed() });
+    } else if (result.type === "error") {
+      failed(result.error);
+    }
+
+    return result;
+  } catch (error) {
+    // Setup failures (capture, encoder) as well as a throwing encode.
+    failed(error);
+    throw error;
   } finally {
     cancelActive = undefined;
     setOverlay(null);
