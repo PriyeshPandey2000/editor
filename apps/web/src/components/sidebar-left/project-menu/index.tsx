@@ -21,6 +21,7 @@ import { Show, onCleanup, onMount } from "solid-js";
 import { isInputTarget } from "@/utils";
 import { useEditorApi } from "@/dapi";
 import { downloadDesktopApp } from "@/lib/desktop-app";
+import { dashboardRoute } from "@/pages/dashboard";
 import { FileMenu } from "./file-menu";
 import { EditMenu } from "./edit-menu";
 import { ViewMenu } from "./view-menu";
@@ -34,7 +35,7 @@ export function ProjectMenu() {
 
   const handleOpenDashboard = () => {
     (document.activeElement as HTMLElement)?.blur?.();
-    navigate("/");
+    navigate(dashboardRoute());
   };
 
   const handleOpenAccount = () => {

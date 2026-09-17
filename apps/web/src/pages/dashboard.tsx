@@ -64,6 +64,9 @@ function isSettingsView(view: DashboardView): boolean {
   return SETTINGS_VIEWS.includes(view);
 }
 
+let lastView: DashboardView = "home";
+export const dashboardRoute = (): string => (lastView === "home" ? "/" : `/?dashboard=${lastView}`);
+
 export function DashboardPage() {
   const [params, setParams] = useSearchParams();
   const isFullscreen = useFullscreenState();
@@ -102,6 +105,8 @@ export function DashboardPage() {
   const [settingsNavOpen, setSettingsNavOpen] = createSignal(isSettingsView(view()));
 
   createEffect(() => {
+    lastView = view();
+
     if (isSettingsView(view())) {
       setSettingsNavOpen(true);
     }
