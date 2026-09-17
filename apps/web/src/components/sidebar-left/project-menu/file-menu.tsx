@@ -12,7 +12,7 @@ import {
   DropdownMenuSubTrigger,
   DropdownMenuGroup,
 } from "@/components/ui/dropdown-menu";
-import { useNavigate } from "@solidjs/router";
+import { useLocation, useNavigate } from "@solidjs/router";
 import { For, Show, createMemo } from "solid-js";
 import { toast } from "somoto";
 import { forgetProjectBundle, generateProjectName } from "@/lib/db";
@@ -32,6 +32,7 @@ import type { Entity } from "koota";
 
 export function FileMenu() {
   const navigate = useNavigate();
+  const location = useLocation();
   const project = useProject();
   const library = useLibrary();
 
@@ -39,7 +40,7 @@ export function FileMenu() {
     try {
       if (!(await ensureProjectsRoot())) return;
       const created = await createProject(generateProjectName());
-      navigate(projectRoute(created.id));
+      navigate(projectRoute(created.id), { state: location.state });
     } catch (e) {
       toast.error("Failed to create project", {
         description: (e as Error).message,
@@ -50,7 +51,7 @@ export function FileMenu() {
   const handleDuplicateProject = async () => {
     try {
       const copy = await duplicateProject(project.dir());
-      navigate(projectRoute(copy.id));
+      navigate(projectRoute(copy.id), { state: location.state });
     } catch (e) {
       toast.error("Failed to duplicate project", { description: (e as Error).message });
     }
