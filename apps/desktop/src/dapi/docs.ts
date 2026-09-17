@@ -27,33 +27,6 @@ export function instructions(docsDir: string | null): string {
   return parts.join("\n\n");
 }
 
-/** A skill page INSTRUCTIONS.md names: `skills/<name>.md`, and the description after the dash. */
-export type Skill = { name: string; description: string; path: string };
-
-const SKILL_ENTRY = /^- `skills\/([\w-]+)\.md`[^—\n]*— (.+)$/gm;
-
-/**
- * The skills, read off INSTRUCTIONS.md's list, so the page stays the one
- * place a skill is declared. An entry whose page is missing is dropped.
- */
-export function skills(docsDir: string | null): Skill[] {
-  const text = docsDir ? readText(join(docsDir, INSTRUCTIONS_FILE)) : null;
-  if (!docsDir || !text) return [];
-  return [...text.matchAll(SKILL_ENTRY)]
-    .map((m) => ({ name: m[1], description: m[2].trim(), path: join(docsDir, "skills", `${m[1]}.md`) }))
-    .filter((skill) => readText(skill.path) !== null);
-}
-
-/**
- * What invoking a skill puts in the conversation: the page itself, not a
- * request to go read it, so the skill is loaded whatever the model decides.
- * The path anchors the page's relative links.
- */
-export function skillPrompt(skill: Skill): string {
-  const page = readText(skill.path)?.trim() ?? "";
-  return `Follow this Diffusion Studio skill for the rest of the session. It is the page \`${skill.path}\`, already read in full below; its relative links resolve from there.\n\n${page}`;
-}
-
 function readText(path: string): string | null {
   try {
     return readFileSync(path, "utf8");

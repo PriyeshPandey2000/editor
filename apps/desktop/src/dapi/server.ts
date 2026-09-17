@@ -8,7 +8,6 @@ import { mainHandlers } from "./handlers";
 import { DapiHttpServer } from "./http";
 import { instructions } from "./docs";
 import { RendererCalls } from "./renderer-calls";
-import { servePrompts } from "./prompts-session";
 import { serveCatalog } from "./tools-session";
 
 import type { LogEntry } from "@diffusionstudio/dapi";
@@ -88,11 +87,7 @@ export class DapiServer {
     this.http.stop();
   }
 
-  /**
-   * One MCP server over the whole catalog. The docs and skills are plain
-   * files; the instructions say where, and each skill is also a prompt, for
-   * loading it by slash command.
-   */
+  /** One MCP server over the whole catalog. The docs and skills are plain files; the instructions say where. */
   private createSession(): McpServer {
     this.instructionsText ??= instructions(this.deps.docsDir);
     // `name` is the machine identity, and matches the key we write into agent
@@ -103,7 +98,6 @@ export class DapiServer {
         this.runInMain(tool.name as MainToolName, args, signal)
         : this.renderer.call(tool.name, args, signal),
     );
-    servePrompts(session, this.deps.docsDir);
     return session;
   }
 
