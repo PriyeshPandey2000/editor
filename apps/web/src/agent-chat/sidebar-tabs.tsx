@@ -7,14 +7,14 @@ import { For } from "solid-js";
 import { setSidebarTab, sidebarTab, type SidebarTab } from "./store";
 
 const TABS: { id: SidebarTab; label: string }[] = [
-  { id: "editor", label: "Editor" },
+  { id: "assets", label: "Assets" },
   { id: "chat", label: "Chat" },
 ];
 
-/** "Editor  Chat" as plain text labels, the unselected one muted. The choice persists. */
+/** "Assets  Chat" as plain text labels, the unselected one muted. The choice persists. */
 export function SidebarTabs() {
   return (
-    <div class="relative z-30 flex items-center gap-3" style="-webkit-app-region: no-drag;" role="tablist">
+    <div class="relative z-30 flex items-center gap-4" style="-webkit-app-region: no-drag;" role="tablist">
       <For each={TABS}>
         {(tab) => (
           <button

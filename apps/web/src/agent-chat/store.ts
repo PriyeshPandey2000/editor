@@ -35,7 +35,7 @@ import type { ProjectInfo } from "@/projects";
 import { attachmentFromPath, attachmentPaths, type Attachment } from "./attachments";
 import { client, hasHost } from "./connection";
 
-export type SidebarTab = "editor" | "chat";
+export type SidebarTab = "assets" | "chat";
 
 export type Draft = { text: string; attachments: Attachment[] };
 
@@ -72,13 +72,13 @@ export { state as chatState };
 // --- settings that persist ---------------------------------------------
 
 const root = createRoot(() => {
-  const [tab, setTab] = createStoredSignal(settings.define<SidebarTab>("rightSidebar.tab", "editor"));
+  const [tab, setTab] = createStoredSignal(settings.define<SidebarTab>("leftSidebar.tab", "assets"));
   const [model, setModel] = createStoredSignal(settings.define<ModelRef | null>("agentChat.model", null));
   const [active, setActive] = createStoredSignal(settings.define<Record<string, string>>("agentChat.active", {}));
   return { tab, setTab, model, setModel, active, setActive };
 });
 
-/** Which tab the right sidebar shows; persists across sessions. */
+/** Which tab the left sidebar shows; persists across sessions. */
 export const sidebarTab = root.tab;
 export const setSidebarTab = root.setTab;
 
@@ -399,11 +399,11 @@ export const chatRoute = (project: ProjectInfo): string => projectRoute(project.
 
 export { attachmentPaths };
 
-/** Sidebar width by tab: room for about 47 characters of 12 px text on the Chat tab. */
-export const EDITOR_SIDEBAR_WIDTH = 264;
-export const CHAT_SIDEBAR_WIDTH = 320;
+/** Left sidebar width by tab: room for about 50 characters of 12 px text on the Chat tab. */
+export const ASSETS_SIDEBAR_WIDTH = 264;
+export const CHAT_SIDEBAR_WIDTH = 340;
 
-export const rightSidebarWidth = (): number => (sidebarTab() === "chat" ? CHAT_SIDEBAR_WIDTH : EDITOR_SIDEBAR_WIDTH);
+export const leftSidebarWidth = (): number => (sidebarTab() === "chat" ? CHAT_SIDEBAR_WIDTH : ASSETS_SIDEBAR_WIDTH);
 
 /** For the empty state: why nothing can be sent right now, or null. */
 export function blockedReason(): string | null {

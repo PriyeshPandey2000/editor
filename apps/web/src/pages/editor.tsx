@@ -4,7 +4,7 @@
 
 import { Show, createMemo, createSignal, onMount } from "solid-js";
 import { Canvas } from "@/components/canvas";
-import { RightSidebar, rightSidebarWidth } from "@/agent-chat";
+import { leftSidebarWidth } from "@/agent-chat";
 import { Timeline, Layers } from "@/components/timeline";
 import { Soundboard, Inspector } from "@/components/sidebar-right";
 import { FloatingProjectHeader, SidebarLeft } from "@/components/sidebar-left";
@@ -186,7 +186,7 @@ export function EditorPage() {
     });
   });
 
-  // The right column follows the sidebar's tab (264 px on Editor, 320 px on
+  // The left column follows the sidebar's tab (264 px on Assets, 340 px on
   // Chat) and animates between the two — except on load, where the stored
   // tab is read before first paint and the transition only comes on after
   // the first frame. Toggling `uiVisible` changes the track count, which
@@ -203,7 +203,7 @@ export function EditorPage() {
     const height = timelineMinimized() ? RULER_HEIGHT : timelineHeight();
 
     return {
-      'grid-template-columns': `264px 1px 1fr 1px ${rightSidebarWidth()}px`,
+      'grid-template-columns': `${leftSidebarWidth()}px 1px 1fr 1px 264px`,
       'grid-template-rows': `1fr 1px ${height}px`,
       ...(animateColumns() ? { transition: 'grid-template-columns 200ms ease-out' } : {}),
     };
@@ -255,7 +255,7 @@ export function EditorPage() {
       <Canvas />
       <Show when={uiVisible()}>
         <div class="bg-border-strong" />
-        <RightSidebar editor={() => <Inspector />} />
+        <Inspector />
       </Show>
       <Show when={uiVisible()}>
         <div class="col-span-full bg-border-strong relative">
