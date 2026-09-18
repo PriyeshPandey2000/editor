@@ -27,7 +27,7 @@ import { DashboardProjectCard } from "./project-card";
 import { parseTimestamp } from "./utils";
 import { DashboardSearchPanel } from "./search-bar";
 import { DashboardProjectsFolderBar } from "./projects-folder-bar";
-import { projectRoute } from "@/hooks/use-project-route";
+import { projectRoute, useReturnHere } from "@/hooks/use-project-route";
 import { Icon } from "../ui/icon";
 import { track } from "@/lib/analytics";
 import {
@@ -41,6 +41,7 @@ import type { ProjectSortOption } from "./types";
 
 export function DashboardProjectsView() {
   const navigate = useNavigate();
+  const returnHere = useReturnHere();
   const [search, setSearch] = createSignal("");
   const [sort, setSort] = createSignal<ProjectSortOption>("last-viewed");
   const [projects, { refetch: refetchProjects }] = createResource(projectsRevision, () => listProjects());
@@ -83,7 +84,7 @@ export function DashboardProjectsView() {
     const found = await openProjectFromList(project);
     if (!found) return;
     track('project_opened');
-    navigate(projectRoute(projectKey(found)));
+    navigate(projectRoute(projectKey(found)), { state: returnHere() });
   };
 
   const handleDeleted = (project: ProjectInfo) => {

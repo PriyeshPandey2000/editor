@@ -33,8 +33,16 @@ export function Transcript(props: TranscriptProps) {
   const stick = createStickToBottom(scrollEl, { initial: "instant" });
   const last = () => props.items[props.items.length - 1];
 
-  createEffect(on(() => props.sendCount, (count) => count > 0 && void stick.scrollToBottom(), { defer: true }));
-  createEffect(on(() => props.chatKey, () => void stick.scrollToBottom({ animation: "instant" }), { defer: true }));
+  const pin = () => {
+    // A chat opens at its end, with no scroll to watch
+    const element = scrollEl();
+    if (!element) return;
+    element.scrollTop = element.scrollHeight;
+    stick.scrollToBottom({ animation: "instant" });
+  };
+
+  createEffect(on(() => props.sendCount, (count) => count > 0 && stick.scrollToBottom(), { defer: true }));
+  createEffect(on([() => props.chatKey, () => props.items.length > 0], pin));
 
   return (
     <div ref={setScrollEl} class="min-h-0 flex-1 overflow-y-auto overflow-x-hidden">

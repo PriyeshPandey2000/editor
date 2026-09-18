@@ -136,9 +136,8 @@ export function ChatPanel() {
   };
 
   return (
-    <div class="flex h-full min-h-0 flex-col" data-right-sidebar>
-      {/* The inspector's first section draws a top border under its header; the same hairline here keeps the tabs aligned. */}
-      <div class="flex h-12 shrink-0 items-center border-b border-border px-4">
+    <div class="flex flex-1 min-h-0 flex-col">
+      <div class="flex h-12 shrink-0 items-center border-y border-border px-4">
         <SidebarTabs />
         <HeaderActions
           projectId={project.id()}

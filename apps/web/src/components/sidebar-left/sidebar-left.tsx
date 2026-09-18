@@ -3,6 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 import { Assets } from "./assets";
+import { ChatPanel, sidebarTab } from "@/agent-chat";
 import { useLayout } from "@/context/layout";
 import { useEditorApi } from "@/dapi";
 import { createSignal, Show } from "solid-js";
@@ -18,7 +19,12 @@ export function SidebarLeft() {
     <div class="flex flex-col h-full overflow-hidden">
       <ElectronHeader />
       <ProjectHeader />
-      <Assets />
+      <div classList={{ contents: sidebarTab() === "assets", hidden: sidebarTab() === "chat" }}>
+        <Assets />
+      </div>
+      <Show when={sidebarTab() === "chat"}>
+        <ChatPanel />
+      </Show>
     </div>
   );
 }

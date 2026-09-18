@@ -16,10 +16,11 @@ type HeaderActionsProps = {
   onOpenChat(chatId: string): void;
 };
 
-/** Plus (New chat) and history (Chat history), at the right of the header. */
+/** History (Chat history) and plus (New chat), at the right of the header. */
 export function HeaderActions(props: HeaderActionsProps) {
   return (
     <div class="ml-auto flex items-center gap-1 relative z-30" style="-webkit-app-region: no-drag;">
+      <HistoryMenu projectId={props.projectId} chatId={props.chatId} onOpen={props.onOpenChat} />
       <Tooltip placement="bottom">
         <TooltipTrigger
           as={Button}
@@ -34,7 +35,6 @@ export function HeaderActions(props: HeaderActionsProps) {
         </TooltipTrigger>
         <TooltipContent>New chat</TooltipContent>
       </Tooltip>
-      <HistoryMenu projectId={props.projectId} chatId={props.chatId} onOpen={props.onOpenChat} />
     </div>
   );
 }

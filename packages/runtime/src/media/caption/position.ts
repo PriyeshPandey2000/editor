@@ -4,7 +4,7 @@
 
 import { store } from '../../world/store';
 import { CaptionAlign } from '../../constants';
-import { Caption, Position, Computed, Host } from '../../traits';
+import { Caption, Position, Computed, Host, Sequential } from '../../traits';
 import { getParentNode } from '../../queries/hierarchy';
 import { resizeEntity } from '../../actions/resize';
 
@@ -39,7 +39,12 @@ export function placeCaption(
 	entity: Entity,
 	preset: { width: number; height: number; x?: number; defaultAlign: CaptionAlign },
 ): boolean {
-	const parent = getParentNode(entity);
+	// Sequences aren't spatial constructs; they mirror their parent's frame,
+	// and only once the transform system has run — a fresh one still reads 0.
+	let parent = getParentNode(entity);
+	while (parent !== null && parent.has(Sequential)) {
+		parent = getParentNode(parent);
+	}
 	if (parent === null) return false;
 	const computed = store(world, Computed);
 	const parentWidth = computed.width[parent.id()]!;
