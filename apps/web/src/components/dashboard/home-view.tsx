@@ -39,7 +39,7 @@ import {
   startChat,
   type Attachment,
 } from "@/agent-chat";
-import { projectRoute } from "@/hooks/use-project-route";
+import { projectRoute, useReturnHere } from "@/hooks/use-project-route";
 import { track } from "@/lib/analytics";
 import { generateProjectName } from "@/lib/db";
 import {
@@ -98,6 +98,7 @@ const PROMPT_MAX_HEIGHT_PX = 200;
 
 export function DashboardHomeView() {
   const navigate = useNavigate();
+  const returnHere = useReturnHere();
 
   const [prompt, setPrompt] = createSignal("");
   const [target, setTarget] = createSignal<PromptTarget>({ kind: "new" });
@@ -209,7 +210,7 @@ export function DashboardHomeView() {
       setAttachments([]);
       setTarget({ kind: "new" });
       refetchProjects();
-      navigate(projectRoute(projectKey(project)));
+      navigate(projectRoute(projectKey(project)), { state: returnHere() });
     } catch (e) {
       toast.error("Could not open the project", {
         description: (e as Error).message,
@@ -259,7 +260,7 @@ export function DashboardHomeView() {
     const found = await openProjectFromList(project);
     if (!found) return;
     track("project_opened");
-    navigate(projectRoute(projectKey(found)));
+    navigate(projectRoute(projectKey(found)), { state: returnHere() });
   };
 
   const handleCreateProject = async () => {

@@ -184,7 +184,7 @@ export function AttachmentTile(props: AttachmentTileProps) {
 export function AttachmentChip(props: { path: string }) {
   const attachment = () => attachmentFromPath(props.path);
   return (
-    <span class="inline-flex h-5 max-w-full items-center gap-0.5 rounded bg-input pl-0.5 pr-1.5 text-[11px] text-muted-foreground" title={props.path}>
+    <span class="inline-flex h-5 max-w-full items-center gap-0.5 rounded border border-border bg-transparent pl-0.5 pr-1.5 text-[11px] text-muted-foreground" title={props.path}>
       <Icon name={attachment().kind === "folder" ? "navigation.folder" : "attachment"} class="size-4" />
       <span class="truncate">{attachment().name}</span>
     </span>

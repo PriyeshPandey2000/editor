@@ -121,7 +121,7 @@ export const exportScene: ToolHandler<"export"> = async ({ id, path }, ctx) => {
       throw new DapiError(
         "unsupported",
         `Cannot encode ${codec.toUpperCase()} at ${width}×${height}. ` +
-          "Set a lower resolution, a lower bitrate, or another codec in the scene's export entry.",
+        "Set a lower resolution, a lower bitrate, or another codec in the scene's export entry.",
       );
     }
   }
@@ -140,12 +140,23 @@ export const exportScene: ToolHandler<"export"> = async ({ id, path }, ctx) => {
 
   const handle = new ElectronWritableFileHandle(target);
   try {
-    const result = await renderScene(engine, { scene, target: handle, config: { ...settings, format }, dir: project.dir() });
-    if (result.type === "canceled") throw new DapiError("canceled", "Export canceled in the app");
-    if (result.type === "error") throw result.error;
+    const result = await renderScene(engine, {
+      scene,
+      target: handle,
+      config: { ...settings, format },
+      dir: project.dir(),
+      source: "agent"
+    }
+    );
+    if (result.type === "canceled") {
+      throw new DapiError("canceled", "Export canceled in the app");
+    }
+    if (result.type === "error") {
+      throw result.error;
+    }
   } catch (error) {
     // Close the fd and drop the partial file; a failed export leaves nothing.
-    await handle.dispose().catch(() => {});
+    await handle.dispose().catch(() => { });
     throw error;
   }
 

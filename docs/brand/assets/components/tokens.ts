@@ -3,7 +3,6 @@ export const colors = {
   surface: "#161616",
   text: "#F8F8F8",
   textSecondary: "#A4A4A4",
-  brandRed: "#F43535",
 } as const;
 
 export const fonts = {

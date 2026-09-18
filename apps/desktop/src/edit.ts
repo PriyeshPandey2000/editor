@@ -507,22 +507,6 @@ function isDeclarationCall(node: Node): boolean {
   return args.length === 1 && isLiteral(args[0]!);
 }
 
-/**
- * A prop is only written back when the source holds a plain literal (or a
- * declaration the writer itself spells). Anything else — a signal, a prop of
- * the surrounding component, an expression — is someone's reactivity, and a
- * drag has no business overwriting it.
- */
-function isWritable(attribute: JsxAttribute): boolean {
-  const initializer = attribute.getInitializer();
-  if (!initializer) return true;
-  if (initializer.isKind(SyntaxKind.StringLiteral)) return true;
-  if (!initializer.isKind(SyntaxKind.JsxExpression)) return false;
-
-  const expression = initializer.getExpression();
-  return expression !== undefined && isLiteral(expression);
-}
-
 // ---------------------------------------------------------------------------
 // Files
 
@@ -698,10 +682,10 @@ class SourceWriter {
   }
 
   /**
-   * Writes prop values back into the JSX that produced them. Props whose source
-   * is an expression rather than a literal are reported as skipped and left
-   * alone; an element that is written to and has no id gets one, so that the
-   * next edit to renumber the file cannot strand it.
+   * Writes prop values back into the JSX that produced them, over whatever
+   * was there — a literal or an expression. An element that is written to and
+   * has no id gets one, so that the next edit to renumber the file cannot
+   * strand it.
    */
   public async applyEdits(edits: SourceEdit[]): Promise<WriteResult> {
     const skipped: string[] = [];
@@ -830,12 +814,10 @@ class SourceWriter {
             break;
           }
 
-          const attribute = attributeOf(tag, name);
-          if (attribute && !isWritable(attribute)) {
-            skipped.push(`${edit.source} (${name})`);
-            continue;
-          }
-
+          // Whatever the source held for it: the user wins. An expression
+          // there (`x={MARGIN}`) is replaced by the value like a literal is —
+          // the canvas already shows the edit, and an export and the next open
+          // render the file, so a prop left as it was would move back.
           setProp(tag, name, value);
           if (isSerializedAssetRef(value)) ensureDeclarationImports(sourceFile, value);
           wrote = true;
@@ -875,8 +857,8 @@ class SourceWriter {
   /**
    * Overwrites the initializer of an `@inspect`-annotated top-level const.
    * False when no top-level const of that name carries the annotation, or when
-   * its initializer is not a literal anymore — an expression there is authored
-   * reactivity again, the same rule `isWritable` applies to a prop.
+   * its initializer is not a literal anymore: the annotation promises the
+   * inspector a value, and an expression there is no longer one.
    */
   private setVariable(sourceFile: SourceFile, edit: SourceVariable): boolean {
     for (const statement of sourceFile.getVariableStatements()) {

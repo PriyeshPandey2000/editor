@@ -16,11 +16,12 @@ import {
   DropdownMenuTrigger,
   DropdownMenuGroup,
 } from "@/components/ui/dropdown-menu";
-import { useNavigate } from "@solidjs/router";
+import { useLocation, useNavigate } from "@solidjs/router";
 import { Show, onCleanup, onMount } from "solid-js";
 import { isInputTarget } from "@/utils";
 import { useEditorApi } from "@/dapi";
 import { downloadDesktopApp } from "@/lib/desktop-app";
+import type { ProjectRouteState } from "@/hooks/use-project-route";
 import { FileMenu } from "./file-menu";
 import { EditMenu } from "./edit-menu";
 import { ViewMenu } from "./view-menu";
@@ -30,11 +31,12 @@ import { HelpMenu } from "./help-menu";
 
 export function ProjectMenu() {
   const navigate = useNavigate();
+  const location = useLocation<ProjectRouteState>();
   const { isDesktop } = useEditorApi();
 
   const handleOpenDashboard = () => {
     (document.activeElement as HTMLElement)?.blur?.();
-    navigate("/");
+    navigate(location.state?.returnTo ?? "/");
   };
 
   const handleOpenAccount = () => {

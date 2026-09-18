@@ -25,7 +25,7 @@ How to understand source material before editing it. Inspect only the modalities
 - Don't darken, blur, or cover the picture to make something on top of it legible
 - Let visuals, sound, and voice carry context; let text punctuate rather than explain. Do not add copy, eyebrows, labels, underlines, or brand color highlights unless the brief or explicit video guidance calls for them; examples alone are not instructions.
 - Choose easing from the intended weight, energy, and continuity of the action.
-- When the brief, project, or user specifies branding, follow it. Only when none is specified, fall back to the [Diffusion Studio brand](../brand/README.md) — its design, voice, video, and library references, and the components and compositions bundled with them.
+- When the brief, project, or user specifies branding, follow it. Only when none is specified, fall back to the [house style](../brand/README.md) — its design, voice, video, and library references, and the components and compositions bundled with them.
 
 # Verification
 
@@ -61,7 +61,7 @@ The authoring reference is served by the app for the installed version: read it 
 - [Tool reference — every tool, its fields, its CLI spelling and its output](../reference/tools/README.md)
 - [Examples — complete compositions, basics through shaders](../examples/README.md)
 - [Easings: which cubic-bezier to use and when](../guides/motion/easings.md)
-- [Diffusion Studio brand — the fallback when no other branding is specified](../brand/README.md)
+- [House style — the fallback when no other branding is specified](../brand/README.md)
 
 # Examples
 
