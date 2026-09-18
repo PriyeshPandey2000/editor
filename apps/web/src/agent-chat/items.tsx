@@ -19,11 +19,15 @@ type Of<K extends Item["kind"]> = Extract<Item, { kind: K }>;
 
 export function UserItem(props: { item: Of<"user"> }) {
   return (
-    <div class="rounded-md bg-muted px-2 py-1.5">
-      <div class="whitespace-pre-wrap break-words text-[12px] leading-5 text-foreground">{props.item.text}</div>
+    <div class="flex flex-col gap-1">
       <Show when={props.item.attachments?.length}>
-        <div class="mt-1 flex flex-wrap gap-1">
+        <div class="flex flex-col items-end gap-1">
           <For each={props.item.attachments}>{(path) => <AttachmentChip path={path} />}</For>
+        </div>
+      </Show>
+      <Show when={props.item.text.trim()}>
+        <div class="whitespace-pre-wrap break-words rounded-md bg-muted px-2 py-1.5 text-[12px] leading-5 text-foreground">
+          {props.item.text}
         </div>
       </Show>
     </div>
