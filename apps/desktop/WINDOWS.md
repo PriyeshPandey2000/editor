@@ -130,6 +130,17 @@ Acceptance:
 
 Goal: the window looks and behaves like a first-class Windows app.
 
+Status: implemented on macOS, not yet run on Windows. Differences from the
+tasks as written:
+- The app has a light/dark switch, so the overlay cannot be one fixed colour.
+  The renderer reports the color mode over `WINDOW_SET_COLOR_MODE`
+  (`use-title-bar-color-mode.ts`) and main calls `setTitleBarOverlay`.
+- The clearance is one CSS variable, `--titlebar-controls-width` in
+  `index.css`, built from the `titlebar-area` env variables; it is 0 wherever
+  there is no overlay. Only the inspector header sits under the controls and
+  uses it. The chat header moved into the left sidebar since this plan was
+  written and needs nothing.
+
 Tasks:
 
 1. **BrowserWindow options** (`apps/desktop/src/main.ts`, `createWindow`):
@@ -167,6 +178,22 @@ Acceptance:
 
 Goal: after clicking "Install CLI" in settings, `dapi` works in a fresh
 terminal and keeps working after the app updates.
+
+Status: implemented on macOS (`cli-windows.ts`, unit-tested), not yet run on
+Windows. Differences from the tasks as written:
+- The shim holds the absolute path of the current executable, rewritten on
+  every packaged launch and from the install/update hooks. Whether Squirrel's
+  stub exe forwards stdio is still to be checked on hardware; if it does, the
+  shim can point at the stub instead.
+- PATH is edited through the registry from PowerShell, not
+  `[Environment]::SetEnvironmentVariable`, which would expand every
+  `%VARIABLE%` already in the user's PATH and store it as a plain string.
+  Deleting a variable that does not exist afterwards makes .NET send the
+  settings-change broadcast.
+- `uninstallCli` only takes the folder off PATH. The shim stays, because MCP
+  registrations run it; the Squirrel uninstall hook removes it.
+- The settings card no longer mentions `/usr/local/bin`; only the "installed"
+  toast differs on Windows (it says to open a new terminal).
 
 Tasks:
 
@@ -225,6 +252,11 @@ Acceptance:
 
 Goal: every agent in the settings list connects on Windows.
 
+Status: implemented on macOS (unit-tested), not yet run on Windows. Agent
+paths are `{ root: "home" | "appData", path }`, and `appData` resolves through
+Electron's `app.getPath("appData")`, so the target table has no platform
+branches. The Squirrel uninstall hook removes our entry from every agent.
+
 Tasks:
 
 1. **Per-platform targets** (`apps/desktop/src/mcp-config.ts`): make
@@ -257,6 +289,17 @@ Acceptance:
 ## Stage 4: tool parity
 
 Goal: no dapi tool answers "macOS only".
+
+Status: implemented on macOS, not yet run on Windows. `queryLocalFonts` was
+probed in Electron on macOS: it needs no user gesture, but Chromium rejects it
+("Page needs to be visible") once a window has been shown and then hidden or
+minimized. A never-shown window counts as visible, so `--hidden` launches were
+never affected. The main window therefore sets `backgroundThrottling: false`,
+which keeps the page visible in every state; confirm the same on Windows.
+Still to do on macOS: one `dapi fonts` call against a dev build, since
+the tool changed process. Google Drive's streaming drive is recognised by
+shape (a drive root holding `My Drive` on a machine with DriveFS), because its
+letter is only in the client's database; check that on hardware.
 
 Tasks:
 
@@ -332,6 +375,10 @@ Acceptance:
 
 Goal: developing on a Windows machine is as easy as on macOS, and the app
 gets the Windows 11 look.
+
+Status: tasks 1 and 2 implemented on macOS, not yet run on Windows
+(`scripts/dev-desktop.mjs`, `npm run shim:create` in `apps/cli`). Tasks 3 to 5
+are open.
 
 Tasks:
 

@@ -211,8 +211,12 @@ function DashboardCliSection() {
     setBusy(true);
     try {
       const result = await installCli();
-      if (result.status === "installed") toast("CLI installed", { description: "Run dapi --help in a terminal to get started." });
-      if (result.status === "error") toast.error("Could not install the CLI", { description: result.error });
+      if (result.status === "installed") {
+        toast("CLI installed", { description: "Run dapi --help in a terminal to get started." });
+      }
+      if (result.status === "error") {
+        toast.error("Could not install the CLI", { description: result.error });
+      }
     } catch (e) {
       toast.error("Could not install the CLI", { description: (e as Error).message });
     } finally {

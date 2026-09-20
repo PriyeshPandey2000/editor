@@ -6,10 +6,13 @@ import { app, Menu } from "electron";
 import type { MenuItemConstructorOptions } from "electron";
 
 export function setupAppMenu() {
-  if (process.platform !== "darwin") return;
+  // The app submenu is a macOS convention. Elsewhere the same role menus sit
+  // behind Alt (the window hides the bar) and exist for their accelerators:
+  // reload, devtools, zoom, quit.
+  const template: MenuItemConstructorOptions[] = []
 
-  const template: MenuItemConstructorOptions[] = [
-    {
+  if (process.platform === "darwin") {
+    template.push({
       label: app.name,
       submenu: [
         { role: "about" },
@@ -22,12 +25,15 @@ export function setupAppMenu() {
         { type: "separator" },
         { role: "quit" },
       ],
-    },
+    });
+  }
+
+  template.push(
     { role: "fileMenu" },
     { role: "editMenu" },
     { role: "viewMenu" },
     { role: "windowMenu" },
-  ];
+  );
 
   Menu.setApplicationMenu(Menu.buildFromTemplate(template));
 }

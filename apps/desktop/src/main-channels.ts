@@ -34,6 +34,7 @@ export const MAIN_CHANNELS = {
   AUTH_GET_PENDING_CALLBACK: "auth:get-pending-callback",
   CHECKOUT_GET_PENDING_CALLBACK: "checkout:get-pending-callback",
   WINDOW_IS_FULLSCREEN: "window:is-fullscreen",
+  WINDOW_SET_COLOR_MODE: "window:set-color-mode",
   WINDOW_CAPTURE: "window:capture",
   FILE_TRANSFER: "file:transfer",
   FILE_WRITE_OPEN: "file:write-open",
@@ -189,6 +190,7 @@ export type MainRequestMap = {
     response: string | null;
   };
   [MAIN_CHANNELS.WINDOW_IS_FULLSCREEN]: { request: void; response: boolean };
+  [MAIN_CHANNELS.WINDOW_SET_COLOR_MODE]: { request: { mode: "light" | "dark" }; response: void };
   [MAIN_CHANNELS.WINDOW_CAPTURE]: { request: void; response: ScreenshotResult };
   [MAIN_CHANNELS.FILE_TRANSFER]: {
     request: { selector: string; absolutePath: string };

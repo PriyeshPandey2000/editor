@@ -12,7 +12,7 @@ import { updateElectronApp } from "update-electron-app";
 import { tempPathFor } from "./atomic";
 import { DapiServer } from "./dapi/server";
 import { agentChatEndpoint, deleteProjectChats, startAgentChat, stopAgentChat } from "./agent-chat";
-import { cliStatus, installCli, uninstallCli } from "./cli-install";
+import { cliStatus, installCli, refreshCliShim, uninstallCli } from "./cli-install";
 import { applyMcp, healMcpRegistrations, mcpStatus } from "./mcp-install";
 import { enableHeadless } from "./headless";
 import { trackEvent, trackInstall } from "./analytics";
@@ -55,6 +55,13 @@ const DEV_URL = "http://localhost:5173";
 const AUTH_PROTOCOL = "diffusion";
 const MACOS_CORNER_RADIUS = 18;
 const MACOS_BACKDROP = { blur: 80, red: 0.07, green: 0.07, blue: 0.07, alpha: 0.9 };
+// Window Controls Overlay on Windows: as tall as the renderer's `h-10` drag
+// strip, coloured like the sidebar it sits on (`--sidebar` / `--foreground`).
+const WINDOWS_OVERLAY_HEIGHT = 40;
+const WINDOWS_OVERLAY_COLORS = {
+  dark: { color: "#121212", symbolColor: "#f2f2f2" },
+  light: { color: "#f7f7f7", symbolColor: "#161618" },
+};
 
 // A Squirrel.Windows install/update/uninstall launch: housekeeping only, the
 // app quits on its own. Decided first so nothing below starts a service or
@@ -89,6 +96,11 @@ function applyBackdrop() {
   if (!setNativeBackdrop || !mainWindow || mainWindow.isDestroyed()) return;
   const { blur, red, green, blue, alpha } = MACOS_BACKDROP;
   setNativeBackdrop(mainWindow.getNativeWindowHandle(), blur, red, green, blue, alpha);
+}
+
+function setColorMode(mode: "dark" | "light") {
+  if (process.platform === "darwin" || !mainWindow || mainWindow.isDestroyed()) return;
+  mainWindow.setTitleBarOverlay({ ...WINDOWS_OVERLAY_COLORS[mode], height: WINDOWS_OVERLAY_HEIGHT });
 }
 
 if (app.isPackaged && !squirrelLaunch && !process.argv.includes("--hidden")) {
@@ -207,19 +219,36 @@ async function setFileInputFiles(selector: string, absolutePath: string) {
 }
 
 function createWindow(show = true) {
-  mainWindow = new BrowserWindow({
+
+  const options: Electron.BrowserWindowConstructorOptions = {
     show: false,
     width: 1200,
     height: 800,
-    titleBarStyle: "hiddenInset",
-    trafficLightPosition: { x: 14, y: 14 },
-    ...(process.platform === "darwin"
-      ? { vibrancy: "sidebar" as const, backgroundColor: "#00000000" }
-      : { backgroundColor: "#1c1c1c" }),
     webPreferences: {
       preload: join(app.getAppPath(), "dist", "preload.js"),
+      backgroundThrottling: false,
     },
-  });
+  }
+
+  if (process.platform === "darwin") {
+    options.titleBarStyle = "hiddenInset" as const;
+    options.trafficLightPosition = { x: 14, y: 14 };
+    options.vibrancy = "sidebar" as const;
+    options.backgroundColor = "#00000000";
+  }
+
+  if (process.platform === "win32") {
+    options.titleBarStyle = "hidden" as const;
+    options.titleBarOverlay = { ...WINDOWS_OVERLAY_COLORS.dark, height: WINDOWS_OVERLAY_HEIGHT };
+    options.autoHideMenuBar = true;
+    options.backgroundColor = WINDOWS_OVERLAY_COLORS.dark.color;
+
+    if (!app.isPackaged) {
+      options.icon = join(app.getAppPath(), "assets", "icon-dev.png");
+    }
+  }
+
+  mainWindow = new BrowserWindow(options);
 
   captureConsole(mainWindow);
 
@@ -300,6 +329,7 @@ if (squirrelLaunch) {
     takePendingDeepLink(MAIN_CHANNELS.CHECKOUT_CALLBACK),
   );
   mainBridge.handle(MAIN_CHANNELS.WINDOW_IS_FULLSCREEN, () => mainWindow?.isFullScreen() ?? false);
+  mainBridge.handle(MAIN_CHANNELS.WINDOW_SET_COLOR_MODE, ({ mode }) => setColorMode(mode));
   mainBridge.handle(MAIN_CHANNELS.WINDOW_CAPTURE, async () => {
     if (!mainWindow || mainWindow.isDestroyed()) throw new Error("No main window");
     const image = await mainWindow.webContents.capturePage(undefined, { stayHidden: true });
@@ -432,6 +462,7 @@ if (squirrelLaunch) {
         version: app.getVersion(),
       }),
     );
+    refreshCliShim();
     healMcpRegistrations();
     trackInstall();
     createWindow(!isHiddenLaunch(process.argv));

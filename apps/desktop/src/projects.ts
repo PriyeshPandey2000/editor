@@ -17,6 +17,7 @@ import type { PluginItem, TransformOptions } from "@babel/core";
 import type { BuildOptions, Plugin } from "esbuild";
 
 import { isTempPath, TEMP_PREFIX, writeFileAtomic } from "./atomic";
+import { windowsCloudSyncKind } from "./cloud-sync-windows";
 import { isHeadless } from "./headless";
 import { mainBridge } from "./main-manager";
 import { MAIN_CHANNELS } from "./main-channels";
@@ -318,18 +319,8 @@ export async function cloudSyncKind(path: string): Promise<string | null> {
   const mobile = await resolveDeepest(join(home, "Library", "Mobile Documents"));
   if (real === mobile || real.startsWith(mobile + sep)) return "iCloud Drive";
 
-  // Windows has no File Provider to ask.
-  if (process.platform === "win32") {
-    const roots: Array<[string, string]> = [[join(home, "iCloudDrive"), "iCloud Drive"]];
-    for (const key of ["OneDrive", "OneDriveConsumer", "OneDriveCommercial"]) {
-      const dir = process.env[key];
-      if (dir) roots.push([dir, "OneDrive"]);
-    }
-    for (const [dir, label] of roots) {
-      const root = resolve(dir);
-      if (real === root || real.startsWith(root + sep)) return label;
-    }
-  }
+  // Windows has no File Provider to ask; everything below is macOS.
+  if (process.platform === "win32") return windowsCloudSyncKind(real, home);
 
   // The home Desktop and Documents, before the attribute is asked for: it is
   // the one the app is most likely to be unable to read.

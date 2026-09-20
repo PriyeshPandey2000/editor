@@ -10,6 +10,9 @@ import { AppContextMenu } from "@/components/app-context-menu";
 
 import { AuthProvider, useAuth } from '@/context/auth';
 import { PersistRoute } from '@/lib/persist-route';
+import { useColorMode } from "@kobalte/core";
+import { mainBridge } from "@/lib/ipc";
+import { MAIN_CHANNELS } from "@desktop/main-channels";
 import { EditorApi } from '@/dapi';
 import { UpgradeDialog } from '@/components/upgrade-dialog';
 import { PurchaseSuccess } from '@/components/purchase-success';
@@ -47,6 +50,18 @@ function BootSplash() {
   return null;
 }
 
+function TitleBarColorMode() {
+  const { colorMode } = useColorMode();
+
+  createEffect(() => {
+    if (window.desktop?.platform === "win32") {
+      mainBridge.call(MAIN_CHANNELS.WINDOW_SET_COLOR_MODE, { mode: colorMode() });
+    };
+  });
+
+  return null;
+}
+
 function EnvironmentOverlays() {
   const location = useLocation();
   const onCheckoutPage = () => location.pathname.startsWith('/checkout');
@@ -77,6 +92,7 @@ function App() {
           <Toaster />
           <EnvironmentOverlays />
           <PersistRoute />
+          <TitleBarColorMode />
         </ColorModeProvider>
       )}
     >

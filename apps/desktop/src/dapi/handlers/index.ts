@@ -3,10 +3,9 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 import { logs } from "./logs";
-import { fonts } from "./fonts";
 import { report } from "./report";
 
 import type { MainHandlers } from "../handler";
 
 /** Every tool main answers itself, keyed by its catalog name. */
-export const mainHandlers: MainHandlers = { logs, fonts, report };
+export const mainHandlers: MainHandlers = { logs, report };

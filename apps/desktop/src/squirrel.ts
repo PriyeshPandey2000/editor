@@ -6,13 +6,19 @@
 // uninstall, with a `--squirrel-*` flag as the only argument, and expects it
 // to do its housekeeping and exit. That is the moment the Start Menu
 // shortcut is created and removed (through Squirrel's own Update.exe, one
-// folder up from the versioned app folder), and — from later stages — where
-// the `dapi` shim and the agents' MCP entries get written and cleaned up.
+// folder up from the versioned app folder), where the `dapi` shim is pointed
+// at the new version and taken away again, and where the agents' MCP entries
+// are taken out of their configs so no agent is left calling an app that is
+// gone.
 // `--squirrel-firstrun` is the ordinary first launch and is not an event.
 
 import { app } from "electron";
 import { spawn } from "node:child_process";
 import { basename, resolve } from "node:path";
+
+import { removeShim, removeShimFromPath, writeShim } from "./cli-windows";
+import { AGENT_TARGETS } from "./mcp-config";
+import { applyMcp } from "./mcp-install";
 
 const EVENTS = new Set(["--squirrel-install", "--squirrel-updated", "--squirrel-uninstall", "--squirrel-obsolete"]);
 
@@ -50,10 +56,20 @@ export function handleSquirrelEvent(): boolean {
   switch (event) {
     case "--squirrel-install":
     case "--squirrel-updated":
-      updateExe(["--createShortcut", target]);
+      writeShim()
+        .catch(() => { })
+        .then(() => updateExe(["--createShortcut", target]));
       break;
     case "--squirrel-uninstall":
-      updateExe(["--removeShortcut", target]);
+      try {
+        applyMcp({ add: [], remove: AGENT_TARGETS.map((target) => target.id) });
+      } catch {/* best effort */ }
+
+      removeShimFromPath()
+        .catch(() => { })
+        .then(() => removeShim())
+        .catch(() => { })
+        .then(() => updateExe(["--removeShortcut", target]));
       break;
     default:
       // --squirrel-obsolete: the version being replaced gets a last word; we have none.

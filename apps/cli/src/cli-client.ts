@@ -2,7 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-import { execFile } from "node:child_process";
+import { execFile, spawn } from "node:child_process";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import { MCP_URL } from "@diffusionstudio/dapi";
@@ -42,7 +42,7 @@ export async function call<N extends ToolName>(name: N, input: ToolInput<N>): Pr
     }
     return result.structuredContent as ToolOutput<N>;
   } finally {
-    await client.close().catch(() => {});
+    await client.close().catch(() => { });
   }
 }
 
@@ -52,7 +52,7 @@ export async function ping(): Promise<void> {
   try {
     await client.ping();
   } finally {
-    await client.close().catch(() => {});
+    await client.close().catch(() => { });
   }
 }
 
@@ -77,20 +77,38 @@ export function isAppDown(e: unknown): boolean {
   return false;
 }
 
-/**
- * Launches the app, or surfaces the running instance: `open -a` on a running
- * app only activates it, so this is safe to always run. macOS only; elsewhere
- * it resolves false and the caller falls through to the connection.
- *
- * The bundled `dapi` runs as Electron with ELECTRON_RUN_AS_NODE=1, and `open`
- * hands its environment to the app it launches — left in, the app boots as
- * plain Node and never answers.
- */
-export function launchApp(background: boolean): Promise<boolean> {
-  if (process.platform !== "darwin") return Promise.resolve(false);
+
+function launchWin32(background: boolean): Promise<boolean> {
+  if (!process.versions.electron) return Promise.resolve(false);
+  const { ELECTRON_RUN_AS_NODE: _, ...env } = process.env;
+  return new Promise((res) => {
+    const child = spawn(process.execPath, background ? ["--hidden"] : [], {
+      detached: true,
+      stdio: "ignore",
+      env,
+    });
+    child.once("error", () => res(false));
+    child.once("spawn", () => {
+      child.unref();
+      res(true);
+    });
+  });
+}
+
+function launchDarwin(background: boolean): Promise<boolean> {
   const args = background ? ["-g", "-a", APP_NAME, "--args", "--hidden"] : ["-a", APP_NAME];
   const { ELECTRON_RUN_AS_NODE: _, ...env } = process.env;
   return new Promise((res) => execFile("open", args, { env }, (err) => res(!err)));
+}
+
+/**
+ * Launches the app, or surfaces the running instance
+ */
+export function launchApp(background: boolean): Promise<boolean> {
+  if (process.platform === "win32") return launchWin32(background);
+  if (process.platform === "darwin") return launchDarwin(background);
+
+  return Promise.resolve(false);
 }
 
 /**

@@ -9,7 +9,9 @@
 /**
  * The two ways to reach the app. Agents that speak Streamable HTTP get the
  * URL, which is the same on every machine; the rest get the bundled `dapi`
- * binary in stdio proxy mode.
+ * binary in stdio proxy mode. On Windows that binary is a `.cmd`, which
+ * nothing can spawn without a shell, so the command is `cmd` and the shim's
+ * path rides in `args`.
  */
 export type McpServerSpec = { url: string; command: string; args: string[] };
 
@@ -38,14 +40,22 @@ export type AgentId =
 /** How a config file spells its server map: JSON under `mcpServers` (or VS Code's `servers`), or Codex's TOML tables. */
 export type ConfigFormat = "mcpServers" | "servers" | "toml";
 
+/**
+ * A path under one of the two per-user roots. `appData` is where desktop apps
+ * keep their files (Electron's `appData`: ~/Library/Application Support on
+ * macOS, %APPDATA% on Windows), which keeps this table the same on every
+ * platform; `mcp-install.ts` knows where the roots are.
+ */
+export type AgentPath = { root: "home" | "appData"; path: string };
+
 export type AgentTarget = {
   id: AgentId;
   /** Human name, for the UI. */
   label: string;
-  /** Home-relative path whose presence means the agent is set up on this machine. */
-  marker: string;
-  /** Home-relative path of the config file our entry goes into. */
-  config: string;
+  /** Path whose presence means the agent is set up on this machine. */
+  marker: AgentPath;
+  /** Path of the config file our entry goes into. */
+  config: AgentPath;
   format: ConfigFormat;
   /** The entry for this agent: which transport it gets, under the keys its format uses. */
   entry(spec: McpServerSpec): ServerEntry;
@@ -54,8 +64,8 @@ export type AgentTarget = {
 const http = (key: string, extra: ServerEntry = {}) => (spec: McpServerSpec): ServerEntry => ({ ...extra, [key]: spec.url });
 const stdio = (spec: McpServerSpec): ServerEntry => ({ command: spec.command, args: [...spec.args] });
 
-/** Where macOS apps keep their per-user files; agents that are desktop apps put their config there. */
-const APP_SUPPORT = "Library/Application Support";
+const home = (path: string): AgentPath => ({ root: "home", path });
+const appData = (path: string): AgentPath => ({ root: "appData", path });
 
 // Agents whose MCP config we know how to write, in the order the UI lists
 // them. Claude Code's user scope is the top-level `mcpServers` of
@@ -65,28 +75,28 @@ const APP_SUPPORT = "Library/Application Support";
 // `serverUrl`. Claude Desktop's file takes stdio commands only, so it gets
 // the proxy.
 export const AGENT_TARGETS: readonly AgentTarget[] = [
-  { id: "claude-code", label: "Claude Code", marker: ".claude", config: ".claude.json", format: "mcpServers", entry: http("url", { type: "http" }) },
+  { id: "claude-code", label: "Claude Code", marker: home(".claude"), config: home(".claude.json"), format: "mcpServers", entry: http("url", { type: "http" }) },
   {
     id: "claude-desktop",
     label: "Claude Desktop",
-    marker: `${APP_SUPPORT}/Claude`,
-    config: `${APP_SUPPORT}/Claude/claude_desktop_config.json`,
+    marker: appData("Claude"),
+    config: appData("Claude/claude_desktop_config.json"),
     format: "mcpServers",
     entry: stdio,
   },
-  { id: "cursor", label: "Cursor", marker: ".cursor", config: ".cursor/mcp.json", format: "mcpServers", entry: http("url") },
+  { id: "cursor", label: "Cursor", marker: home(".cursor"), config: home(".cursor/mcp.json"), format: "mcpServers", entry: http("url") },
   {
     id: "vscode",
     label: "VS Code (Copilot)",
-    marker: `${APP_SUPPORT}/Code`,
-    config: `${APP_SUPPORT}/Code/User/mcp.json`,
+    marker: appData("Code"),
+    config: appData("Code/User/mcp.json"),
     format: "servers",
     entry: http("url", { type: "http" }),
   },
-  { id: "codex", label: "Codex", marker: ".codex", config: ".codex/config.toml", format: "toml", entry: http("url") },
-  { id: "antigravity", label: "Antigravity", marker: ".gemini/antigravity", config: ".gemini/config/mcp_config.json", format: "mcpServers", entry: http("serverUrl") },
-  { id: "gemini-cli", label: "Gemini CLI", marker: ".gemini", config: ".gemini/settings.json", format: "mcpServers", entry: http("httpUrl") },
-  { id: "windsurf", label: "Devin (Windsurf)", marker: ".codeium/windsurf", config: ".codeium/windsurf/mcp_config.json", format: "mcpServers", entry: http("serverUrl") },
+  { id: "codex", label: "Codex", marker: home(".codex"), config: home(".codex/config.toml"), format: "toml", entry: http("url") },
+  { id: "antigravity", label: "Antigravity", marker: home(".gemini/antigravity"), config: home(".gemini/config/mcp_config.json"), format: "mcpServers", entry: http("serverUrl") },
+  { id: "gemini-cli", label: "Gemini CLI", marker: home(".gemini"), config: home(".gemini/settings.json"), format: "mcpServers", entry: http("httpUrl") },
+  { id: "windsurf", label: "Devin (Windsurf)", marker: home(".codeium/windsurf"), config: home(".codeium/windsurf/mcp_config.json"), format: "mcpServers", entry: http("serverUrl") },
 ];
 
 export function agentTarget(id: AgentId): AgentTarget {
@@ -121,7 +131,7 @@ export function removeServer(text: string | null, format: ConfigFormat): string 
 }
 
 /** Where our entry currently points, whatever keys the agent spells it with; null when there is none. */
-export type Registered = { url?: string; command?: string };
+export type Registered = { url?: string; command?: string; args?: string[] };
 
 export function readServer(text: string | null, format: ConfigFormat): Registered | null {
   if (text === null) return null;
@@ -130,10 +140,38 @@ export function readServer(text: string | null, format: ConfigFormat): Registere
   const url = entry.url ?? entry.httpUrl ?? entry.serverUrl;
   const command = entry.command;
   if (typeof url !== "string" && typeof command !== "string") return null;
+  const args = Array.isArray(entry.args) ? entry.args.filter((arg): arg is string => typeof arg === "string") : null;
   return {
     ...(typeof url === "string" ? { url } : {}),
     ...(typeof command === "string" ? { command } : {}),
+    ...(typeof command === "string" && args ? { args } : {}),
   };
+}
+
+// What a path to our proxy has in it: the app's name inside a macOS bundle
+// (or the translocated mount a quarantined bundle ran from), the Squirrel
+// package id in the Windows shim folder.
+const OUR_PATHS = ["Diffusion Studio", "/AppTranslocation/", "\\DiffusionStudio\\"];
+
+/**
+ * Whether a stdio entry runs our proxy — from wherever the app was when the
+ * entry was written — rather than something the user put under our name by
+ * hand. The path is the command itself, or on Windows an argument to `cmd`.
+ */
+export function runsOurProxy(registered: Registered): boolean {
+  return [registered.command ?? "", ...(registered.args ?? [])].some((part) =>
+    OUR_PATHS.some((marker) => part.includes(marker)),
+  );
+}
+
+/** Whether a stdio entry already is what `entry` would write. */
+export function sameCommand(registered: Registered, entry: ServerEntry): boolean {
+  const args = Array.isArray(entry.args) ? entry.args : [];
+  return (
+    registered.command === entry.command &&
+    (registered.args ?? []).length === args.length &&
+    (registered.args ?? []).every((arg, index) => arg === args[index])
+  );
 }
 
 // --- JSON ------------------------------------------------------------------

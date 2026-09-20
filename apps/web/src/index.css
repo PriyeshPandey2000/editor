@@ -224,6 +224,14 @@
   --meter-clip: hsla(60, 100%, 50%, 1);
 }
 
+/* Windows desktop: the native minimize/maximize/close buttons overlay the
+   top-right corner. Chromium reports the free part of the title bar through
+   the titlebar-area variables, so this is the width the controls take at any
+   DPI, and 0 wherever there is no overlay (web, macOS, fullscreen). */
+:root {
+  --titlebar-controls-width: calc(100vw - env(titlebar-area-x, 0px) - env(titlebar-area-width, 100vw));
+}
+
 /* macOS desktop: the BrowserWindow uses native vibrancy, so the page keeps a
    transparent background and the sidebars go translucent to let the blur show. */
 [data-platform="darwin"],

@@ -5,9 +5,16 @@
 // Stages the dapi CLI into apps/desktop/cli so electron-forge can ship it as
 // an app resource (Contents/Resources/cli). The staged layout:
 //   cli/dapi.js        bundled CLI (built by apps/cli), self-contained
-//   cli/bin/dapi       shell wrapper: what Claude Desktop runs as `dapi mcp`
-//                      (registered by mcp-install.ts) and the file that gets
-//                      linked into PATH
+//   cli/bin/dapi       macOS shell wrapper: what Claude Desktop runs as
+//                      `dapi mcp` (registered by mcp-install.ts) and the file
+//                      that gets linked into PATH
+//   cli/bin/dapi.cmd   Windows wrapper, relative to the install folder. PATH
+//                      and the agents get a shim outside the install folder
+//                      instead (src/cli-windows.ts), since Squirrel moves the
+//                      app on every update; this one is for running the CLI
+//                      straight out of an install.
+// Each host stages its own wrapper; `--all` stages both, so a macOS host can
+// produce a Windows tree for inspection.
 
 import { chmodSync, cpSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
@@ -25,6 +32,8 @@ cpSync(join(cliDir, "dist", "index.js"), join(stageDir, "dapi.js"));
 // The wrapper runs the CLI bundle on the app's own Electron binary in Node
 // mode, so users need no separate Node install. It resolves symlinks first
 // because both Homebrew and the in-app installer link it into PATH.
+const all = process.argv.includes("--all");
+
 const wrapper = `#!/bin/sh
 SELF="$0"
 while [ -L "$SELF" ]; do
@@ -38,7 +47,23 @@ DIR="$(cd "$(dirname "$SELF")" && pwd)"
 export DIFFUSION_APP_PATH="$(cd "$DIR/../../../.." && pwd)"
 ELECTRON_RUN_AS_NODE=1 exec "$DIR/../../../MacOS/Diffusion Studio" "$DIR/../dapi.js" "$@"
 `;
-writeFileSync(join(stageDir, "bin", "dapi"), wrapper);
-chmodSync(join(stageDir, "bin", "dapi"), 0o755);
+
+if (all || process.platform !== "win32") {
+  writeFileSync(join(stageDir, "bin", "dapi"), wrapper);
+  chmodSync(join(stageDir, "bin", "dapi"), 0o755);
+}
+
+// Staged at <install>\resources\cli\bin, three folders below the executable.
+const cmdWrapper = [
+  "@echo off",
+  "setlocal",
+  'set "ELECTRON_RUN_AS_NODE=1"',
+  '"%~dp0..\\..\\..\\Diffusion Studio.exe" "%~dp0..\\dapi.js" %*',
+  "",
+].join("\r\n");
+
+if (all || process.platform === "win32") {
+  writeFileSync(join(stageDir, "bin", "dapi.cmd"), cmdWrapper);
+}
 
 console.log(`stage-cli: staged dapi at ${stageDir}`);

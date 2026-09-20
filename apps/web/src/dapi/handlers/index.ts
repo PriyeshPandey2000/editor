@@ -9,6 +9,7 @@ import { check } from "./check";
 import { exportScene } from "./export";
 import { models } from "./models";
 import { voices } from "./voices";
+import { fonts } from "./fonts";
 import { whoami } from "./whoami";
 import { screenshot } from "./screenshot";
 import { mediaProbe } from "./media-probe";
@@ -29,6 +30,7 @@ export const handlers: Handlers = {
   export: exportScene,
   models,
   voices,
+  fonts,
   whoami,
   screenshot,
   media_probe: mediaProbe,

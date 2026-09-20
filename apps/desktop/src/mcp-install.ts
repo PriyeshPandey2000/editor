@@ -13,36 +13,71 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 import { MCP_URL } from "@diffusionstudio/dapi";
-import { AGENT_TARGETS, agentTarget, needsBinary, readServer, removeServer, upsertServer } from "./mcp-config";
+import { shimPath } from "./cli-windows";
+import {
+  AGENT_TARGETS,
+  agentTarget,
+  needsBinary,
+  readServer,
+  removeServer,
+  runsOurProxy,
+  sameCommand,
+  upsertServer,
+} from "./mcp-config";
 
-import type { AgentTarget, McpServerSpec } from "./mcp-config";
+import type { AgentPath, AgentTarget, McpServerSpec } from "./mcp-config";
 import type { McpAgentStatus, McpApplyRequest, McpApplyResult, McpStatus } from "./main-channels";
 
 // The dev workflow links the workspace build into Homebrew's bin
 // (`symlink:create` in apps/cli); that is the binary a dev build registers.
 const DEV_BINARY = "/opt/homebrew/bin/dapi";
 
-/** The bundled `dapi` binary, or null when none is available (an unstaged dev build). */
+/**
+ * The bundled `dapi` binary, or null when none is available (an unstaged dev
+ * build). On Windows it is the shim outside the install folder, the one path
+ * that survives an update; a packaged app writes it on every launch, so it
+ * counts as there even in the moment before that write lands.
+ */
 export function dapiBinary(): string | null {
+  if (process.platform === "win32") {
+    const shim = shimPath();
+    return app.isPackaged || existsSync(shim) ? shim : null;
+  }
   const command = app.isPackaged ? join(process.resourcesPath, "cli", "bin", "dapi") : DEV_BINARY;
   return existsSync(command) ? command : null;
 }
 
 function spec(): McpServerSpec {
-  return { url: MCP_URL, command: dapiBinary() ?? "", args: ["mcp"] };
+  const binary = dapiBinary();
+  if (!binary) {
+    return { url: MCP_URL, command: "", args: [] };
+  }
+  // A `.cmd` only runs through a shell, and the agents spawn without one.
+  if (process.platform === "win32") {
+    return { url: MCP_URL, command: "cmd", args: ["/c", binary, "mcp"] };
+  }
+
+  return { url: MCP_URL, command: binary, args: ["mcp"] };
 }
 
-function configPath(target: AgentTarget): string {
-  return join(homedir(), target.config);
+function resolvePath(location: AgentPath): string {
+  if (location.root === "home") {
+    return join(homedir(), location.path);
+  }
+  if (location.root === "appData") {
+    return join(app.getPath("appData"), location.path);
+  }
+
+  throw new Error(`Unknown agent path root: ${location.root}`);
 }
 
 function readConfig(target: AgentTarget): string | null {
-  const path = configPath(target);
+  const path = resolvePath(target.config);
   return existsSync(path) ? readFileSync(path, "utf8") : null;
 }
 
 function writeConfig(target: AgentTarget, text: string): void {
-  const path = configPath(target);
+  const path = resolvePath(target.config);
   mkdirSync(dirname(path), { recursive: true });
   writeFileSync(path, text);
 }
@@ -68,9 +103,9 @@ function agentStatus(target: AgentTarget, current: McpServerSpec): McpAgentStatu
   return {
     id: target.id,
     label: target.label,
-    detected: existsSync(join(homedir(), target.marker)),
+    detected: existsSync(resolvePath(target.marker)),
     connected: registered !== null,
-    config: configPath(target),
+    config: resolvePath(target.config),
     unavailable: unavailableReason(target, current),
   };
 }
@@ -101,7 +136,7 @@ export function applyMcp(request: McpApplyRequest): McpApplyResult {
       writeConfig(target, upsertServer(readConfig(target), target.format, target.entry(current)));
       result.added.push(id);
     } catch (e) {
-      result.failures.push({ id, error: `${target.config}: ${(e as Error).message}` });
+      result.failures.push({ id, error: `${target.config.path}: ${(e as Error).message}` });
     }
   }
 
@@ -112,7 +147,7 @@ export function applyMcp(request: McpApplyRequest): McpApplyResult {
       if (next !== null) writeConfig(target, next);
       result.removed.push(id);
     } catch (e) {
-      result.failures.push({ id, error: `${target.config}: ${(e as Error).message}` });
+      result.failures.push({ id, error: `${target.config.path}: ${(e as Error).message}` });
     }
   }
 
@@ -134,10 +169,10 @@ export function healMcpRegistrations(): void {
     const text = readConfig(target);
     const registered = readServer(text, target.format);
     if (!registered?.command) continue;
-    const ours = registered.command.includes("Diffusion Studio") || registered.command.includes("/AppTranslocation/");
-    if (!ours) continue;
+    if (!runsOurProxy(registered)) continue;
     const entry = target.entry(current);
-    if (registered.command === entry.command) continue;
+    if (sameCommand(registered, entry)) continue;
+
     try {
       writeConfig(target, upsertServer(text, target.format, entry));
     } catch {

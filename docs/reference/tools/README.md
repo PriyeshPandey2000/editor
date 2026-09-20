@@ -26,7 +26,7 @@ Every tool returns one JSON object, its *structured content*. Over MCP that is t
 
 A failure is a sentence written to be read, e.g. `No project open — run open first`. Over MCP it arrives as a tool result with `isError: true`, not as a protocol error; the CLI prints it to stderr and exits `1`. Each page's Errors section lists what the tool fails on; only the delivery differs by surface.
 
-Every tool runs inside the app, so the app has to be running. Over MCP that is a given — the connection is to the app. From a shell, `dapi open` launches it (macOS) or surfaces the running instance; every other command prints a launch instruction and exits `1` while the app is down.
+Every tool runs inside the app, so the app has to be running. Over MCP that is a given — the connection is to the app. From a shell, `dapi open` launches it (macOS and Windows) or surfaces the running instance; every other command prints a launch instruction and exits `1` while the app is down.
 
 ## The tools
 

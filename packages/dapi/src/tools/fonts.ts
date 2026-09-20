@@ -25,7 +25,7 @@ export const fonts = defineTool({
   name: "fonts",
   title: "Local fonts",
   description:
-    "List the local fonts available on this machine (macOS only). These family names are valid `fontFamily` values on <text>; each family lists its variants. A machine has hundreds of families, so filter by family name when looking for one; total tells whether the limit cut the list.",
+    "List the local fonts available on this machine. These family names are valid `fontFamily` values on <text>; each family lists its variants. A machine has hundreds of families, so filter by family name when looking for one; total tells whether the limit cut the list.",
   input: z.object({
     family: z.string().optional().describe("filter to families whose name contains this (case-insensitive)"),
     weights: z.array(z.string()).optional().describe('filter to variants with the given CSS weights, e.g. ["400", "700"]'),
@@ -36,5 +36,5 @@ export const fonts = defineTool({
     families: z.array(FontFamily),
     total: z.int().describe("families matching the filters before the limit; more than were returned means the list was cut"),
   }),
-  environment: "main",
+  environment: "renderer",
 });
