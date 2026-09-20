@@ -53,14 +53,6 @@ Beyond finishing a cut, it covers:
 - **Clipping**: highlights from a long video, reformatted for social
 - **Video understanding**: summaries, scene search, quotes with timestamps
 
-## How it works
-
-Diffusion Studio uses [SolidJS](https://www.solidjs.com) modules as the document source. Think IDE, but it renders a video canvas instead of text.
-
-Editing works both ways: change something on the canvas and the code updates; change the code and the canvas redraws.
-
-The desktop app includes command-line tools that let agents watch and listen to footage, edit it on a timeline, and render the result.
-
 ## Getting started
 
 Download the desktop app, it walks you through setting everything up:
@@ -130,6 +122,14 @@ Both were created by prompting. The compositions are published in [diffusionstud
 | [Launch video](https://github.com/diffusionstudio/open-projects/tree/main/launch-video) | [Raise announcement](https://github.com/diffusionstudio/open-projects/tree/main/raise-announcement) |
 | --- | --- |
 | <img src="assets/launch-video.gif" alt="Launch video" width="420" /> | <img src="assets/raise-announcement.gif" alt="Raise announcement" width="420" /> |
+
+## How it works
+
+Diffusion Studio uses [SolidJS](https://www.solidjs.com) modules as the document source. Think IDE, but it renders a video canvas instead of text.
+
+Editing works both ways: change something on the canvas and the code updates; change the code and the canvas redraws.
+
+The desktop app includes command-line tools that let agents watch and listen to footage, edit it on a timeline, and render the result.
 
 ## Compositions as code
 
