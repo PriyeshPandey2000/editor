@@ -12,7 +12,6 @@ import { check } from "./tools/check";
 import { exportScene } from "./tools/export";
 import { models } from "./tools/models";
 import { voices } from "./tools/voices";
-import { whoami } from "./tools/whoami";
 import { logs } from "./tools/logs";
 import { screenshot } from "./tools/screenshot";
 import { mediaProbe } from "./tools/media-probe";
@@ -43,7 +42,6 @@ export const catalog = [
   mediaListen,
   models,
   voices,
-  whoami,
   logs,
   screenshot,
   fonts,

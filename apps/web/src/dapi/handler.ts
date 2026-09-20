@@ -22,7 +22,6 @@ export type ToolContext = {
   /** What only the app shell can do: navigate, and know who is signed in. */
   app: {
     openProject(dir: string): Promise<ToolResult<"open">>;
-    user(): User | null;
     /** The signed-in user, or a `sign-in-required` error. */
     requireUser(): User;
   };

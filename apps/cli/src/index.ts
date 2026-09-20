@@ -219,11 +219,6 @@ program
   .action(() => run("voices", {}));
 
 program
-  .command("whoami")
-  .description(describe("whoami"))
-  .action(() => run("whoami", {}));
-
-program
   .command("logs")
   .description(describe("logs"))
   .option("-n, --tail <n>", field("logs", "tail"), numeric)

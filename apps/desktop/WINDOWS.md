@@ -282,7 +282,7 @@ Tasks:
 Acceptance:
 - Connect and disconnect each of Claude Code, Claude Desktop, Cursor,
   VS Code, Codex, Gemini CLI on a Windows machine; each agent lists the
-  `diffusion` server and can call `whoami`.
+  `diffusion` server and can call `context`.
 - After an app update, Claude Desktop still starts `dapi mcp` without
   editing its config.
 

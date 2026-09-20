@@ -205,7 +205,6 @@ Each command is the MCP tool of the same name: `dapi media grab` is `media_grab`
 | `dapi media …` | Inspect a file by id or path: `probe`, `grab`, `filmstrip`, `waveform`, `transcribe`, `listen` |
 | `dapi models` / `dapi voices` / `dapi fonts` | Discover generation models, speech voices, local fonts |
 | `dapi screenshot` / `dapi logs` | The app itself: capture the window, read recent console output |
-| `dapi whoami` | The authenticated account |
 | `dapi report` | Report a bug in the tools or the app: diagnostics bundled, filed as a GitHub issue via `gh` |
 
 Conventions throughout: every result is one JSON object, the same structured content the MCP tool returns; errors go to stderr with exit code `1`. Everything is built to be piped, grepped, and driven by a program.

@@ -45,7 +45,6 @@ Every tool runs inside the app, so the app has to be running. Over MCP that is a
 | [`media_listen`](./media/listen.md) | `dapi media listen` | Listen to audio |
 | [`models`](./models.md) | `dapi models` | Generation models |
 | [`voices`](./voices.md) | `dapi voices` | Speech voices |
-| [`whoami`](./whoami.md) | `dapi whoami` | Signed-in account |
 | [`logs`](./logs.md) | `dapi logs` | App logs |
 | [`screenshot`](./screenshot.md) | `dapi screenshot` | Window screenshot |
 | [`fonts`](./fonts.md) | `dapi fonts` | Local fonts |
@@ -56,7 +55,7 @@ How the surface is divided:
 - **The project loop.** [`open`](./open.md) a folder, edit its JSX, [`context`](./context.md) for what the source cannot say, [`capture`](./capture.md) and [`check`](./check.md) to verify, [`export`](./export.md) when asked.
 - **Media inspection** (`media_*`): a file by path, without adding it to the project. Absolute paths and URLs work with or without an open project; library paths (`b-roll/clip.mp4`) need one.
 - **What a declaration may name.** [`models`](./models.md), [`voices`](./voices.md), [`fonts`](./fonts.md). Generation itself is declared in the project module (`generate.*`, see [jsx/generate.md](../jsx/generate.md)); no tool generates.
-- **The app and the machine.** [`whoami`](./whoami.md), [`logs`](./logs.md), [`screenshot`](./screenshot.md), [`report`](./report.md).
+- **The app and the machine.** [`logs`](./logs.md), [`screenshot`](./screenshot.md), [`report`](./report.md).
 
 ## Downloading footage
 

@@ -49,7 +49,6 @@ export function EditorApi() {
         navigate(projectRoute(project.id || project.name));
         return { id: project.id, name: project.displayName, dir: project.dir };
       },
-      user: () => auth.user() ?? null,
       requireUser() {
         const user = auth.user();
         if (!user) throw new DapiError("sign-in-required", "Sign in required: AI generation needs a Diffusion Studio account.");
