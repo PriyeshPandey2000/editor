@@ -73,6 +73,7 @@ export function EditorTitleBar(props: EditorTitleBarProps) {
     <WindowsTitleBar
       leftWidth={props.leftWidth}
       controlsWidth={props.controlsWidth}
+      class="bg-background"
       left={
         <>
           <div class="flex shrink-0 items-center" style="-webkit-app-region: no-drag;">

@@ -4,6 +4,7 @@
 
 import { Show, type JSX } from "solid-js";
 
+import { cx } from "@/lib/cva";
 import { isWindowsDesktop } from "@/projects";
 
 type WindowsTitleBarProps = {
@@ -12,6 +13,8 @@ type WindowsTitleBarProps = {
   /** Width of the cell the native window controls sit in. */
   controlsWidth: number;
   left: JSX.Element;
+  /** Classes for the middle cell, which sits over the page's main column. */
+  class?: string;
   children?: JSX.Element;
 };
 
@@ -35,7 +38,7 @@ export function WindowsTitleBar(props: WindowsTitleBarProps) {
           {props.left}
         </div>
         {/* Not positioned on purpose: absolute children center on the whole bar. */}
-        <div class="h-full min-w-0 flex-1">{props.children}</div>
+        <div class={cx("h-full min-w-0 flex-1", props.class)}>{props.children}</div>
         <div
           class="h-full min-w-(--titlebar-controls-width) shrink-0 border-l border-border-strong"
           style={{ width: `${props.controlsWidth}px` }}

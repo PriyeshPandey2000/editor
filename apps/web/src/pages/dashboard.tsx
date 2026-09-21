@@ -134,17 +134,9 @@ export function DashboardPage() {
   };
 
   // The project search lives here rather than in the projects view because
-  // the Windows title bar offers it on every view: typing there lands on the
-  // projects it filters. Leaving the projects view drops the query.
+  // on Windows its field sits in the title bar. Leaving the projects view
+  // drops the query.
   const [projectSearch, setProjectSearch] = createSignal("");
-
-  const searchFromTitleBar = (value: string) => {
-    setProjectSearch(value);
-    if (value && view() !== "projects") {
-      setSettingsNavOpen(false);
-      setView("projects");
-    }
-  };
 
   createEffect(() => {
     if (view() !== "projects") setProjectSearch("");
@@ -163,12 +155,14 @@ export function DashboardPage() {
           </>
         }
       >
-        <DashboardSearchBar
-          class="h-full"
-          value={projectSearch}
-          onChange={searchFromTitleBar}
-          placeholder="Search in projects"
-        />
+        <Show when={view() === "projects"}>
+          <DashboardSearchBar
+            class="h-full"
+            value={projectSearch}
+            onChange={setProjectSearch}
+            placeholder="Search in projects"
+          />
+        </Show>
       </WindowsTitleBar>
       <aside class="relative flex min-h-0 w-69 shrink-0 flex-col">
         <Show when={isDesktop() && !isWindowsDesktop() && !isFullscreen()}>
