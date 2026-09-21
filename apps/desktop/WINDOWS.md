@@ -139,7 +139,7 @@ from an installer. The acceptance list below has not been walked item by item
 (scaling factors in particular). Differences from the tasks as written:
 - The app has a light/dark switch, so the overlay cannot be one fixed colour.
   The renderer reports the color mode over `WINDOW_SET_COLOR_MODE`
-  (`apps/web/src/lib/window-color-mode.ts`) and main calls
+  (`TitleBarColorMode` in `apps/web/src/app.tsx`) and main calls
   `setTitleBarOverlay`. The
   overlay is coloured like the sidebar (`--sidebar`) with symbols in
   `--muted-foreground`, like the other title bar icons; the dark symbol colour
@@ -404,42 +404,22 @@ gets the Windows 11 look.
 
 Status: task 1 runs on Windows: the dev build starts through
 `scripts/dev-desktop.mjs` (2026-09-21). Task 2 (`npm run shim:create` in
-`apps/cli`) is implemented but not yet confirmed on Windows. Task 3 (Mica) is
-implemented on macOS and has not run on Windows yet; see below. Tasks 4 and 5
-are open.
+`apps/cli`) is implemented but not yet confirmed on Windows. Task 3 (Mica) was
+tried and dropped, see below. Tasks 4 and 5 are open.
 
-How Mica is wired, and what to look at on hardware:
-- `main.ts` turns it on from the build number (`WINDOWS_MICA`, 22621 and up):
-  `backgroundMaterial: "mica"`, a transparent `backgroundColor`, and a
-  transparent overlay colour so the controls sit on the material like the
-  rest of the title bar. Older systems keep the solid window.
-- Main tells the page through `additionalArguments`
-  (`BACKDROP_ARGUMENT` in `main-channels.ts`); the preload exposes it as
-  `window.desktop.backdrop` and `index.tsx` sets `<html data-backdrop>`. Under
-  `[data-backdrop="mica"]` the page background and `--sidebar` go transparent,
-  the same two rules macOS has for vibrancy. The main column keeps
-  `--background`, so the material shows in the sidebars and the title bar.
-- Windows tints Mica from the app theme, not from the page, so
-  `WINDOW_SET_COLOR_MODE` now carries the user's preference next to the
-  resolved mode and main sets `nativeTheme.themeSource` to it. The preference
-  and not the mode, because pinning the theme also pins
-  `prefers-color-scheme`, which "System theme" resolves from. The preferences
-  menu reports a change of preference itself, since the resolved mode may not
-  move.
-- To check: the material shows at all with `titleBarStyle: "hidden"` plus the
-  overlay (Electron has had bugs there); the transparent overlay colour is
-  accepted and the controls' hover states still read; light, dark, and system
-  themes each tint correctly, including switching between them; maximize,
-  restore, fullscreen, and snap keep the material, the rounded corners, and
-  the resize border; the unfocused window (Windows swaps Mica for a solid
-  fallback colour by design) still looks right; no white flash on launch.
-- First run on Windows (2026-09-21): the material shows, but dark Mica
-  (around #202020) reads lighter than the macOS backdrop, which is tinted
-  with 7% grey at 0.9. In dark mode `--sidebar` is therefore that grey at 0.6
-  over the material instead of fully transparent; light Mica is within a shade
-  of `--sidebar` and takes no tint. The alpha is the knob. Since `--sidebar`
-  is translucent now, `bg-sidebar` must not stack: `WindowsTitleBar` has no
-  background and lets the editor root's show through.
+Mica, tried on Windows on 2026-09-21 and reverted: the window stays solid.
+The material worked with `titleBarStyle: "hidden"` and a transparent
+`titleBarOverlay` colour, but it does not give the macOS look. Mica is a fixed
+tint of the desktop wallpaper (around #202020 in dark mode), not a blur of
+what is behind the window, so it read lighter than the macOS backdrop; laying
+the app's 7% grey over it to match the depth left too little of the material
+to be worth the moving parts. Those were: feature detection by build number
+(22621), a flag from main to the page to make `--sidebar` transparent,
+`nativeTheme.themeSource` following the app's theme preference (Windows tints
+Mica from the app theme, not the page), and no stacked `bg-sidebar` once the
+colour is translucent. The attempt is in commits 7145e69 and a34c00d if it is
+picked up again; `backgroundMaterial: "acrylic"` is the option that actually
+blurs the content behind the window.
 
 Tasks:
 
@@ -454,7 +434,7 @@ Tasks:
 3. **Mica** (`main.ts`): on Windows 11 22H2+, `backgroundMaterial: "mica"`
    with a transparent `backgroundColor` gives the vibrancy look. Electron has
    had bugs combining this with `titleBarOverlay`; treat as optional and
-   feature-detect by build number.
+   feature-detect by build number. Dropped, see the status above.
 4. **arm64**: add `--arch=arm64` to the Windows CI matrix and a second
    Squirrel output. Test on a Windows-on-ARM VM.
 5. **winget**: a manifest in `microsoft/winget-pkgs`, bumped by a workflow

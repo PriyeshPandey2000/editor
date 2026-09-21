@@ -2,7 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-import { app, BrowserWindow, nativeImage, nativeTheme, session, shell } from "electron";
+import { app, BrowserWindow, nativeImage, session, shell } from "electron";
 import { dirname, join } from "node:path";
 import { existsSync } from "node:fs";
 import { mkdir, open, rename, unlink } from "node:fs/promises";
@@ -19,7 +19,7 @@ import { trackEvent, trackInstall } from "./analytics";
 import { setupAppMenu } from "./menu";
 import { handleSquirrelEvent } from "./squirrel";
 import { mainBridge } from "./main-manager";
-import { BACKDROP_ARGUMENT, MAIN_CHANNELS } from "./main-channels";
+import { MAIN_CHANNELS } from "./main-channels";
 import {
   compileProject,
   createProject,
@@ -64,19 +64,6 @@ const WINDOWS_OVERLAY_COLORS = {
   dark: { color: "#121212", symbolColor: "#a1a1a1" },
   light: { color: "#f7f7f7", symbolColor: "#737373" },
 };
-// Mica, the Windows counterpart of the macOS vibrancy, exists from Windows 11
-// 22H2 (build 22621). Older systems keep the solid window.
-const WINDOWS_MICA_MIN_BUILD = 22621;
-const WINDOWS_MICA =
-  process.platform === "win32" &&
-  Number(process.getSystemVersion().split(".")[2]) >= WINDOWS_MICA_MIN_BUILD;
-
-// With Mica the controls sit on the material like the rest of the title bar,
-// so the overlay paints no colour of its own.
-function overlayColors(mode: "dark" | "light") {
-  const colors = WINDOWS_OVERLAY_COLORS[mode];
-  return WINDOWS_MICA ? { ...colors, color: "#00000000" } : colors;
-}
 
 // A Squirrel.Windows install/update/uninstall launch: housekeeping only, the
 // app quits on its own. Decided first so nothing below starts a service or
@@ -113,14 +100,9 @@ function applyBackdrop() {
   setNativeBackdrop(mainWindow.getNativeWindowHandle(), blur, red, green, blue, alpha);
 }
 
-function setColorMode(mode: "dark" | "light", preference: "dark" | "light" | "system") {
+function setColorMode(mode: "dark" | "light") {
   if (process.platform === "darwin" || !mainWindow || mainWindow.isDestroyed()) return;
-  // Windows tints Mica from the app theme, not from the page, so the theme
-  // follows the app's switch. It takes the preference rather than the resolved
-  // mode: pinning it to "dark" would also pin `prefers-color-scheme`, and
-  // "System theme" could never see the OS change again.
-  if (WINDOWS_MICA) nativeTheme.themeSource = preference;
-  mainWindow.setTitleBarOverlay({ ...overlayColors(mode), height: WINDOWS_OVERLAY_HEIGHT });
+  mainWindow.setTitleBarOverlay({ ...WINDOWS_OVERLAY_COLORS[mode], height: WINDOWS_OVERLAY_HEIGHT });
 }
 
 if (app.isPackaged && !squirrelLaunch && !process.argv.includes("--hidden")) {
@@ -259,15 +241,9 @@ function createWindow(show = true) {
 
   if (process.platform === "win32") {
     options.titleBarStyle = "hidden" as const;
-    options.titleBarOverlay = { ...overlayColors("dark"), height: WINDOWS_OVERLAY_HEIGHT };
+    options.titleBarOverlay = { ...WINDOWS_OVERLAY_COLORS.dark, height: WINDOWS_OVERLAY_HEIGHT };
     options.autoHideMenuBar = true;
     options.backgroundColor = WINDOWS_OVERLAY_COLORS.dark.color;
-
-    if (WINDOWS_MICA) {
-      options.backgroundMaterial = "mica" as const;
-      options.backgroundColor = "#00000000";
-      options.webPreferences!.additionalArguments = [`${BACKDROP_ARGUMENT}mica`];
-    }
 
     if (!app.isPackaged) {
       options.icon = join(app.getAppPath(), "assets", "icon-dev.png");
@@ -355,9 +331,7 @@ if (squirrelLaunch) {
     takePendingDeepLink(MAIN_CHANNELS.CHECKOUT_CALLBACK),
   );
   mainBridge.handle(MAIN_CHANNELS.WINDOW_IS_FULLSCREEN, () => mainWindow?.isFullScreen() ?? false);
-  mainBridge.handle(MAIN_CHANNELS.WINDOW_SET_COLOR_MODE, ({ mode, preference }) =>
-    setColorMode(mode, preference),
-  );
+  mainBridge.handle(MAIN_CHANNELS.WINDOW_SET_COLOR_MODE, ({ mode }) => setColorMode(mode));
   mainBridge.handle(MAIN_CHANNELS.WINDOW_CAPTURE, async () => {
     if (!mainWindow || mainWindow.isDestroyed()) throw new Error("No main window");
     const image = await mainWindow.webContents.capturePage(undefined, { stayHidden: true });

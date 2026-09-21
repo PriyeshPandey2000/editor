@@ -14,7 +14,6 @@ declare global {
     chrome: any;
     desktop?: {
       platform: string;
-      backdrop: string | null;
       send(channel: string, payload: unknown): void;
       on(channel: string, cb: (payload: unknown) => void): (() => void);
       getPathForFile(file: File): string;

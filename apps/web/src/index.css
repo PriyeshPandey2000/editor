@@ -250,26 +250,6 @@
   --sidebar: hsla(0, 0%, 0%, 0);
 }
 
-/* Windows 11 desktop: the same with Mica, which main turns on where the system
-   has it. Mica follows the app theme and stays up in fullscreen, so neither
-   needs an exception here. */
-[data-backdrop="mica"],
-[data-backdrop="mica"] body {
-  background: transparent;
-}
-
-[data-backdrop="mica"] {
-  --sidebar: hsla(0, 0%, 0%, 0);
-}
-
-/* Dark Mica sits around #202020, lighter than the macOS backdrop, which main
-   tints with `MACOS_BACKDROP` (7% grey at 0.9). The sidebars lay the same grey
-   over the material to land at that depth; raise the alpha to go darker. Light
-   Mica is already within a shade of `--sidebar` and takes no tint. */
-[data-backdrop="mica"][data-kb-theme="dark"] {
-  --sidebar: hsla(0, 0%, 7%, 0.6);
-}
-
 @layer base {
   * {
     @apply border-border outline-ring/50 select-none;

@@ -24,9 +24,6 @@ type WindowsTitleBarProps = {
  * interactive inside it has to opt out with `-webkit-app-region: no-drag`.
  * Its bottom border runs the full width, so the first row of the left sidebar
  * drops its own top border on Windows.
- * It has no background of its own: the page root's `bg-sidebar` shows through
- * the padding it sits in, and a second coat would double the tint `--sidebar`
- * carries over Mica.
  * Renders nothing on other platforms; the editor clears it with
  * `--titlebar-height`. The dashboard has no such row: its sidebar header and
  * view headers line up with the controls instead.
@@ -35,7 +32,7 @@ export function WindowsTitleBar(props: WindowsTitleBarProps) {
   return (
     <Show when={isWindowsDesktop()}>
       <div
-        class="fixed inset-x-0 top-0 z-20 flex h-(--titlebar-height) border-b border-border"
+        class="fixed inset-x-0 top-0 z-20 flex h-(--titlebar-height) border-b border-border bg-sidebar"
         style="-webkit-app-region: drag;"
       >
         <div

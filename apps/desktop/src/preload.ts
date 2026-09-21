@@ -3,7 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 import { contextBridge, ipcRenderer, webUtils } from "electron";
-import { BACKDROP_ARGUMENT, MAIN_WIRE } from "./main-channels";
+import { MAIN_WIRE } from "./main-channels";
 import { DAPI_WIRE } from "@diffusionstudio/dapi";
 
 import type { IpcRendererEvent } from "electron";
@@ -17,15 +17,9 @@ const ALLOWED_MAIN_TO_RENDERER: ReadonlySet<string> = new Set([
   DAPI_WIRE.CANCEL,
 ]);
 
-// The material behind the window, when main gave it one: the page is
-// transparent only then. macOS always has vibrancy and is keyed on `platform`.
-const backdrop =
-  process.argv.find((arg) => arg.startsWith(BACKDROP_ARGUMENT))?.slice(BACKDROP_ARGUMENT.length) ?? null;
-
 contextBridge.exposeInMainWorld("desktop", {
   getPathForFile,
   platform: process.platform,
-  backdrop,
   send,
   on,
 });
