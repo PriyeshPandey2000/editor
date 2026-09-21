@@ -56,11 +56,13 @@ const AUTH_PROTOCOL = "diffusion";
 const MACOS_CORNER_RADIUS = 18;
 const MACOS_BACKDROP = { blur: 80, red: 0.07, green: 0.07, blue: 0.07, alpha: 0.9 };
 // Window Controls Overlay on Windows: as tall as the renderer's `h-10` drag
-// strip, coloured like the sidebar it sits on (`--sidebar` / `--foreground`).
+// strip, coloured like the sidebar it sits on (`--sidebar`), with symbols in
+// `--muted-foreground` like the other title bar icons. The dark value is that
+// token flattened onto the sidebar, since the overlay takes opaque colours.
 const WINDOWS_OVERLAY_HEIGHT = 40;
 const WINDOWS_OVERLAY_COLORS = {
-  dark: { color: "#121212", symbolColor: "#f2f2f2" },
-  light: { color: "#f7f7f7", symbolColor: "#161618" },
+  dark: { color: "#121212", symbolColor: "#a1a1a1" },
+  light: { color: "#f7f7f7", symbolColor: "#737373" },
 };
 
 // A Squirrel.Windows install/update/uninstall launch: housekeeping only, the
