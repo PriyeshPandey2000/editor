@@ -433,9 +433,13 @@ How Mica is wired, and what to look at on hardware:
   restore, fullscreen, and snap keep the material, the rounded corners, and
   the resize border; the unfocused window (Windows swaps Mica for a solid
   fallback colour by design) still looks right; no white flash on launch.
-  If the sidebars read too light against the main column, give `--sidebar` a
-  partial tint under `[data-backdrop="mica"]` in `index.css` instead of full
-  transparency.
+- First run on Windows (2026-09-21): the material shows, but dark Mica
+  (around #202020) reads lighter than the macOS backdrop, which is tinted
+  with 7% grey at 0.9. In dark mode `--sidebar` is therefore that grey at 0.6
+  over the material instead of fully transparent; light Mica is within a shade
+  of `--sidebar` and takes no tint. The alpha is the knob. Since `--sidebar`
+  is translucent now, `bg-sidebar` must not stack: `WindowsTitleBar` has no
+  background and lets the editor root's show through.
 
 Tasks:
 
