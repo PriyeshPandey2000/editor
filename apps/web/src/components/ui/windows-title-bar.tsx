@@ -22,13 +22,17 @@ type WindowsTitleBarProps = {
  * The title bar of the Windows desktop build: a fixed row under the native
  * minimize/maximize/close overlay. The whole row drags the window, so anything
  * interactive inside it has to opt out with `-webkit-app-region: no-drag`.
- * Renders nothing on other platforms; pages clear it with `--titlebar-height`.
+ * Its bottom border runs the full width, so the first row of the left sidebar
+ * drops its own top border on Windows.
+ * Renders nothing on other platforms; the editor clears it with
+ * `--titlebar-height`. The dashboard has no such row: its sidebar header and
+ * view headers line up with the controls instead.
  */
 export function WindowsTitleBar(props: WindowsTitleBarProps) {
   return (
     <Show when={isWindowsDesktop()}>
       <div
-        class="fixed inset-x-0 top-0 z-20 flex h-(--titlebar-height) bg-sidebar"
+        class="fixed inset-x-0 top-0 z-20 flex h-(--titlebar-height) border-b border-border bg-sidebar"
         style="-webkit-app-region: drag;"
       >
         <div

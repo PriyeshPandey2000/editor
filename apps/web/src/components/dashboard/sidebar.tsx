@@ -67,6 +67,20 @@ export function DashboardSidebarHeader() {
 }
 
 /**
+ * The header on the Windows desktop build: one row at the height of the native
+ * window controls, which reads as the left end of the title bar.
+ */
+export function DashboardSidebarTitleBar() {
+  return (
+    <div class="flex h-10 shrink-0 items-center gap-2 pl-3 pr-4">
+      <Icon name="diffusion-logo" class="size-6 shrink-0 text-muted-foreground" />
+      <p class="min-w-0 flex-1 truncate text-xs font-450 text-muted-foreground">Diffusion Studio</p>
+      <p class="shrink-0 text-xxs text-muted-foreground">v{APP_VERSION}</p>
+    </div>
+  );
+}
+
+/**
  * Stands in for the header when the sidebar has none. On the macOS desktop
  * build it clears the traffic lights (hiddenInset title bar), except in
  * fullscreen where they are gone.

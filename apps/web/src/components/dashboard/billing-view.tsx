@@ -42,8 +42,9 @@ export function DashboardBillingView() {
   return (
     <div class="min-h-0 flex-1 overflow-y-auto">
       <div class="flex min-h-full flex-col">
-        <div class="sticky top-0 z-10 flex h-12 items-center border-b border-border bg-background px-4">
-          <div class="flex items-center gap-6">
+        {/* Level with the native window controls on Windows, like the search bar. */}
+        <div class="sticky top-0 z-10 flex h-12 items-center border-b border-border bg-background px-4 [[data-platform=win32]_&]:h-10 [[data-platform=win32]_&]:[-webkit-app-region:drag]">
+          <div class="flex items-center gap-6 [-webkit-app-region:no-drag]">
             <DashboardBillingTabButton
               label="Plans"
               active={activeTab() === "plans"}

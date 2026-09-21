@@ -233,9 +233,8 @@
   --titlebar-height: 0px;
 }
 
-/* Windows desktop: the dashboard and the editor draw their own title bar
-   (`WindowsTitleBar`) as a fixed row under the native controls, and pad their
-   root by this height. It matches `WINDOWS_OVERLAY_HEIGHT` in the main process. */
+/* Windows desktop: the editor draws its own title bar (`WindowsTitleBar`) as a
+   fixed row under the native controls, and pads its root by this height. It matches `WINDOWS_OVERLAY_HEIGHT` in the main process. */
 [data-platform="win32"] {
   --titlebar-height: 40px;
 }

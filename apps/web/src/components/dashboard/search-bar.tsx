@@ -2,32 +2,28 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-import { Show, type Accessor, type JSX } from "solid-js";
+import { type Accessor, type JSX } from "solid-js";
 
 import { Icon } from "@/components/ui/icon";
 import { TextField } from "@/components/ui/text-field";
-import { cx } from "@/lib/cva";
 
 type DashboardSearchBarProps = {
   value: Accessor<string>;
   onChange: (value: string) => void;
   placeholder: string;
-  class?: string;
 };
 
 type DashboardSearchPanelProps = {
   value: Accessor<string>;
   onChange: (value: string) => void;
   placeholder: string;
-  /** False where the search field lives elsewhere (the Windows title bar). */
-  showBar?: boolean;
   children: JSX.Element;
 };
 
 export function DashboardSearchBar(props: DashboardSearchBarProps) {
   return (
-    <div class={cx("flex h-12 shrink-0 items-center border-b border-border px-4", props.class)}>
-      <TextField class="relative flex h-7 w-full items-center gap-0" style="-webkit-app-region: no-drag;">
+    <div class="flex h-12 shrink-0 items-center border-b border-border pl-4 pr-[calc(1rem+var(--titlebar-controls-width))] [[data-platform=win32]_&]:h-10 [[data-platform=win32]_&]:[-webkit-app-region:drag]">
+      <TextField class="relative flex h-7 w-full items-center gap-0 [-webkit-app-region:no-drag]">
         <div class="grid size-7 place-items-center overflow-clip text-muted-foreground">
           <Icon name="search" class="size-6" />
         </div>
@@ -53,13 +49,11 @@ export function DashboardSearchBar(props: DashboardSearchBarProps) {
 export function DashboardSearchPanel(props: DashboardSearchPanelProps) {
   return (
     <div class="flex min-h-0 flex-1 flex-col">
-      <Show when={props.showBar ?? true}>
-        <DashboardSearchBar
-          value={props.value}
-          onChange={props.onChange}
-          placeholder={props.placeholder}
-        />
-      </Show>
+      <DashboardSearchBar
+        value={props.value}
+        onChange={props.onChange}
+        placeholder={props.placeholder}
+      />
       {props.children}
     </div>
   );
