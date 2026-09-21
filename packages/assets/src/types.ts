@@ -157,8 +157,9 @@ export const assetName = (asset: Pick<AssetEntry, 'path'>): string => basename(a
 export const assetFolder = (asset: Pick<AssetEntry, 'path'>): string => dirname(asset.path);
 
 export function basename(path: string): string {
-	const at = path.lastIndexOf('/');
-	return at < 0 ? path : path.slice(at + 1);
+	const trimmed = path.replace(/[/\\]+$/, '');
+	const at = Math.max(trimmed.lastIndexOf('/'), trimmed.lastIndexOf('\\'));
+	return at < 0 ? trimmed : trimmed.slice(at + 1);
 }
 
 export function dirname(path: string): string {
