@@ -57,6 +57,8 @@ export function markProjectsChanged(): void {
 }
 
 export const isDesktop = (): boolean => !!window.desktop;
+export const isWindowsDesktop = (): boolean => window.desktop?.platform === "win32";
+export const isMacOSDesktop = (): boolean => window.desktop?.platform === "darwin";
 
 /** Puts `project` on the list (or marks it just opened) and tells the views. */
 async function remember(project: ProjectInfo): Promise<void> {

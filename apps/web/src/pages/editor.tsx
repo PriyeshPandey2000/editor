@@ -7,7 +7,7 @@ import { Canvas } from "@/components/canvas";
 import { leftSidebarWidth } from "@/agent-chat";
 import { Timeline, Layers } from "@/components/timeline";
 import { Soundboard, Inspector } from "@/components/sidebar-right";
-import { FloatingProjectHeader, SidebarLeft } from "@/components/sidebar-left";
+import { EditorTitleBar, FloatingProjectHeader, SidebarLeft } from "@/components/sidebar-left";
 import { useLayout, MIN_TIMELINE_HEIGHT } from "@/context/layout";
 import { useEditorApi } from "@/dapi";
 import { RULER_HEIGHT } from "@/engine/timeline";
@@ -24,7 +24,7 @@ import { attachProjectConfig, isProjectConfigFile } from '@/engine/project-confi
 import { loadProjectBundle, rememberProjectBundle } from '@/lib/db';
 import { isCacheFile } from '@diffusionstudio/assets';
 import { createEditWriter } from '@/projects/edits';
-import { compileProject, refreshProject, watchProject } from '@/projects/host';
+import { compileProject, isWindowsDesktop, refreshProject, watchProject } from '@/projects/host';
 import { captureProjectCover } from '@/projects/cover';
 import { useProject } from "@/context/project";
 import { useEngineContext } from "@/engine";
@@ -33,6 +33,7 @@ import type { Mount } from '@diffusionstudio/reconciler';
 import type { EditWriter } from '@/projects/edits';
 
 const MIN_CANVAS_HEIGHT = 200;
+const INSPECTOR_WIDTH = 264;
 
 export function EditorPage() {
   const { uiVisible, timelineMinimized, timelineHeight, setTimelineHeight } = useLayout();
@@ -203,7 +204,7 @@ export function EditorPage() {
     const height = timelineMinimized() ? RULER_HEIGHT : timelineHeight();
 
     return {
-      'grid-template-columns': `${leftSidebarWidth()}px 1px 1fr 1px 264px`,
+      'grid-template-columns': `${leftSidebarWidth()}px 1px 1fr 1px ${INSPECTOR_WIDTH}px`,
       'grid-template-rows': `1fr 1px ${height}px`,
       ...(animateColumns() ? { transition: 'grid-template-columns 200ms ease-out' } : {}),
     };
@@ -238,14 +239,15 @@ export function EditorPage() {
 
   return (
     <div
-      class="bg-sidebar h-screen w-full overflow-hidden grid"
+      class="bg-sidebar h-screen w-full overflow-hidden grid pt-(--titlebar-height)"
       classList={{
         'grid-cols-[1fr]': !uiVisible(),
         'grid-rows-[1fr]': !uiVisible(),
       }}
       style={timelineStyles()}
     >
-      <Show when={isDesktop && !isFullscreen()}>
+      <EditorTitleBar leftWidth={leftSidebarWidth() + 1} controlsWidth={INSPECTOR_WIDTH + 1} />
+      <Show when={isDesktop && !isWindowsDesktop() && !isFullscreen()}>
         <div class="fixed top-0 left-0 right-0 h-10 z-20" style="-webkit-app-region: drag;" />
       </Show>
       <Show when={uiVisible()}>
@@ -285,7 +287,8 @@ export function EditorPage() {
           <Soundboard />
         </Show>
       </Show>
-      <Show when={!uiVisible()}>
+      {/* The Windows title bar stays up with the UI hidden and offers the same. */}
+      <Show when={!uiVisible() && !isWindowsDesktop()}>
         <FloatingProjectHeader />
       </Show>
     </div>

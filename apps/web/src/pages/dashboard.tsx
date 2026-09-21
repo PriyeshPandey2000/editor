@@ -14,6 +14,7 @@ import { DashboardHelpView } from "@/components/dashboard/help-view";
 import { DashboardHomeView } from "@/components/dashboard/home-view";
 import { DashboardMcpView } from "@/components/dashboard/mcp-view";
 import { DashboardProjectsView } from "@/components/dashboard/projects-view";
+import { DashboardSearchBar } from "@/components/dashboard/search-bar";
 import { DashboardSettingsView } from "@/components/dashboard/settings-view";
 import {
   DashboardSidebarConnectCard,
@@ -24,10 +25,12 @@ import {
   DashboardSidebarTopSpacer,
   DashboardSidebarUser,
 } from "@/components/dashboard/sidebar";
+import { Icon } from "@/components/ui/icon";
 import { Separator } from "@/components/ui/separator";
+import { WindowsTitleBar } from "@/components/ui/windows-title-bar";
 import { useFullscreenState } from "@/hooks/use-fullscreen-state";
 import { connectedAgents, fetchMcpStatus } from "@/lib/mcp";
-import { isDesktop, openProjectFolder, pickProjectFolder } from "@/projects";
+import { isDesktop, isWindowsDesktop, openProjectFolder, pickProjectFolder } from "@/projects";
 import { isInputTarget } from "@/utils";
 
 import type { DashboardView } from "@/components/dashboard/types";
@@ -54,6 +57,11 @@ const SETTINGS_VIEWS: readonly DashboardView[] = [
   "billing",
   "help",
 ];
+
+// The title bar's left cell spans the sidebar (`w-69`) plus its 1px separator,
+// so both borders fall on the same line.
+const TITLE_BAR_SIDEBAR_WIDTH = 277;
+const TITLE_BAR_CONTROLS_WIDTH = 283;
 
 function parseView(value: string | string[] | undefined): DashboardView {
   const raw = Array.isArray(value) ? value[0] : value;
@@ -125,13 +133,49 @@ export function DashboardPage() {
     if (isSettingsView(view())) setView("home");
   };
 
+  // The project search lives here rather than in the projects view because
+  // the Windows title bar offers it on every view: typing there lands on the
+  // projects it filters. Leaving the projects view drops the query.
+  const [projectSearch, setProjectSearch] = createSignal("");
+
+  const searchFromTitleBar = (value: string) => {
+    setProjectSearch(value);
+    if (value && view() !== "projects") {
+      setSettingsNavOpen(false);
+      setView("projects");
+    }
+  };
+
+  createEffect(() => {
+    if (view() !== "projects") setProjectSearch("");
+  });
+
   return (
-    <div class="flex h-screen w-full min-h-0 flex-row overflow-hidden bg-sidebar">
+    <div class="flex h-screen w-full min-h-0 flex-row overflow-hidden bg-sidebar pt-(--titlebar-height)">
+      <WindowsTitleBar
+        leftWidth={TITLE_BAR_SIDEBAR_WIDTH}
+        controlsWidth={TITLE_BAR_CONTROLS_WIDTH}
+        left={
+          <>
+            <Icon name="diffusion-logo" class="size-6 shrink-0 text-muted-foreground" />
+            <p class="min-w-0 flex-1 truncate text-xs font-450 text-muted-foreground">Diffusion Studio</p>
+            <p class="shrink-0 text-xxs text-muted-foreground">v{APP_VERSION}</p>
+          </>
+        }
+      >
+        <DashboardSearchBar
+          class="h-full"
+          value={projectSearch}
+          onChange={searchFromTitleBar}
+          placeholder="Search in projects"
+        />
+      </WindowsTitleBar>
       <aside class="relative flex min-h-0 w-69 shrink-0 flex-col">
-        <Show when={!!window.desktop && !isFullscreen()}>
+        <Show when={isDesktop() && !isWindowsDesktop() && !isFullscreen()}>
           <div class="absolute inset-x-0 top-0 h-10 z-20" style="-webkit-app-region: drag;" />
         </Show>
-        <Show when={!settingsNavOpen()} fallback={<DashboardSidebarTopSpacer />}>
+        {/* The Windows title bar already carries the logo, name and version. */}
+        <Show when={!settingsNavOpen() && !isWindowsDesktop()} fallback={<DashboardSidebarTopSpacer />}>
           <DashboardSidebarHeader />
         </Show>
         <DashboardSidebarNav
@@ -176,7 +220,7 @@ export function DashboardPage() {
             <DashboardHomeView />
           </Match>
           <Match when={view() === "projects"}>
-            <DashboardProjectsView />
+            <DashboardProjectsView search={projectSearch} onSearchChange={setProjectSearch} />
           </Match>
           <Match when={view() === "ai-credits"}>
             <DashboardAiCreditsView />

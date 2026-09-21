@@ -3,7 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 import { toast } from "somoto";
-import { For, createMemo, createResource, createSignal } from "solid-js";
+import { For, createMemo, createResource, createSignal, type Accessor } from "solid-js";
 import { useNavigate } from "@solidjs/router";
 
 import {
@@ -31,6 +31,7 @@ import { projectRoute, useReturnHere } from "@/hooks/use-project-route";
 import { Icon } from "../ui/icon";
 import { track } from "@/lib/analytics";
 import {
+  isWindowsDesktop,
   listProjects,
   projectKey,
   projectsRevision,
@@ -39,10 +40,14 @@ import {
 
 import type { ProjectSortOption } from "./types";
 
-export function DashboardProjectsView() {
+type DashboardProjectsViewProps = {
+  search: Accessor<string>;
+  onSearchChange: (value: string) => void;
+};
+
+export function DashboardProjectsView(props: DashboardProjectsViewProps) {
   const navigate = useNavigate();
   const returnHere = useReturnHere();
-  const [search, setSearch] = createSignal("");
   const [sort, setSort] = createSignal<ProjectSortOption>("last-viewed");
   const [projects, { refetch: refetchProjects }] = createResource(projectsRevision, () => listProjects());
   const [selectedProject, setSelectedProject] = createSignal<string | null>(null);
@@ -52,7 +57,7 @@ export function DashboardProjectsView() {
   const selectedSortOption = () =>
     SORT_OPTIONS.find((option) => option.id === sort()) ?? SORT_OPTIONS[0];
 
-  const normalizedSearch = createMemo(() => search().trim().toLowerCase());
+  const normalizedSearch = createMemo(() => props.search().trim().toLowerCase());
 
   const filteredProjects = createMemo(() => {
     const query = normalizedSearch();
@@ -113,9 +118,10 @@ export function DashboardProjectsView() {
 
   return (
     <DashboardSearchPanel
-      value={search}
-      onChange={setSearch}
+      value={props.search}
+      onChange={props.onSearchChange}
       placeholder="Search in projects"
+      showBar={!isWindowsDesktop()}
     >
       <DashboardViewSection
         class="pb-4"
