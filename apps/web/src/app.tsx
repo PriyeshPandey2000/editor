@@ -10,9 +10,8 @@ import { AppContextMenu } from "@/components/app-context-menu";
 
 import { AuthProvider, useAuth } from '@/context/auth';
 import { PersistRoute } from '@/lib/persist-route';
+import { syncWindowColorMode } from '@/lib/window-color-mode';
 import { useColorMode } from "@kobalte/core";
-import { mainBridge } from "@/lib/ipc";
-import { MAIN_CHANNELS } from "@desktop/main-channels";
 import { EditorApi } from '@/dapi';
 import { UpgradeDialog } from '@/components/upgrade-dialog';
 import { PurchaseSuccess } from '@/components/purchase-success';
@@ -53,11 +52,7 @@ function BootSplash() {
 function TitleBarColorMode() {
   const { colorMode } = useColorMode();
 
-  createEffect(() => {
-    if (window.desktop?.platform === "win32") {
-      mainBridge.call(MAIN_CHANNELS.WINDOW_SET_COLOR_MODE, { mode: colorMode() });
-    };
-  });
+  createEffect(() => syncWindowColorMode(colorMode()));
 
   return null;
 }

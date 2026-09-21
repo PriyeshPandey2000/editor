@@ -23,6 +23,7 @@ document.addEventListener('contextmenu', (e) => e.preventDefault())
 
 if (window.desktop) {
   document.documentElement.dataset.platform = window.desktop.platform;
+  if (window.desktop.backdrop) document.documentElement.dataset.backdrop = window.desktop.backdrop;
 
   const origRequest = FileSystemHandle.prototype.requestPermission;
   FileSystemHandle.prototype.queryPermission = async function (desc) {

@@ -14,24 +14,10 @@ import {
   DropdownMenuSubTrigger,
   DropdownMenuGroup,
 } from "@/components/ui/dropdown-menu";
-import { COLOR_MODE_STORAGE_KEY, useColorMode } from "@kobalte/core";
+import { useColorMode } from "@kobalte/core";
+import { storedThemePreference, syncWindowColorMode } from "@/lib/window-color-mode";
 import { createEffect, createSignal } from "solid-js";
 import type { Theme } from "./types";
-
-const getStoredThemePreference = (): Theme | undefined => {
-  if (typeof window === "undefined") return undefined;
-
-  try {
-    const stored = window.localStorage.getItem(COLOR_MODE_STORAGE_KEY);
-    if (stored === "light" || stored === "dark" || stored === "system") {
-      return stored;
-    }
-  } catch {
-    // ignore storage access errors and fall back to resolved color mode
-  }
-
-  return undefined;
-};
 
 export function PreferencesMenu() {
   const { colorMode, setColorMode } = useColorMode();
@@ -52,12 +38,13 @@ export function PreferencesMenu() {
 
   createEffect(() => {
     const resolvedColorMode = colorMode();
-    setThemePreference(getStoredThemePreference() ?? resolvedColorMode);
+    setThemePreference(storedThemePreference() ?? resolvedColorMode);
   });
 
   const setTheme = (nextTheme: Theme) => {
     setThemePreference(nextTheme);
     setColorMode(nextTheme);
+    syncWindowColorMode(colorMode());
   };
 
   const resetToDefaults = () => {

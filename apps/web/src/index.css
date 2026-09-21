@@ -250,6 +250,18 @@
   --sidebar: hsla(0, 0%, 0%, 0);
 }
 
+/* Windows 11 desktop: the same with Mica, which main turns on where the system
+   has it. Mica follows the app theme and stays up in fullscreen, so neither
+   needs an exception here. */
+[data-backdrop="mica"],
+[data-backdrop="mica"] body {
+  background: transparent;
+}
+
+[data-backdrop="mica"] {
+  --sidebar: hsla(0, 0%, 0%, 0);
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50 select-none;

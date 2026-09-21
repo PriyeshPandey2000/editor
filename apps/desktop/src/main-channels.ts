@@ -21,6 +21,10 @@ export const MAIN_WIRE = {
 
 export type MainWireChannel = (typeof MAIN_WIRE)[keyof typeof MAIN_WIRE];
 
+// How main tells the preload which backdrop the window has (`additionalArguments`),
+// so the page goes transparent only where there is a material behind it.
+export const BACKDROP_ARGUMENT = "--window-backdrop=";
+
 // Logical channels. Two categories:
 //   • Renderer→Main requests (request + response)
 //   • Main→Renderer events   (push, no response)
@@ -190,7 +194,11 @@ export type MainRequestMap = {
     response: string | null;
   };
   [MAIN_CHANNELS.WINDOW_IS_FULLSCREEN]: { request: void; response: boolean };
-  [MAIN_CHANNELS.WINDOW_SET_COLOR_MODE]: { request: { mode: "light" | "dark" }; response: void };
+  [MAIN_CHANNELS.WINDOW_SET_COLOR_MODE]: {
+    // `mode` is what the app shows, `preference` what the user picked.
+    request: { mode: "light" | "dark"; preference: "light" | "dark" | "system" };
+    response: void;
+  };
   [MAIN_CHANNELS.WINDOW_CAPTURE]: { request: void; response: ScreenshotResult };
   [MAIN_CHANNELS.FILE_TRANSFER]: {
     request: { selector: string; absolutePath: string };

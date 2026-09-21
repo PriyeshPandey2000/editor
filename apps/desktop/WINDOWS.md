@@ -72,9 +72,13 @@ Goal: a `Diffusion Studio Setup.exe` built by CI (unsigned) that installs,
 launches, opens a project, and exports a video. Nothing about CLI, MCP, or
 chrome yet.
 
-Status: implemented on macOS, not yet run on Windows. Every task below is
-in place; `.github/workflows/build-windows.yml` (workflow_dispatch) is the
-next step, followed by the acceptance checks on a Windows machine. Squirrel's
+Status: the dev build runs on a Windows machine (2026-09-21), which covers
+`npm install` with the patches and the npm scripts in task 1 that the dev
+path uses. The installer has not been built or run yet: tasks 2 to 5 are in
+place but unexercised, so `.github/workflows/build-windows.yml`
+(workflow_dispatch) is the next step, followed by the acceptance checks.
+One fix came out of the dev run: `basename` in `packages/assets/src/types.ts`
+split on `/` only and now handles backslashes and trailing separators. Squirrel's
 `iconUrl` points at `assets/icon.ico` on `main`, so Add/Remove Programs
 shows the icon only once this lands there.
 
@@ -130,16 +134,38 @@ Acceptance:
 
 Goal: the window looks and behaves like a first-class Windows app.
 
-Status: implemented on macOS, not yet run on Windows. Differences from the
-tasks as written:
+Status: running on Windows in the dev build (2026-09-21), not yet checked
+from an installer. The acceptance list below has not been walked item by item
+(scaling factors in particular). Differences from the tasks as written:
 - The app has a light/dark switch, so the overlay cannot be one fixed colour.
   The renderer reports the color mode over `WINDOW_SET_COLOR_MODE`
-  (`use-title-bar-color-mode.ts`) and main calls `setTitleBarOverlay`.
+  (`apps/web/src/lib/window-color-mode.ts`) and main calls
+  `setTitleBarOverlay`. The
+  overlay is coloured like the sidebar (`--sidebar`) with symbols in
+  `--muted-foreground`, like the other title bar icons; the dark symbol colour
+  is that token flattened onto the sidebar, since the overlay takes opaque
+  colours only (`WINDOWS_OVERLAY_COLORS` in `main.ts`).
+- The editor draws its own title bar on Windows instead of only clearing the
+  controls: `WindowsTitleBar` (`apps/web/src/components/ui/windows-title-bar.tsx`),
+  filled by `EditorTitleBar` in `sidebar-left.tsx`. It is a fixed 40px row
+  under the overlay with three cells: the project menu and layout toggles at
+  the width of the left sidebar, the project name centered over the main
+  column, and an empty cell at the width of the inspector where the native
+  controls sit. The whole row drags the window; interactive children opt out
+  with `-webkit-app-region: no-drag`. The editor root pads by
+  `--titlebar-height`, which is 40px under `[data-platform=win32]` and 0
+  elsewhere, and has to match `WINDOWS_OVERLAY_HEIGHT` in `main.ts`. The row
+  stays up when the UI is hidden, so `FloatingProjectHeader` is not rendered
+  on Windows, and the first row of the left sidebar drops its top border.
+- The dashboard has no such row. Its sidebar header becomes
+  `DashboardSidebarTitleBar`, one 40px row level with the controls, and the
+  search bar and the billing header shrink to 40px and drag the window.
 - The clearance is one CSS variable, `--titlebar-controls-width` in
   `index.css`, built from the `titlebar-area` env variables; it is 0 wherever
-  there is no overlay. Only the inspector header sits under the controls and
-  uses it. The chat header moved into the left sidebar since this plan was
-  written and needs nothing.
+  there is no overlay. The dashboard search bar is the only content under the
+  controls and pads by it; the title bar's controls cell uses it as a minimum
+  width. The inspector header sits below the title bar now and needs nothing,
+  as does the chat header, which moved into the left sidebar.
 
 Tasks:
 
@@ -376,9 +402,40 @@ Acceptance:
 Goal: developing on a Windows machine is as easy as on macOS, and the app
 gets the Windows 11 look.
 
-Status: tasks 1 and 2 implemented on macOS, not yet run on Windows
-(`scripts/dev-desktop.mjs`, `npm run shim:create` in `apps/cli`). Tasks 3 to 5
+Status: task 1 runs on Windows: the dev build starts through
+`scripts/dev-desktop.mjs` (2026-09-21). Task 2 (`npm run shim:create` in
+`apps/cli`) is implemented but not yet confirmed on Windows. Task 3 (Mica) is
+implemented on macOS and has not run on Windows yet; see below. Tasks 4 and 5
 are open.
+
+How Mica is wired, and what to look at on hardware:
+- `main.ts` turns it on from the build number (`WINDOWS_MICA`, 22621 and up):
+  `backgroundMaterial: "mica"`, a transparent `backgroundColor`, and a
+  transparent overlay colour so the controls sit on the material like the
+  rest of the title bar. Older systems keep the solid window.
+- Main tells the page through `additionalArguments`
+  (`BACKDROP_ARGUMENT` in `main-channels.ts`); the preload exposes it as
+  `window.desktop.backdrop` and `index.tsx` sets `<html data-backdrop>`. Under
+  `[data-backdrop="mica"]` the page background and `--sidebar` go transparent,
+  the same two rules macOS has for vibrancy. The main column keeps
+  `--background`, so the material shows in the sidebars and the title bar.
+- Windows tints Mica from the app theme, not from the page, so
+  `WINDOW_SET_COLOR_MODE` now carries the user's preference next to the
+  resolved mode and main sets `nativeTheme.themeSource` to it. The preference
+  and not the mode, because pinning the theme also pins
+  `prefers-color-scheme`, which "System theme" resolves from. The preferences
+  menu reports a change of preference itself, since the resolved mode may not
+  move.
+- To check: the material shows at all with `titleBarStyle: "hidden"` plus the
+  overlay (Electron has had bugs there); the transparent overlay colour is
+  accepted and the controls' hover states still read; light, dark, and system
+  themes each tint correctly, including switching between them; maximize,
+  restore, fullscreen, and snap keep the material, the rounded corners, and
+  the resize border; the unfocused window (Windows swaps Mica for a solid
+  fallback colour by design) still looks right; no white flash on launch.
+  If the sidebars read too light against the main column, give `--sidebar` a
+  partial tint under `[data-backdrop="mica"]` in `index.css` instead of full
+  transparency.
 
 Tasks:
 
