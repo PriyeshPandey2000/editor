@@ -18,7 +18,7 @@
 # an alpha channel; the 256px one is PNG-compressed as Vista+ allows.
 #
 # install-spinner.gif is Squirrel's whole install UI: shown 1:1 in a
-# borderless window until the app launches. Brand surface colour, icon,
+# borderless window until the app launches. White background, icon,
 # one label, one indeterminate bar in the app's primary blue.
 
 import io
@@ -36,9 +36,9 @@ SOURCE = os.path.join(ASSETS, 'icon-win.png')
 RED = (255, 25, 52)
 BLUE = (0, 140, 255)  # --primary in apps/web/src/index.css, hsla(207, 100%, 50%)
 WHITE = (255, 255, 255)
-SURFACE = (22, 22, 22)
-TEXT = (248, 248, 248)
-TRACK = (46, 46, 46)
+BACKGROUND = (255, 255, 255)
+TEXT = (22, 22, 24)
+TRACK = (224, 224, 224)
 
 
 def source():
@@ -137,7 +137,7 @@ def make_spinner():
     tx, ty = (W - track_w) // 2, 214
     frames = []
     for i in range(n):
-        im = Image.new('RGB', (W, H), SURFACE)
+        im = Image.new('RGB', (W, H), BACKGROUND)
         d = ImageDraw.Draw(im)
         im.paste(icon, ((W - 88) // 2, 58), icon)
         tw = d.textlength(LABEL, font=label_font)
@@ -153,6 +153,13 @@ def make_spinner():
     # mid-loop frame where the bar is fully on the track so its colour is kept.
     palette = frames[n // 2].quantize(colors=128, method=Image.Quantize.MEDIANCUT)
     quantized = [f.quantize(palette=palette, dither=Image.Dither.NONE) for f in frames]
+    # Median cut averages the background with the icon's antialiased fringe;
+    # pin the slot every background pixel landed in to the exact colour.
+    for q in quantized:
+        entries = list(q.getpalette())
+        slot = q.getpixel((0, 0))
+        entries[slot * 3:slot * 3 + 3] = BACKGROUND
+        q.putpalette(entries)
     path = os.path.join(ASSETS, 'install-spinner.gif')
     quantized[0].save(
         path,
