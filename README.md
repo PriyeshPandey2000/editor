@@ -249,13 +249,12 @@ To put `dapi` on your PATH, link it once (`unlink` undoes it):
 npm run link --workspace=@diffusionstudio/cli
 ```
 
-The link points at the CLI build, which `npm run dev:desktop` refreshes on every start, so the linked `dapi` always runs the latest code. On macOS it is a symlink in Homebrew's bin; on Windows it is `%LOCALAPPDATA%\DiffusionStudio\bin\dapi.cmd`, and that folder needs to be on your PATH.
-
 Before sending a PR:
 
 ```sh
 npm run check    # typecheck all workspaces
 npm run lint     # lint all workspaces
+npm run test     # ensure tests are green
 ```
 
 ## License

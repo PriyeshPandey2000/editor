@@ -15,12 +15,14 @@
 //   Windows  `%LOCALAPPDATA%\DiffusionStudio\bin\dapi.cmd`, the same file the
 //            packaged app keeps its own shim in (apps/desktop/src/cli-windows.ts).
 //            A packaged app rewrites it on launch, so run this again after
-//            using one. The folder has to be on PATH; the packaged app's
-//            "Install CLI" does that, or add it by hand.
+//            using one. The folder is added to the user PATH the way the
+//            packaged app's "Install CLI" does it; `--remove` leaves that
+//            entry, since a packaged install may still use it.
 //
 //   node scripts/dev-link.mjs            create the link
 //   node scripts/dev-link.mjs --remove   delete it
 
+import { execFileSync } from "node:child_process";
 import { existsSync, mkdirSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join, win32 } from "node:path";
@@ -45,10 +47,9 @@ if (process.platform === "win32") {
   writeFileSync(shim, ["@echo off", "setlocal", `node "${batch(script)}" %*`, ""].join("\r\n"));
   console.log(`dev-link: ${shim} -> ${script}`);
 
-  const onPath = (process.env.PATH ?? "")
-    .split(";")
-    .some((entry) => win32.normalize(entry).replace(/\\+$/, "").toLowerCase() === dir.toLowerCase());
-  if (!onPath) console.log(`dev-link: add ${dir} to your PATH to run \`dapi\` from a terminal.`);
+  if (addToUserPath(dir)) {
+    console.log(`dev-link: added ${dir} to your PATH; open a new terminal to run \`dapi\`.`);
+  }
 } else if (process.platform === "darwin") {
   const dir = "/opt/homebrew/bin";
   const link = join(dir, "dapi");
@@ -71,4 +72,37 @@ if (process.platform === "win32") {
 } else {
   console.error(`dev-link: no link location for ${process.platform}; put ${script} on your PATH yourself.`);
   process.exit(1);
+}
+
+// The user PATH in HKCU\Environment, edited the same way as
+// apps/desktop/src/cli-windows.ts: through the registry, so the %VARIABLE%
+// entries already there stay unexpanded, with a throwaway variable deletion
+// to make .NET broadcast the change to new terminals. Returns whether the
+// entry was added.
+function addToUserPath(dir) {
+  const normalize = (entry) => win32.normalize(entry).replace(/[\\/]+$/, "").toLowerCase();
+  const powershell = (script, env) =>
+    execFileSync(
+      "powershell.exe",
+      ["-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-Command", script],
+      { env: { ...process.env, ...env }, windowsHide: true, encoding: "utf8" },
+    );
+
+  const current = powershell(`
+$key = [Microsoft.Win32.Registry]::CurrentUser.OpenSubKey('Environment')
+[Console]::Out.Write($key.GetValue('Path', '', 'DoNotExpandEnvironmentNames'))
+`);
+  const entries = current.split(";").filter((entry) => entry.trim() !== "");
+  if (entries.some((entry) => normalize(entry) === normalize(dir))) return false;
+
+  powershell(
+    `
+$key = [Microsoft.Win32.Registry]::CurrentUser.OpenSubKey('Environment', $true)
+$kind = if ($key.GetValueNames() -contains 'Path') { $key.GetValueKind('Path') } else { 'ExpandString' }
+$key.SetValue('Path', $env:DAPI_USER_PATH, $kind)
+[Environment]::SetEnvironmentVariable('DAPI_PATH_BROADCAST', $null, 'User')
+`,
+    { DAPI_USER_PATH: [...entries, dir].join(";") },
+  );
+  return true;
 }

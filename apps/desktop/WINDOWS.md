@@ -406,7 +406,9 @@ Status: task 1 runs on Windows: the dev build starts through
 `scripts/dev-desktop.mjs` (2026-09-21). Task 2 is implemented but not yet
 confirmed on Windows; the script is `npm run link` in `apps/cli`
 (`scripts/dev-link.mjs`), one command on both platforms, which writes the
-Homebrew symlink on macOS and the `dapi.cmd` shim on Windows. Task 3 (Mica) was
+Homebrew symlink on macOS and, on Windows, the `dapi.cmd` shim plus the user
+PATH entry, edited through the registry like `cli-windows.ts` does. The shim
+part ran on Windows on 2026-09-22; the PATH part is the next thing to try. Task 3 (Mica) was
 tried and dropped, see below. Tasks 4 and 5 are open.
 
 Mica, tried on Windows on 2026-09-21 and reverted: the window stays solid.
