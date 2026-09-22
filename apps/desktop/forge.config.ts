@@ -6,8 +6,10 @@ import { MakerDMG } from '@electron-forge/maker-dmg';
 import { MakerSquirrel } from '@electron-forge/maker-squirrel';
 import { MakerZIP } from '@electron-forge/maker-zip';
 import { PublisherGithub } from '@electron-forge/publisher-github';
-import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { copyFileSync, existsSync, readFileSync } from 'node:fs';
+import { createRequire } from 'node:module';
+import { arch } from 'node:os';
+import { dirname, join } from 'node:path';
 
 import type { ForgeConfig } from '@electron-forge/shared-types';
 import type { MakerSquirrelConfig } from '@electron-forge/maker-squirrel';
@@ -89,6 +91,9 @@ const config: ForgeConfig = {
       draft: true,
     }),
   ],
+  hooks: {
+    preMake: async () => ensure7zip(),
+  },
 };
 
 
@@ -117,6 +122,19 @@ function windowsSign() {
     timestampServer: 'http://timestamp.acs.microsoft.com',
     hashes: ['sha256'],
   } as unknown as MakerSquirrelConfig;
+}
+
+function ensure7zip() {
+  if (process.platform !== 'win32') return;
+  const require = createRequire(__filename);
+  const winstaller = require.resolve('electron-winstaller/package.json', {
+    paths: [dirname(require.resolve('@electron-forge/maker-squirrel/package.json'))],
+  });
+  const vendor = join(dirname(winstaller), 'vendor');
+  for (const ext of ['exe', 'dll']) {
+    const target = join(vendor, `7z.${ext}`);
+    if (!existsSync(target)) copyFileSync(join(vendor, `7z-${arch()}.${ext}`), target);
+  }
 }
 
 export default config;
