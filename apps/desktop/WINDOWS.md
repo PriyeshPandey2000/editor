@@ -322,17 +322,20 @@ Acceptance:
 
 Goal: no dapi tool answers "macOS only".
 
-Status: `dapi fonts` runs on Windows in the dev build (2026-09-22) with the
-same output shape as macOS (style names mapped to weights, "Arial Black" under
-Arial at 900); whether it also answers from a minimized window is still to be
-confirmed there. `queryLocalFonts` was
+Status: `dapi fonts` and `dapi screenshot` run on Windows in the dev build
+(2026-09-22), also from a minimized window, and an export completes. `fonts`
+has the same output shape as macOS (style names mapped to weights, "Arial
+Black" under Arial at 900). `screenshot` turned up one fix: `%TEMP%` is set
+with 8.3 short names (`KONSTA~1`) and `os.tmpdir()` passes them through, so
+`present.ts` resolves the temp dir with `realpathSync.native` before writing
+anything into it. `queryLocalFonts` was
 probed in Electron on macOS: it needs no user gesture, but Chromium rejects it
 ("Page needs to be visible") once a window has been shown and then hidden or
 minimized. A never-shown window counts as visible, so `--hidden` launches were
 never affected. The main window therefore sets `backgroundThrottling: false`,
-which keeps the page visible in every state. The other tools in the
-acceptance list (`media *`, `screenshot`, `export`, `report`) have not been
-run on Windows. Google Drive's streaming drive is recognised by
+which keeps the page visible in every state; the minimized-window check
+confirms it holds on Windows. `media *` and `report` have not been run
+there. Google Drive's streaming drive is recognised by
 shape (a drive root holding `My Drive` on a machine with DriveFS), because its
 letter is only in the client's database; check that on hardware.
 
