@@ -278,10 +278,16 @@ Acceptance:
 
 Goal: every agent in the settings list connects on Windows.
 
-Status: implemented on macOS (unit-tested), not yet run on Windows. Agent
-paths are `{ root: "home" | "appData", path }`, and `appData` resolves through
-Electron's `app.getPath("appData")`, so the target table has no platform
-branches. The Squirrel uninstall hook removes our entry from every agent.
+Status: running on Windows in the dev build (2026-09-22). Checked: the app
+listens on 127.0.0.1:3274; the stdio proxy answers `initialize` when spawned
+as `cmd /c <shim>\dapi.cmd mcp`, the shape Claude Desktop gets; Connect for
+Codex writes the `[mcp_servers.diffusion]` table and `codex mcp list` shows
+the server enabled. Still to do: a tool call from a live agent session,
+Disconnect leaving the rest of the config untouched, and the other agents
+in the list. Agent paths are `{ root: "home" | "appData", path }`, and
+`appData` resolves through Electron's `app.getPath("appData")`, so the target
+table has no platform branches. The Squirrel uninstall hook removes our entry
+from every agent.
 
 Tasks:
 
@@ -316,14 +322,17 @@ Acceptance:
 
 Goal: no dapi tool answers "macOS only".
 
-Status: implemented on macOS, not yet run on Windows. `queryLocalFonts` was
+Status: `dapi fonts` runs on Windows in the dev build (2026-09-22) with the
+same output shape as macOS (style names mapped to weights, "Arial Black" under
+Arial at 900); whether it also answers from a minimized window is still to be
+confirmed there. `queryLocalFonts` was
 probed in Electron on macOS: it needs no user gesture, but Chromium rejects it
 ("Page needs to be visible") once a window has been shown and then hidden or
 minimized. A never-shown window counts as visible, so `--hidden` launches were
 never affected. The main window therefore sets `backgroundThrottling: false`,
-which keeps the page visible in every state; confirm the same on Windows.
-Still to do on macOS: one `dapi fonts` call against a dev build, since
-the tool changed process. Google Drive's streaming drive is recognised by
+which keeps the page visible in every state. The other tools in the
+acceptance list (`media *`, `screenshot`, `export`, `report`) have not been
+run on Windows. Google Drive's streaming drive is recognised by
 shape (a drive root holding `My Drive` on a machine with DriveFS), because its
 letter is only in the client's database; check that on hardware.
 
@@ -407,8 +416,11 @@ Status: task 1 runs on Windows: the dev build starts through
 confirmed on Windows; the script is `npm run link` in `apps/cli`
 (`scripts/dev-link.mjs`), one command on both platforms, which writes the
 Homebrew symlink on macOS and, on Windows, the `dapi.cmd` shim plus the user
-PATH entry, edited through the registry like `cli-windows.ts` does. The shim
-part ran on Windows on 2026-09-22; the PATH part is the next thing to try. Task 3 (Mica) was
+PATH entry, edited through the registry like `cli-windows.ts` does. Both ran
+on Windows on 2026-09-22. A terminal only sees the new PATH when its parent
+process started after the change: one opened from VS Code inherits VS Code's
+environment until VS Code is restarted, which is why the script says to open
+a new terminal. Task 3 (Mica) was
 tried and dropped, see below. Tasks 4 and 5 are open.
 
 Mica, tried on Windows on 2026-09-21 and reverted: the window stays solid.

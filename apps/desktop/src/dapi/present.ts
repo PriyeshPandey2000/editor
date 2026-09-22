@@ -2,7 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-import { existsSync } from "node:fs";
+import { existsSync, realpathSync } from "node:fs";
 import { mkdir, mkdtemp, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
@@ -21,6 +21,18 @@ const INLINE_MAX_IMAGES = 4;
 const INLINE_MAX_BYTES = 1 << 20;
 
 const APP_SLUG = "diffusion-studio";
+
+/**
+ * The temp dir with its real spelling. On Windows `%TEMP%` is often set with short names
+ */
+function tempDir(): string {
+  const dir = tmpdir();
+  try {
+    return realpathSync.native(dir);
+  } catch {
+    return dir;
+  }
+}
 
 export async function present(name: ToolName, args: unknown, result: unknown): Promise<Presented> {
   switch (name) {
@@ -45,7 +57,7 @@ export async function present(name: ToolName, args: unknown, result: unknown): P
 // with its timecode (`08s10f`, or `0f-08s10f` for a sheet), which is the
 // filename too.
 async function presentImages(images: TimecodedImage[], output: string | undefined, kind: string): Promise<Presented> {
-  const dir = output ?? (await mkdtemp(join(tmpdir(), `dapi-${kind}-`)));
+  const dir = output ?? (await mkdtemp(join(tempDir(), `dapi-${kind}-`)));
   await mkdir(dir, { recursive: true });
   const written: WrittenImage[] = [];
   const refs: ToolOutput<"capture">["images"] = [];
@@ -64,7 +76,7 @@ async function presentImages(images: TimecodedImage[], output: string | undefine
  * the fresh name inside it rather than an EISDIR from writeFile.
  */
 async function singleFilePath(output: string | undefined, name: string): Promise<string> {
-  if (output === undefined) return join(tmpdir(), name);
+  if (output === undefined) return join(tempDir(), name);
   const existing = await stat(output).catch(() => null);
   if (existing?.isDirectory()) return join(output, name);
   await mkdir(dirname(output), { recursive: true });
@@ -83,7 +95,7 @@ async function presentPreview(
 }
 
 async function presentScreenshot(result: ToolResult<"screenshot">, output: string | undefined): Promise<Presented> {
-  const dir = output ?? tmpdir();
+  const dir = output ?? tempDir();
   await mkdir(dir, { recursive: true });
   const taken = new Date();
   let attempt = 1;
