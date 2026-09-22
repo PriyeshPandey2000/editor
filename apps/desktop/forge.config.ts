@@ -2,7 +2,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-import type { ForgeConfig } from '@electron-forge/shared-types';
 import { MakerDMG } from '@electron-forge/maker-dmg';
 import { MakerSquirrel } from '@electron-forge/maker-squirrel';
 import { MakerZIP } from '@electron-forge/maker-zip';
@@ -10,7 +9,13 @@ import { PublisherGithub } from '@electron-forge/publisher-github';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
+import type { ForgeConfig } from '@electron-forge/shared-types';
+import type { MakerSquirrelConfig } from '@electron-forge/maker-squirrel';
+
 const { version } = JSON.parse(readFileSync(join(__dirname, '..', '..', 'package.json'), 'utf8'));
+
+
+const sign = windowsSign();
 
 const config: ForgeConfig = {
   packagerConfig: {
@@ -23,6 +28,7 @@ const config: ForgeConfig = {
       CompanyName: 'Diffusion Studio',
       ProductName: 'Diffusion Studio',
       FileDescription: 'Diffusion Studio',
+      'application-manifest': join(__dirname, 'assets', 'app.manifest'),
     },
     protocols: [{ name: 'Diffusion Studio', schemes: ['diffusion'] }],
     prune: false,
@@ -40,11 +46,12 @@ const config: ForgeConfig = {
     osxNotarize:
       process.env.APPLE_ID && process.env.APPLE_PASSWORD && process.env.APPLE_TEAM_ID
         ? {
-            appleId: process.env.APPLE_ID,
-            appleIdPassword: process.env.APPLE_PASSWORD,
-            teamId: process.env.APPLE_TEAM_ID,
-          }
+          appleId: process.env.APPLE_ID,
+          appleIdPassword: process.env.APPLE_PASSWORD,
+          teamId: process.env.APPLE_TEAM_ID,
+        }
         : undefined,
+    windowsSign: sign,
   },
   makers: [
     new MakerZIP({}, ['darwin']),
@@ -57,6 +64,7 @@ const config: ForgeConfig = {
       // Shown by Add/Remove Programs; Squirrel only takes a URL.
       iconUrl: 'https://raw.githubusercontent.com/diffusionstudio/editor/main/apps/desktop/assets/icon.ico',
       noMsi: true,
+      windowsSign: sign,
     }),
     new MakerDMG({
       name: `Diffusion-Studio-${process.arch}`,
@@ -81,5 +89,33 @@ const config: ForgeConfig = {
     }),
   ],
 };
+
+
+
+function windowsSign() {
+  if (process.platform !== 'win32' || process.env.SKIP_SIGN) {
+    return undefined;
+  }
+
+  const {
+    WINDOWS_SIGNTOOL_PATH: signToolPath,
+    WINDOWS_SIGN_DLIB: dlib,
+    WINDOWS_SIGN_METADATA: metadata
+  } = process.env;
+
+  if (!signToolPath || !dlib || !metadata) {
+    throw new Error(
+      'Windows signing needs WINDOWS_SIGNTOOL_PATH, WINDOWS_SIGN_DLIB and WINDOWS_SIGN_METADATA; set SKIP_SIGN=1 for an unsigned build.',
+    );
+  }
+
+  return {
+    signToolPath,
+    automaticallySelectCertificate: false,
+    signWithParams: ['/dlib', dlib, '/dmdf', metadata],
+    timestampServer: 'http://timestamp.acs.microsoft.com',
+    hashes: ['sha256'],
+  } as unknown as MakerSquirrelConfig;
+}
 
 export default config;

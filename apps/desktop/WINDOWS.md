@@ -77,6 +77,9 @@ Status: the dev build runs on a Windows machine (2026-09-21), which covers
 path uses. The installer has not been built or run yet: tasks 2 to 5 are in
 place but unexercised, so `.github/workflows/build-windows.yml`
 (workflow_dispatch) is the next step, followed by the acceptance checks.
+GitHub only lists a manually triggered workflow once its file is on the
+default branch, so the workflow file has to reach `main` (a merge, or a
+cherry-pick of that one file) before it can be run against this branch.
 One fix came out of the dev run: `basename` in `packages/assets/src/types.ts`
 split on `/` only and now handles backslashes and trailing separators. Squirrel's
 `iconUrl` points at `assets/icon.ico` on `main`, so Add/Remove Programs
@@ -374,36 +377,53 @@ Acceptance:
 Goal: a signed installer that SmartScreen accepts, published by the tag
 workflow next to the DMG, updating itself.
 
+Status: everything but the Azure account is in place (2026-09-22) and none
+of it has run yet, since signing needs the account. The certificate is
+Azure Artifact Signing, the service Microsoft launched as Trusted Signing
+and renamed in 2026; the setup is in the next section. Differences from the
+tasks as written:
+- Signing is `windowsSign` in `forge.config.ts`, on the packager and on the
+  Squirrel maker, so the app's executables, the nupkg contents, and
+  `Setup.exe` are all signed with the same options: the Windows SDK
+  `signtool.exe`, Microsoft's dlib plugin, a metadata file naming the
+  account, Microsoft's timestamp authority, SHA-256 only. The three paths
+  come from `WINDOWS_SIGNTOOL_PATH`, `WINDOWS_SIGN_DLIB`, and
+  `WINDOWS_SIGN_METADATA`; a Windows build without them fails unless
+  `SKIP_SIGN=1`, the same rule as `osxSign`. For the Squirrel side,
+  `electron-winstaller` swaps its bundled `signtool.exe` for a Node
+  single-executable stub that calls `@electron/windows-sign`, which is why
+  the maker takes the options object and not a `signWithParams` string.
+- `release.yml` has the `publish-windows` job. It signs in to Azure with
+  OIDC (`azure/login`, no client secret), installs the dlib from NuGet,
+  picks the newest SDK signtool on the runner, writes the metadata file,
+  and publishes. It runs after the macOS job so the two do not race to
+  create the draft release.
+- The site (`desktop-app.ts`) serves `Diffusion-Studio-x64-Setup.exe` on
+  Windows and the DMG on macOS; the promos' copy names the platform; the
+  README lists both.
+- `assets/app.manifest` is Electron 43's own manifest, read out of
+  `electron.exe`, plus `longPathAware`. The packager replaces the manifest
+  wholesale, so the file has to be refreshed when Electron's changes.
+- Windows on ARM gets the x64 installer under emulation; see stage 6.
+
 Tasks:
 
-1. **Certificate.** Options, in order of preference:
-   - Azure Trusted Signing: cheapest, cloud HSM, no token, works in CI.
-     Needs an Azure tenant and organization validation.
-   - OV or EV Authenticode cert on a cloud HSM (DigiCert KeyLocker, SSL.com
-     eSigner). Also CI-friendly, more expensive.
-   - A cert on a USB token cannot sign in GitHub Actions.
-   Ops task; everything below assumes Trusted Signing.
-2. **Signing hook** (`forge.config.ts` `packagerConfig.windowsSign`):
-   configure `@electron/windows-sign` with a custom `signWithParams` (or
-   the `hookFunction`) that calls the Trusted Signing CLI. Squirrel also
-   signs `Setup.exe` and the nupkg contents through the maker's
-   `signWithParams`, so both places take the same command.
-3. **Release workflow** (`.github/workflows/release.yml`): add a
-   `publish-windows` job on `windows-latest` that runs the same version
-   check, `npm ci`, env copy, and `npm run publish --workspace=@diffusionstudio/desktop`
-   with the signing secrets. Both jobs publish to the same draft release;
-   the GitHub publisher appends assets. Squirrel's `RELEASES` file must land
-   in the release for the updater to work.
+1. **Certificate.** Azure Artifact Signing: cheapest, cloud HSM, no token,
+   works in CI. Ops task; the next section is the runbook. Alternatives
+   would have been an OV or EV cert on a cloud HSM (DigiCert KeyLocker,
+   SSL.com eSigner); a cert on a USB token cannot sign in GitHub Actions.
+2. **Signing hook** (`forge.config.ts` `windowsSign`): done, see status.
+3. **Release workflow** (`.github/workflows/release.yml` `publish-windows`):
+   done, see status. Squirrel's `RELEASES` file and the nupkg land in the
+   release next to the setup exe; the updater needs all three.
 4. **Updater** (`main.ts`): `updateElectronApp({ repo })` already covers
-   Squirrel. Verify it finds `RELEASES` and the nupkg and that the
-   `--squirrel-updated` hook from stage 2 runs.
-5. **Website and README**: `apps/web/src/lib/desktop-app.ts` picks the
-   setup exe on Windows (name it version-independent, like the DMG, so
-   `releases/latest/download/` resolves); the README badge and download
-   copy list Windows. `bump-cask.yml` is macOS-only and stays as is.
-6. **Long paths**: add `longPathAware` to the app manifest via the packager's
-   `win32metadata` options so deep `node_modules` trees in projects do not
-   hit `MAX_PATH`.
+   Squirrel; update.electronjs.org serves `RELEASES` from the release it
+   finds for the `.exe` asset. Verify on hardware that the app finds the
+   nupkg and that the `--squirrel-updated` hook from stage 2 runs.
+5. **Website and README**: done, see status. `bump-cask.yml` is macOS-only
+   and stays as is.
+6. **Long paths**: done, see status. Windows honours the flag only with the
+   `LongPathsEnabled` policy, on by default on Windows 11.
 
 Acceptance:
 - Fresh Windows 11 VM, no dev tools: download from the site, no SmartScreen
@@ -411,6 +431,69 @@ Acceptance:
 - Install version N, publish N+1, relaunch: the app updates in the
   background and the next launch is N+1. `dapi` and the Claude Desktop
   registration still work after the update.
+
+### Signing setup on Azure
+
+One-time ops work; nothing in the repo changes. The result is four GitHub
+secrets and three repository variables that `publish-windows` reads.
+
+1. **Azure.** A Microsoft Entra tenant and a subscription. Register the
+   `Microsoft.CodeSigning` resource provider on the subscription
+   (Subscriptions, Resource providers, Register; or
+   `az provider register --namespace Microsoft.CodeSigning`).
+2. **Account.** Create an *Artifact Signing account* (portal search, or
+   `az extension add --name artifact-signing` then
+   `az artifact-signing create -n <account> -g <group> -l <region> --sku Basic`).
+   Basic is enough: 5,000 signatures a month, and a release signs a few
+   dozen files. The region fixes the endpoint, one of
+   `https://<code>.codesigning.azure.net` (`weu` for West Europe, `neu` for
+   North Europe, `eus` for East US, ...); pick one and keep account and
+   profile in it, a mismatch is a 403 at signing time.
+3. **Roles.** On the account, assign yourself *Artifact Signing Identity
+   Verifier* (needed to create the validation below). Assign the CI
+   identity from step 5 *Artifact Signing Certificate Profile Signer*.
+4. **Identity validation.** Account, Identity validations, New identity,
+   Organization, Public. Legal entity name, website, a monitored mailbox on
+   the company domain (a verification link arrives there and expires in
+   seven days), business identifier (the register number), address, and the
+   name of the person who completes the individual check. Microsoft
+   validates against public records; one to twenty business days, with
+   document requests by email. This is the step to start first; everything
+   else can be done while it is pending, and the Public Trust profile below
+   cannot be created until it is Completed.
+5. **CI identity.** An Entra app registration (Microsoft Entra ID, App
+   registrations, New registration, no redirect URI) with a federated
+   credential for GitHub Actions: Certificates & secrets, Federated
+   credentials, Add credential, scenario "GitHub Actions deploying Azure
+   resources", organization `diffusionstudio`, repository `editor`, entity
+   type Environment, environment name `release`. The job declares
+   `environment: release`, which is what puts that subject in its OIDC
+   token; a tag name would change with every release, an environment does
+   not. Create the `release` environment under the repository's Settings,
+   Environments (no protection rules needed). No client secret is created;
+   the workflow's `id-token: write` permission is the credential.
+6. **Certificate profile.** Account, Certificate profiles, Create, Public
+   Trust, pick the validated identity. The profile name is the value
+   `CertificateProfileName` in the metadata. Certificates are issued per
+   signature and live three days, which is why every signature is
+   timestamped.
+7. **GitHub.** Secrets: `AZURE_TENANT_ID`, `AZURE_CLIENT_ID` (the app
+   registration's application ID), `AZURE_SUBSCRIPTION_ID`. Variables:
+   `ARTIFACT_SIGNING_ENDPOINT` (the regional URL), `ARTIFACT_SIGNING_ACCOUNT`,
+   `ARTIFACT_SIGNING_PROFILE`. `GITHUB_TOKEN` is the fourth secret and is
+   automatic.
+8. **Check before the first tag.** Run the workflow's signing steps by
+   hand on any Windows machine with the Azure CLI signed in as a user who
+   has the Signer role: `nuget install Microsoft.ArtifactSigning.Client -x`,
+   write the metadata file, then
+   `signtool sign /fd SHA256 /tr http://timestamp.acs.microsoft.com /td SHA256 /dlib <dlib> /dmdf <metadata> <any exe>`
+   and `signtool verify /pa /v <exe>`. The subject should read the legal
+   entity from step 4.
+
+SmartScreen reputation is separate from the signature. Public Trust
+certificates from Artifact Signing start with reputation carried over from
+Microsoft's validation, so the warning normally does not appear, but a brand
+new publisher can still see it for the first downloads.
 
 ## Stage 6: dev workflow and polish
 
@@ -427,7 +510,13 @@ on Windows on 2026-09-22. A terminal only sees the new PATH when its parent
 process started after the change: one opened from VS Code inherits VS Code's
 environment until VS Code is restarted, which is why the script says to open
 a new terminal. Task 3 (Mica) was
-tried and dropped, see below. Tasks 4 and 5 are open.
+tried and dropped, see below. Tasks 4 and 5 are open. arm64 has one
+constraint beyond a matrix entry: update.electronjs.org reads a single
+`RELEASES` file from each release for every Windows architecture, so a
+second Squirrel output needs either its own release tag or a different
+update feed; the x64 installer runs under emulation on Windows on ARM in
+the meantime. winget waits for the first signed release, since the manifest
+carries the installer's hash.
 
 Mica, tried on Windows on 2026-09-21 and reverted: the window stays solid.
 The material worked with `titleBarStyle: "hidden"` and a transparent

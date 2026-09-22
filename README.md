@@ -7,7 +7,7 @@
 <p align="center">The professional video editor built for agents</p>
 
 <p align="center">
-  <a href="https://www.diffusion.studio/download"><img src="https://img.shields.io/badge/Download-macOS%20Apple%20Silicon-161616?style=flat&logo=apple&logoColor=F8F8F8&labelColor=000000" alt="Download for macOS (Apple Silicon)" /></a>
+  <a href="https://www.diffusion.studio/download"><img src="https://img.shields.io/badge/Download-macOS%20%7C%20Windows-161616?style=flat&labelColor=000000" alt="Download for macOS or Windows" /></a>
   <a href="https://discord.com/invite/zPQJrNGuFB"><img src="https://img.shields.io/discord/1115673443141156924?style=flat&logo=discord&logoColor=F8F8F8&label=Discord&labelColor=000000&color=161616" alt="Discord" /></a>
   <a href="https://x.com/diffusionhq"><img src="https://img.shields.io/badge/Follow%20for-Updates-161616?style=flat&logo=x&logoColor=F8F8F8&labelColor=000000" alt="Follow on X" /></a>
   <a href="https://www.ycombinator.com/companies/diffusion-studio"><img src="https://img.shields.io/badge/Combinator-F24-161616?style=flat&logo=ycombinator&logoColor=F8F8F8&labelColor=000000" alt="Y Combinator F24" /></a>
@@ -63,9 +63,9 @@ The desktop app includes command-line tools that let agents watch and listen to 
 
 ## Getting started
 
-Download the desktop app, it walks you through setting everything up:
+Download the desktop app for macOS (Apple Silicon) or Windows (x64), it walks you through setting everything up:
 
-<a href="https://www.diffusion.studio/download"><img src="https://img.shields.io/badge/Download-Diffusion%20Studio-161616?style=for-the-badge&logo=apple&logoColor=F8F8F8&labelColor=000000" alt="Download Diffusion Studio" /></a>
+<a href="https://www.diffusion.studio/download"><img src="https://img.shields.io/badge/Download-Diffusion%20Studio-161616?style=for-the-badge&labelColor=000000" alt="Download Diffusion Studio" /></a>
 
 Use with Claude Code, Codex, Cursor, Copilot, or Gemini CLI. The app registers its MCP server with your agent, so just ask for what you want in plain language. Every session's instructions carry the editing and watching skills, so the agent reads the guidance it needs up front. `dapi` is the same set of tools as a CLI.
 
