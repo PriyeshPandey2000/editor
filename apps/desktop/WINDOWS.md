@@ -134,9 +134,10 @@ Acceptance:
 
 Goal: the window looks and behaves like a first-class Windows app.
 
-Status: running on Windows in the dev build (2026-09-21), not yet checked
-from an installer. The acceptance list below has not been walked item by item
-(scaling factors in particular). Differences from the tasks as written:
+Status: running on Windows in the dev build; the acceptance list below was
+walked on 2026-09-22 (drag, double-click, scaling, theme switch, fullscreen,
+accelerators). Not yet checked from an installer. Differences from the tasks
+as written:
 - The app has a light/dark switch, so the overlay cannot be one fixed colour.
   The renderer reports the color mode over `WINDOW_SET_COLOR_MODE`
   (`TitleBarColorMode` in `apps/web/src/app.tsx`) and main calls
@@ -205,8 +206,10 @@ Acceptance:
 Goal: after clicking "Install CLI" in settings, `dapi` works in a fresh
 terminal and keeps working after the app updates.
 
-Status: implemented on macOS (`cli-windows.ts`, unit-tested), not yet run on
-Windows. Differences from the tasks as written:
+Status: the dev path runs on Windows (2026-09-22): the link script's shim
+and PATH entry, `dapi --version` and `dapi open` from a fresh terminal. The
+packaged path (Install CLI, the staged wrapper, the Squirrel hooks) waits
+for the installer. Differences from the tasks as written:
 - The shim holds the absolute path of the current executable, rewritten on
   every packaged launch and from the install/update hooks. Whether Squirrel's
   stub exe forwards stdio is still to be checked on hardware; if it does, the
@@ -282,9 +285,9 @@ Status: running on Windows in the dev build (2026-09-22). Checked: the app
 listens on 127.0.0.1:3274; the stdio proxy answers `initialize` when spawned
 as `cmd /c <shim>\dapi.cmd mcp`, the shape Claude Desktop gets; Connect for
 Codex writes the `[mcp_servers.diffusion]` table and `codex mcp list` shows
-the server enabled. Still to do: a tool call from a live agent session,
-Disconnect leaving the rest of the config untouched, and the other agents
-in the list. Agent paths are `{ root: "home" | "appData", path }`, and
+the server enabled; a live session calls `context`, and Disconnect removes
+the entry (2026-09-22). Not every agent in the list has been connected from
+Windows. Agent paths are `{ root: "home" | "appData", path }`, and
 `appData` resolves through Electron's `app.getPath("appData")`, so the target
 table has no platform branches. The Squirrel uninstall hook removes our entry
 from every agent.
@@ -471,8 +474,12 @@ at the end of stage 0 and again at stage 5:
 - **WebGPU.** D3D12 instead of Metal. Run the compositor and an export on
   NVIDIA, AMD, and Intel integrated GPUs.
 - **Claude Code and Codex.** Both have native Windows builds now; Claude
-  Code still wants Git for Windows for its shell tool. Test the chat host's
-  probe, login status, and a full session with each.
+  Code still wants Git for Windows for its shell tool. Probe, login status,
+  and a session ran on 2026-09-22 in the dev build. The native Codex
+  installer's folder (`%LOCALAPPDATA%\Programs\OpenAI\Codex\bin`) was
+  missing from the chat host's fallback dirs and is there now; an app whose
+  launching process predates an install still needs a restart from a fresh
+  terminal, since it only sees that process's PATH.
 - **DPI scaling.** 125 % and 150 % are the common Windows defaults; check
   the overlay clearance, the timeline hit targets, and screenshots from the
   `screenshot` tool.
