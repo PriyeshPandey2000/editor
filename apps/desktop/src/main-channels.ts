@@ -140,7 +140,7 @@ export type McpApplyResult = {
 // Where the `dapi` command stands. `managed` means what is there is a
 // symlink (the app's own, or the dev workflow's Homebrew link), which
 // "Uninstall" can remove; `available` that this build can create the app's
-// link (a dev build cannot: that is `npm run symlink:create`).
+// link (a dev build cannot: that is `npm run link` in apps/cli).
 export type CliStatus = {
   installed: boolean;
   path: string | null;

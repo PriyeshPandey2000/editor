@@ -14,7 +14,7 @@ import type { CliInstallResult, CliStatus, CliUninstallResult } from "./main-cha
 export const CLI_LINK_PATH = "/usr/local/bin/dapi";
 
 // The dev workflow links the workspace build into Homebrew's bin instead
-// (`symlink:create` in apps/cli), so that location counts as installed too.
+// (`npm run link` in apps/cli), so that location counts as installed too.
 const DEV_LINK_PATH = "/opt/homebrew/bin/dapi";
 
 /**
@@ -103,7 +103,7 @@ export async function installCli(): Promise<CliInstallResult> {
   if (!app.isPackaged) {
     return {
       status: "error",
-      error: `Installing the CLI is only available in the packaged app. Use \`npm run ${process.platform === "win32" ? "shim:create" : "symlink:create"}\` in development.`,
+      error: `Installing the CLI is only available in the packaged app. Use \`npm run link\` in apps/cli in development.`,
     };
   }
   if (process.platform === "win32") return installCliWin32();

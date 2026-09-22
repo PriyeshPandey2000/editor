@@ -403,8 +403,10 @@ Goal: developing on a Windows machine is as easy as on macOS, and the app
 gets the Windows 11 look.
 
 Status: task 1 runs on Windows: the dev build starts through
-`scripts/dev-desktop.mjs` (2026-09-21). Task 2 (`npm run shim:create` in
-`apps/cli`) is implemented but not yet confirmed on Windows. Task 3 (Mica) was
+`scripts/dev-desktop.mjs` (2026-09-21). Task 2 is implemented but not yet
+confirmed on Windows; the script is `npm run link` in `apps/cli`
+(`scripts/dev-link.mjs`), one command on both platforms, which writes the
+Homebrew symlink on macOS and the `dapi.cmd` shim on Windows. Task 3 (Mica) was
 tried and dropped, see below. Tasks 4 and 5 are open.
 
 Mica, tried on Windows on 2026-09-21 and reverted: the window stays solid.
@@ -428,9 +430,9 @@ Tasks:
    -ano` for the port, `wmic`/`Get-Process` for the command line, and
    `taskkill /T /F` for teardown. Spawn `.cmd` tool shims with `shell: true`.
 2. **Dev shim**: `apps/cli/package.json` `symlink:create` links into
-   Homebrew. Add a `shim:create` script that writes a `dapi.cmd` into the
-   stable shim folder pointing at the workspace build, and teach
-   `mcp-install.ts`'s dev binary to use it.
+   Homebrew. Add a script that writes a `dapi.cmd` into the stable shim
+   folder pointing at the workspace build, and teach `mcp-install.ts`'s dev
+   binary to use it.
 3. **Mica** (`main.ts`): on Windows 11 22H2+, `backgroundMaterial: "mica"`
    with a transparent `backgroundColor` gives the vibrancy look. Electron has
    had bugs combining this with `titleBarOverlay`; treat as optional and

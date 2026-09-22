@@ -29,7 +29,7 @@ import type { AgentPath, AgentTarget, McpServerSpec } from "./mcp-config";
 import type { McpAgentStatus, McpApplyRequest, McpApplyResult, McpStatus } from "./main-channels";
 
 // The dev workflow links the workspace build into Homebrew's bin
-// (`symlink:create` in apps/cli); that is the binary a dev build registers.
+// (`npm run link` in apps/cli); that is the binary a dev build registers.
 const DEV_BINARY = "/opt/homebrew/bin/dapi";
 
 /**

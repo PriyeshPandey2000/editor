@@ -3,7 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 // One command to develop the desktop app from source. It:
-//   1. builds the CLI, so a linked `dapi` (see symlink:create) runs the
+//   1. builds the CLI, so a linked `dapi` (see `npm run link` in apps/cli) runs the
 //      latest code and the app's headless server matches it;
 //   2. starts the web dev server (Vite on :5173), first reclaiming the port
 //      from a Vite left behind by an earlier run that did not come down;
