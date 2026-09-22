@@ -64,6 +64,7 @@ const config: ForgeConfig = {
       exe: 'Diffusion Studio.exe',
       setupExe: `Diffusion-Studio-${process.arch}-Setup.exe`,
       setupIcon: './assets/icon.ico',
+      loadingGif: './assets/install-spinner.gif',
       // Shown by Add/Remove Programs; Squirrel only takes a URL.
       iconUrl: 'https://raw.githubusercontent.com/diffusionstudio/editor/main/apps/desktop/assets/icon.ico',
       noMsi: true,

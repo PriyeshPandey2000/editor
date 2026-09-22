@@ -85,6 +85,15 @@ split on `/` only and now handles backslashes and trailing separators. Squirrel'
 `iconUrl` points at `assets/icon.ico` on `main`, so Add/Remove Programs
 shows the icon only once this lands there.
 
+Windows gets its own icon source, `assets/icon-win.png`: full-bleed, no
+margin, no drop shadow, unlike the macOS `icon.png`. `scripts/win-assets.py`
+builds `icon.ico` from it with every size Windows requests at 100-200%
+scaling (16, 20, 24, 32, 40, 48, 64, 96, 128, 256), drawing the 32px-and-under
+frames from scratch so the taskbar icon stays crisp. The same script renders
+`assets/install-spinner.gif`, which Squirrel shows as its entire install UI
+(`loadingGif` in the maker config); without it the stock green spinner from
+electron-winstaller appears.
+
 Tasks:
 
 1. **npm scripts that survive `cmd.exe`.**
