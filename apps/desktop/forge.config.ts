@@ -58,6 +58,7 @@ const config: ForgeConfig = {
     new MakerSquirrel({
       name: 'DiffusionStudio',
       authors: 'Diffusion Studio',
+      description: 'The professional video editor built for agents',
       exe: 'Diffusion Studio.exe',
       setupExe: `Diffusion-Studio-${process.arch}-Setup.exe`,
       setupIcon: './assets/icon.ico',
