@@ -5,7 +5,7 @@ Open a folder as a project in the running app, creating the project files if the
 | | |
 | --- | --- |
 | MCP tool | `open` |
-| CLI | `dapi open [path] [options]` |
+| CLI | `diffusion open [path] [options]` |
 
 ## Input
 
@@ -28,7 +28,7 @@ The app remembers the folder, so the project reopens across app relaunches and s
 
 ## From a shell
 
-`dapi open` is also how the app starts: it launches Diffusion Studio (macOS and Windows) or surfaces the running instance, then, given a path, calls the tool. With no path it only makes sure the app is up, printing nothing and exiting `0` once the app answers. Relative paths resolve against the shell's working directory. `--background` launches or keeps the app without raising a window — the way to drive the editor headless.
+`diffusion open` is also how the app starts: it launches Diffusion Studio (macOS and Windows) or surfaces the running instance, then, given a path, calls the tool. With no path it only makes sure the app is up, printing nothing and exiting `0` once the app answers. Relative paths resolve against the shell's working directory. `--background` launches or keeps the app without raising a window — the way to drive the editor headless.
 
 Over MCP the app is already running, since that is what the connection is to; the tool only opens the folder, and `dir` must be absolute.
 
@@ -48,4 +48,4 @@ The opened project:
 
 - The path is not absolute (`The project folder must be an absolute path`).
 - The path exists but is not a folder.
-- From a shell on Linux, or from a `dapi` that is not the one the app ships (a workspace build on Windows), the app cannot be launched; the command then requires it to already be running.
+- From a shell on Linux, or from a `diffusion` that is not the one the app ships (a workspace build on Windows), the app cannot be launched; the command then requires it to already be running.

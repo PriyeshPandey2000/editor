@@ -18,8 +18,8 @@ export type McpServerSpec = { url: string; command: string; args: string[] };
 /**
  * The key our entry lives under in every agent's server map, and so the
  * namespace an agent shows us under: `mcp__diffusion__<tool>` and
- * `/diffusion:<prompt>`. The same word as our URL scheme, and not `dapi`,
- * which is the CLI.
+ * `/diffusion:<prompt>`. The same word as our URL scheme and the CLI's
+ * primary name (`dapi` still works there too, as an alias).
  */
 export const SERVER_NAME = "diffusion";
 

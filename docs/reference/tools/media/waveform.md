@@ -5,8 +5,8 @@ Render the audio track of a video or audio file as a waveform PNG (local render,
 | | |
 | --- | --- |
 | MCP tool | `media_waveform` |
-| CLI | `dapi media waveform <path> [options]` |
-| CLI aliases | `dapi media wave` |
+| CLI | `diffusion media waveform <path> [options]` |
+| CLI aliases | `diffusion media wave` |
 
 ## Input
 

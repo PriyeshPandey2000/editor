@@ -5,7 +5,7 @@ Encode a scene to a video file — the same render the app's export runs, coveri
 | | |
 | --- | --- |
 | MCP tool | `export` |
-| CLI | `dapi export <id> [output]` |
+| CLI | `diffusion export <id> [output]` |
 
 ## Input
 

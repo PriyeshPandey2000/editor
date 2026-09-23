@@ -21,7 +21,7 @@
  *   npm i ./vendors/redraw-1.3.0.tgz typegpu@0.11.3
  *   npm i -D unplugin-typegpu@0.11.3
  *   echo '{ "plugins": ["unplugin-typegpu/babel"] }' > babel.config.json
- *   dapi open ~/Projects/hello-redraw
+ *   diffusion open ~/Projects/hello-redraw
  *
  * Redraw's pipeline renders into a storage texture, so the surface's
  * swapchain is configured rgba8unorm + STORAGE_BINDING (always

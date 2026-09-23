@@ -5,7 +5,7 @@ Check a node's subtree for obvious structural mistakes, without rendering (local
 | | |
 | --- | --- |
 | MCP tool | `check` |
-| CLI | `dapi check <id>` |
+| CLI | `diffusion check <id>` |
 
 ## Input
 
@@ -56,7 +56,7 @@ One JSON object:
 
 ## Severity and the shell
 
-Finding issues is not a failure: the result is the same object either way, and the caller reads `issues`. From a shell, `dapi check` additionally exits `1` when an error-severity issue is found (warnings alone stay `0`), so it can gate a script.
+Finding issues is not a failure: the result is the same object either way, and the caller reads `issues`. From a shell, `diffusion check` additionally exits `1` when an error-severity issue is found (warnings alone stay `0`), so it can gate a script.
 
 ## Errors
 

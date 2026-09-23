@@ -59,7 +59,7 @@ export async function ping(): Promise<void> {
 // Connecting is where "the app is not running" shows up: the `initialize`
 // request's fetch is refused, see `isAppDown`.
 async function connect(): Promise<Client> {
-  const client = new Client({ name: "dapi", version });
+  const client = new Client({ name: "diffusion", version });
   await client.connect(new StreamableHTTPClientTransport(new URL(MCP_URL)));
   return client;
 }

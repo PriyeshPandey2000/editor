@@ -2,7 +2,7 @@
  * a text-to-speech voiceover, generated ambience, and captions on top.
  *
  *   cp examples/02-genai.tsx ~/Projects/genai/index.tsx
- *   dapi open ~/Projects/genai
+ *   diffusion open ~/Projects/genai
  *
  * `generate.*` declarations are pure values; nothing generates until commit.
  * Refs form a dependency graph (keyframe -> matching second keyframe -> two
@@ -11,7 +11,7 @@
  * generation, so caption timing matches the voiceover. Consumes credits;
  * results are cached in the project's library, so re-mounting unchanged
  * specs is free.
- * Discover models and voices with `dapi models <type>` and `dapi voices`;
+ * Discover models and voices with `diffusion models <type>` and `diffusion voices`;
  * omitted here, so each stage uses the default model.
  */
 

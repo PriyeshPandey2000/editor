@@ -1,12 +1,12 @@
 # report
 
-Report a bug in dapi or the app itself. Files a GitHub issue on diffusionstudio/editor with diagnostics attached (dapi version, platform, recent app logs) and returns its URL. Submits immediately and publicly through the gh CLI, which must be installed and authenticated; there is no review step, so only report real defects and check the attached logs for anything private.
+Report a bug in diffusion or the app itself. Files a GitHub issue on diffusionstudio/editor with diagnostics attached (diffusion version, platform, recent app logs) and returns its URL. Submits immediately and publicly through the gh CLI, which must be installed and authenticated; there is no review step, so only report real defects and check the attached logs for anything private.
 
 | | |
 | --- | --- |
 | MCP tool | `report` |
-| CLI | `dapi report <title> [options]` |
-| CLI aliases | `dapi issue` |
+| CLI | `diffusion report <title> [options]` |
+| CLI aliases | `diffusion issue` |
 
 ## Input
 
@@ -14,7 +14,7 @@ Report a bug in dapi or the app itself. Files a GitHub issue on diffusionstudio/
 | --- | --- | --- | --- |
 | `title` | `string`, required | `<title>` | one-line summary of the problem |
 | `body` | `string` | `-b, --body <text>` | what happened, in markdown: expected vs actual, and anything the diagnostics won't show |
-| `commands` | `string[]` | `-c, --commands <cmd...>` | the dapi commands or tool calls that reproduce it, in order |
+| `commands` | `string[]` | `-c, --commands <cmd...>` | the diffusion commands or tool calls that reproduce it, in order |
 | `logs` | `integer` | `--logs <n>` | trailing app log entries to attach (0 to omit; default: 50) |
 
 For a tool that errors, contradicts this reference, or returns something it shouldn't. The description is bundled with diagnostics (app version, platform, Electron version, the app's recent console output) and filed as a GitHub issue on [diffusionstudio/editor](https://github.com/diffusionstudio/editor/issues).
@@ -43,7 +43,7 @@ The title is the issue title; the body is assembled from the fields and the diag
 ## Repro
 
 ```sh
-dapi capture intro
+diffusion capture intro
 ```
 
 ## Environment
@@ -61,7 +61,7 @@ dapi capture intro
 ```
 ````
 
-`commands` are rendered as a shell block under `## Repro`, in the order given; from a shell, `-c` is repeatable (`-c "dapi context" -c "dapi capture intro"`). `logs: 0` omits the log section.
+`commands` are rendered as a shell block under `## Repro`, in the order given; from a shell, `-c` is repeatable (`-c "diffusion context" -c "diffusion capture intro"`). `logs: 0` omits the log section.
 
 ## Notes
 

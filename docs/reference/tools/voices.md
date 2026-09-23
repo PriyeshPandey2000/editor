@@ -5,7 +5,7 @@ List the speech voices available for `generate.voice` declarations in a project 
 | | |
 | --- | --- |
 | MCP tool | `voices` |
-| CLI | `dapi voices` |
+| CLI | `diffusion voices` |
 
 ## Input
 

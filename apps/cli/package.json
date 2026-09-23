@@ -4,6 +4,7 @@
   "version": "0.206.0",
   "license": "MPL-2.0",
   "bin": {
+    "diffusion": "./dist/index.js",
     "dapi": "./dist/index.js"
   },
   "scripts": {

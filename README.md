@@ -67,7 +67,7 @@ Download the desktop app for macOS (Apple Silicon) or Windows (x64), it walks yo
 
 <a href="https://www.diffusion.studio/download"><img src="https://img.shields.io/badge/Download-Diffusion%20Studio-161616?style=for-the-badge&labelColor=000000" alt="Download Diffusion Studio" /></a>
 
-Use with Claude Code, Codex, Cursor, Copilot, or Gemini CLI. The app registers its MCP server with your agent, so just ask for what you want in plain language. Every session's instructions carry the editing and watching skills, so the agent reads the guidance it needs up front. `dapi` is the same set of tools as a CLI.
+Use with Claude Code, Codex, Cursor, Copilot, or Gemini CLI. The app registers its MCP server with your agent, so just ask for what you want in plain language.
 
 ## Prompt examples
 
@@ -133,7 +133,7 @@ Both were created by prompting. The compositions are published in [diffusionstud
 
 ## Compositions as code
 
-A project is a folder of that JSX: `open` a folder once (`dapi open <dir>` from a shell), then edit the files. Saving recompiles the entry file and mounts it directly into the editor's ECS.
+A project is a folder of that JSX: `open` a folder once (`diffusion open <dir>` from a shell), then edit the files. Saving recompiles the entry file and mounts it directly into the editor's ECS.
 
 Every element carries an `id`, which is how the write-back finds its target: a rect dragged on the canvas, a clip trimmed on the timeline, or a retyped line lands as a prop on the element that authored it.
 
@@ -185,27 +185,27 @@ Everything a mount produces stays a first-class editor node, so a person can pic
 Cutting footage requires understanding it. The app exposes the inspection tools an agent needs to work with media it cannot watch — as MCP tools, and as the same commands in a shell:
 
 ```sh
-dapi media probe clip.mp4                                # container + codec metadata, like ffprobe
-dapi media grab clip.mp4 -t 0 12 45                      # decode frames to PNGs
-dapi media filmstrip clip.mp4                            # grid of video frames
-dapi media waveform track.mp3                            # audio waveform, silence flagged
-dapi media transcribe interview.wav                      # timed, word-level transcript
-dapi media listen interview.mp4 -p "what is said in the intro?"   # ask a multimodal model
-dapi capture intro -t 0 2 4                              # the frames a render would produce, by scene id
+diffusion media probe clip.mp4                                # container + codec metadata, like ffprobe
+diffusion media grab clip.mp4 -t 0 12 45                      # decode frames to PNGs
+diffusion media filmstrip clip.mp4                            # grid of video frames
+diffusion media waveform track.mp3                            # audio waveform, silence flagged
+diffusion media transcribe interview.wav                      # timed, word-level transcript
+diffusion media listen interview.mp4 -p "what is said in the intro?"   # ask a multimodal model
+diffusion capture intro -t 0 2 4                              # the frames a render would produce, by scene id
 ```
 
-Each command is the MCP tool of the same name: `dapi media grab` is `media_grab`, `--per-sheet` is `perSheet`.
+Each command is the MCP tool of the same name: `diffusion media grab` is `media_grab`, `--per-sheet` is `perSheet`.
 
 | Command | Purpose |
 | --- | --- |
-| `dapi open` | Launch the app and open (or create) a project folder, anywhere on disk |
-| `dapi context` | Summary of app state |
-| `dapi capture` | Render frames of a scene, as an export would, to a labelled contact sheet or one PNG per position |
-| `dapi check` | Check a node's subtree for structural mistakes (black-frame gaps, never-visible nodes, failed sources) and report subtree stats |
-| `dapi media …` | Inspect a file by id or path: `probe`, `grab`, `filmstrip`, `waveform`, `transcribe`, `listen` |
-| `dapi models` / `dapi voices` / `dapi fonts` | Discover generation models, speech voices, local fonts |
-| `dapi screenshot` / `dapi logs` | The app itself: capture the window, read recent console output |
-| `dapi report` | Report a bug in the tools or the app: diagnostics bundled, filed as a GitHub issue via `gh` |
+| `diffusion open` | Launch the app and open (or create) a project folder, anywhere on disk |
+| `diffusion context` | Summary of app state |
+| `diffusion capture` | Render frames of a scene, as an export would, to a labelled contact sheet or one PNG per position |
+| `diffusion check` | Check a node's subtree for structural mistakes (black-frame gaps, never-visible nodes, failed sources) and report subtree stats |
+| `diffusion media …` | Inspect a file by id or path: `probe`, `grab`, `filmstrip`, `waveform`, `transcribe`, `listen` |
+| `diffusion models` / `diffusion voices` / `diffusion fonts` | Discover generation models, speech voices, local fonts |
+| `diffusion screenshot` / `diffusion logs` | The app itself: capture the window, read recent console output |
+| `diffusion report` | Report a bug in the tools or the app: diagnostics bundled, filed as a GitHub issue via `gh` |
 
 Conventions throughout: every result is one JSON object, the same structured content the MCP tool returns; errors go to stderr with exit code `1`. Everything is built to be piped, grepped, and driven by a program.
 
@@ -221,7 +221,7 @@ Conventions throughout: every result is one JSON object, the same structured con
 | --- | --- | --- |
 | `apps/web` | `@diffusionstudio/web` | The editor UI (Solid + Vite) |
 | `apps/desktop` | `@diffusionstudio/desktop` | Electron shell hosting the editor |
-| `apps/cli` | `@diffusionstudio/cli` | The `dapi` CLI: a client of the app's MCP server |
+| `apps/cli` | `@diffusionstudio/cli` | The `diffusion` CLI (`dapi` alias): a client of the app's MCP server |
 | `packages/runtime` | `@diffusionstudio/runtime` | Headless editor runtime: the koota world, traits, actions, systems, media decoding, capture. No DOM, no Solid |
 | `packages/reconciler` | `@diffusionstudio/reconciler` | Evaluates a compiled project bundle and reconciles its element tree onto runtime entities, via Solid's universal renderer |
 | `packages/jsx` | `@diffusionstudio/jsx` | The authoring API: element vocabulary, types, and generated assets (`generate.*`) |
@@ -243,7 +243,7 @@ cp apps/web/.env.example apps/web/.env   # required: the app won't run without i
 npm run dev
 ```
 
-To put `dapi` on your PATH, link it once (`unlink` undoes it):
+To put `diffusion` (and its `dapi` alias) on your PATH, link it once (`unlink` undoes it):
 
 ```sh
 npm run link --workspace=@diffusionstudio/cli

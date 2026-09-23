@@ -5,7 +5,7 @@ Capture the entire application window as a PNG — the full UI as the user sees 
 | | |
 | --- | --- |
 | MCP tool | `screenshot` |
-| CLI | `dapi screenshot [options]` |
+| CLI | `diffusion screenshot [options]` |
 
 ## Input
 

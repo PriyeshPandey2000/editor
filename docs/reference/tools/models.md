@@ -5,7 +5,7 @@ List available AI generation models and their per-model constraints (durations, 
 | | |
 | --- | --- |
 | MCP tool | `models` |
-| CLI | `dapi models [type]` |
+| CLI | `diffusion models [type]` |
 
 ## Input
 

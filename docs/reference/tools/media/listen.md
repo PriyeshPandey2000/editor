@@ -5,7 +5,7 @@ Prompt a multimodal model for a semantic analysis of an audio track and return i
 | | |
 | --- | --- |
 | MCP tool | `media_listen` |
-| CLI | `dapi media listen <path> [options]` |
+| CLI | `diffusion media listen <path> [options]` |
 
 ## Input
 

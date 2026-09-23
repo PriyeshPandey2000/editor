@@ -5,7 +5,7 @@ Transcribe the speech in a video or audio file and write the timed transcript to
 | | |
 | --- | --- |
 | MCP tool | `media_transcribe` |
-| CLI | `dapi media transcribe <path>` |
+| CLI | `diffusion media transcribe <path>` |
 
 ## Input
 

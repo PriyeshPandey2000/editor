@@ -3,7 +3,7 @@
 Diffusion Studio exposes one set of tools, reachable two ways:
 
 - **MCP.** The running app serves an MCP server at `http://127.0.0.1:3274/mcp` (Streamable HTTP). A connected agent gets every tool in `tools/list`, with the descriptions on these pages and its input and output as JSON Schema 2020-12, and instructions that give the path of these docs in the installed app. A client that can only spawn a stdio server can bridge to the URL with a generic proxy such as `mcp-remote`.
-- **CLI.** `dapi`, the command-line client shipped with the app, wraps every tool as a command for shells, scripts and CI. `dapi <command> --help` prints the same description and the same field help.
+- **CLI.** `diffusion`, the command-line client shipped with the app, wraps every tool as a command for shells, scripts and CI. `diffusion <command> --help` prints the same description and the same field help. (`dapi` also works, as an alias.)
 
 Both validate against the same schemas and return the same result, so each tool is documented once, on its own page. The catalog behind all three (server, CLI, these pages) lives in `packages/dapi`.
 
@@ -13,8 +13,8 @@ The JSX code syntax specified in [jsx/](../jsx/README.md) is **pseudo-SVG**, mir
 
 A tool is named as MCP lists it, and the CLI spelling follows from the name:
 
-- `_` in a tool name is a space on the command line: `media_grab` is `dapi media grab`. The `media` group is also `m`.
-- A tool's first field is the positional argument: `capture`'s `id` is `dapi capture <id>`.
+- `_` in a tool name is a space on the command line: `media_grab` is `diffusion media grab`. The `media` group is also `m`.
+- A tool's first field is the positional argument: `capture`'s `id` is `diffusion capture <id>`.
 - Every other field is an option in kebab-case: `perSheet` is `--per-sheet`, `separate` is `--separate`. Short forms are listed on each page.
 - Times are written the same way everywhere: seconds (`1.5`), frames at the project's rate (`45f`), or a clock string (`1:30`, `00:01:30`). Times in **results** are plain seconds.
 
@@ -26,29 +26,29 @@ Every tool returns one JSON object, its *structured content*. Over MCP that is t
 
 A failure is a sentence written to be read, e.g. `No project open — run open first`. Over MCP it arrives as a tool result with `isError: true`, not as a protocol error; the CLI prints it to stderr and exits `1`. Each page's Errors section lists what the tool fails on; only the delivery differs by surface.
 
-Every tool runs inside the app, so the app has to be running. Over MCP that is a given — the connection is to the app. From a shell, `dapi open` launches it (macOS and Windows) or surfaces the running instance; every other command prints a launch instruction and exits `1` while the app is down.
+Every tool runs inside the app, so the app has to be running. Over MCP that is a given — the connection is to the app. From a shell, `diffusion open` launches it (macOS and Windows) or surfaces the running instance; every other command prints a launch instruction and exits `1` while the app is down.
 
 ## The tools
 
 | Tool | CLI | Does |
 | --- | --- | --- |
-| [`open`](./open.md) | `dapi open` | Open project |
-| [`context`](./context.md) | `dapi context` | App context |
-| [`capture`](./capture.md) | `dapi capture` | Capture frames |
-| [`check`](./check.md) | `dapi check` | Check structure |
-| [`export`](./export.md) | `dapi export` | Export scene |
-| [`media_probe`](./media/probe.md) | `dapi media probe` | Probe media |
-| [`media_grab`](./media/grab.md) | `dapi media grab` | Grab frames |
-| [`media_transcribe`](./media/transcribe.md) | `dapi media transcribe` | Transcribe speech |
-| [`media_filmstrip`](./media/filmstrip.md) | `dapi media filmstrip` | Filmstrip preview |
-| [`media_waveform`](./media/waveform.md) | `dapi media waveform` | Waveform preview |
-| [`media_listen`](./media/listen.md) | `dapi media listen` | Listen to audio |
-| [`models`](./models.md) | `dapi models` | Generation models |
-| [`voices`](./voices.md) | `dapi voices` | Speech voices |
-| [`logs`](./logs.md) | `dapi logs` | App logs |
-| [`screenshot`](./screenshot.md) | `dapi screenshot` | Window screenshot |
-| [`fonts`](./fonts.md) | `dapi fonts` | Local fonts |
-| [`report`](./report.md) | `dapi report` | Report a bug |
+| [`open`](./open.md) | `diffusion open` | Open project |
+| [`context`](./context.md) | `diffusion context` | App context |
+| [`capture`](./capture.md) | `diffusion capture` | Capture frames |
+| [`check`](./check.md) | `diffusion check` | Check structure |
+| [`export`](./export.md) | `diffusion export` | Export scene |
+| [`media_probe`](./media/probe.md) | `diffusion media probe` | Probe media |
+| [`media_grab`](./media/grab.md) | `diffusion media grab` | Grab frames |
+| [`media_transcribe`](./media/transcribe.md) | `diffusion media transcribe` | Transcribe speech |
+| [`media_filmstrip`](./media/filmstrip.md) | `diffusion media filmstrip` | Filmstrip preview |
+| [`media_waveform`](./media/waveform.md) | `diffusion media waveform` | Waveform preview |
+| [`media_listen`](./media/listen.md) | `diffusion media listen` | Listen to audio |
+| [`models`](./models.md) | `diffusion models` | Generation models |
+| [`voices`](./voices.md) | `diffusion voices` | Speech voices |
+| [`logs`](./logs.md) | `diffusion logs` | App logs |
+| [`screenshot`](./screenshot.md) | `diffusion screenshot` | Window screenshot |
+| [`fonts`](./fonts.md) | `diffusion fonts` | Local fonts |
+| [`report`](./report.md) | `diffusion report` | Report a bug |
 
 How the surface is divided:
 

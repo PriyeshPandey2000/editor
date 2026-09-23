@@ -4,7 +4,7 @@
  * it settles on is written back into the initializer below.
  *
  *   cp examples/09-inspect-variables.tsx ~/Projects/inspect/index.tsx
- *   dapi open ~/Projects/inspect
+ *   diffusion open ~/Projects/inspect
  *
  * See reference/jsx/variables.md for the full annotation grammar.
  */

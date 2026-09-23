@@ -5,7 +5,7 @@ Read the container and per-track technical metadata of a media file (local read,
 | | |
 | --- | --- |
 | MCP tool | `media_probe` |
-| CLI | `dapi media probe <path>` |
+| CLI | `diffusion media probe <path>` |
 
 ## Input
 

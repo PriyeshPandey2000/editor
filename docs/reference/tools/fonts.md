@@ -5,7 +5,7 @@ List the local fonts available on this machine. These family names are valid `fo
 | | |
 | --- | --- |
 | MCP tool | `fonts` |
-| CLI | `dapi fonts [options]` |
+| CLI | `diffusion fonts [options]` |
 
 ## Input
 

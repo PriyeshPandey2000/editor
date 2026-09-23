@@ -5,8 +5,8 @@ Render a grid of thumbnails sampled across the timeline to a PNG (local render, 
 | | |
 | --- | --- |
 | MCP tool | `media_filmstrip` |
-| CLI | `dapi media filmstrip <path> [options]` |
-| CLI aliases | `dapi media film` |
+| CLI | `diffusion media filmstrip <path> [options]` |
+| CLI aliases | `diffusion media film` |
 
 ## Input
 
