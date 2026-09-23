@@ -586,7 +586,7 @@ function sceneHasAudio(world: World, scene: Entity): boolean {
 }
 
 /**
- *  Per-model constraints (`dapi models video`); unknown models are left to the server.
+ *  Per-model constraints (`diffusion models video`); unknown models are left to the server.
  */
 function checkVideoConstraints(spec: Extract<ResolvedGeneration, { type: "video" }>): void {
   const model = PROMPT_INPUT_VIDEO_MODEL_OPTIONS.find((option) => option.id === spec.model);

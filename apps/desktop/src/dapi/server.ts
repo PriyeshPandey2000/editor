@@ -16,7 +16,8 @@ import type { MainContext, MainToolName } from "./handler";
 /**
  * The name the server introduces itself with, and so the namespace an agent
  * shows the tools under: `mcp__diffusion__<tool>`. The same word as our URL
- * scheme, and not `dapi`, which is the CLI.
+ * scheme and the CLI's primary name (`dapi` still works there too, as an
+ * alias).
  */
 const SERVER_NAME = "diffusion";
 
@@ -32,7 +33,7 @@ export type DapiServerDeps = {
 
 /**
  * The app's MCP server: Streamable HTTP on a fixed loopback port, the URL
- * agents register and the `dapi` CLI calls. Each client gets its own MCP
+ * agents register and the `diffusion` CLI calls. Each client gets its own MCP
  * session over one catalog. Main-process tools run here; renderer tools are
  * forwarded over IPC and their results presented (files written, small
  * images inlined) before they go back out.

@@ -218,7 +218,7 @@ export async function resolveProject(ref: string): Promise<ProjectInfo | null> {
  * the folder is created if missing and, when nothing in it can be an entry,
  * given an `index.tsx` holding an empty stage — and nothing else. Put on the
  * list, so it stays reachable by name or id across relaunches. How
- * `dapi open <path>` lands anywhere on disk.
+ * `diffusion open <path>` lands anywhere on disk.
  */
 export async function openProjectFolder(dir: string): Promise<ProjectInfo> {
 	if (!isDesktop()) throw new Error('Opening a project folder requires the desktop app.');

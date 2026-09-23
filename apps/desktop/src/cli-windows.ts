@@ -2,15 +2,17 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// The `dapi` command on Windows. Squirrel installs every version into its own
-// `app-<version>` folder, so nothing durable may point at the wrapper the app
-// ships in its resources. What goes on PATH (and into the agents' MCP
-// configs) is a shim in a folder that never moves:
+// The `diffusion` (and `dapi` alias) commands on Windows. Squirrel installs
+// every version into its own `app-<version>` folder, so nothing durable may
+// point at the wrapper the app ships in its resources. What goes on PATH
+// (and, for `dapi.cmd`, into the agents' MCP configs) is a pair of shims in a
+// folder that never moves:
 //   %LOCALAPPDATA%\DiffusionStudio\bin\dapi.cmd
-// The app rewrites it on every packaged launch and from Squirrel's update
-// hook, so it always names the current executable. Installing the CLI is then
-// only a matter of putting that folder on the user's PATH, which needs no
-// administrator.
+//   %LOCALAPPDATA%\DiffusionStudio\bin\diffusion.cmd
+// The app rewrites both on every packaged launch and from Squirrel's update
+// hook, so they always name the current executable. Installing the CLI is
+// then only a matter of putting that folder on the user's PATH, which needs
+// no administrator.
 //
 // Nothing here imports electron, so the Squirrel hooks can use it before the
 // app is ready and the tests can run it anywhere.
@@ -30,6 +32,13 @@ export function shimDir(env: NodeJS.ProcessEnv = process.env): string {
 
 export function shimPath(env: NodeJS.ProcessEnv = process.env): string {
   return win32.join(shimDir(env), "dapi.cmd");
+}
+
+// `dapi.cmd` is the one `mcp-install.ts` registers with agents, so its name
+// and behavior above stay fixed. `diffusion.cmd` rides beside it purely so
+// the name on PATH matches the one in the docs; both run the same script.
+export function shimPaths(env: NodeJS.ProcessEnv = process.env): string[] {
+  return ["dapi.cmd", "diffusion.cmd"].map((name) => win32.join(shimDir(env), name));
 }
 
 /** `dapi.js` as the packaged app stages it, next to `execPath`'s resources. */
@@ -58,7 +67,8 @@ export function shimContent(execPath: string, script: string = stagedScript(exec
 /** Points the shim at `execPath`. Safe to repeat; the write lands whole. */
 export async function writeShim(execPath: string = process.execPath, script?: string): Promise<void> {
   await mkdir(shimDir(), { recursive: true });
-  await writeFileAtomic(shimPath(), shimContent(execPath, script));
+  const content = shimContent(execPath, script);
+  await Promise.all(shimPaths().map((path) => writeFileAtomic(path, content)));
 }
 
 export async function removeShim(): Promise<void> {

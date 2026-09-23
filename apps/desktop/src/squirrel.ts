@@ -6,10 +6,10 @@
 // uninstall, with a `--squirrel-*` flag as the only argument, and expects it
 // to do its housekeeping and exit. That is the moment the Start Menu
 // shortcut is created and removed (through Squirrel's own Update.exe, one
-// folder up from the versioned app folder), where the `dapi` shim is pointed
-// at the new version and taken away again, and where the agents' MCP entries
-// are taken out of their configs so no agent is left calling an app that is
-// gone.
+// folder up from the versioned app folder), where the `diffusion`/`dapi`
+// shims are pointed at the new version and taken away again, and where the
+// agents' MCP entries are taken out of their configs so no agent is left
+// calling an app that is gone.
 // `--squirrel-firstrun` is the ordinary first launch and is not an event.
 
 import { app } from "electron";

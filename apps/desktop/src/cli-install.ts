@@ -11,11 +11,18 @@ import { addShimToPath, removeShimFromPath, shimOnPath, shimPath, writeShim } fr
 
 import type { CliInstallResult, CliStatus, CliUninstallResult } from "./main-channels";
 
-export const CLI_LINK_PATH = "/usr/local/bin/dapi";
+export const CLI_LINK_DIR = "/usr/local/bin";
 
 // The dev workflow links the workspace build into Homebrew's bin instead
 // (`npm run link` in apps/cli), so that location counts as installed too.
-const DEV_LINK_PATH = "/opt/homebrew/bin/dapi";
+const DEV_LINK_DIR = "/opt/homebrew/bin";
+
+// `diffusion` is what we point to first when reporting status; `dapi` rides
+// alongside it as an alias, and is also what an install from before this
+// pair existed left behind.
+const LINK_NAMES = ["diffusion", "dapi"] as const;
+
+const linkPaths = (dir: string): string[] => LINK_NAMES.map((name) => `${dir}/${name}`);
 
 /**
  * Whether `path` is a symlink — dangling or not, since a link left behind
@@ -26,10 +33,12 @@ function isLink(path: string): boolean {
   return lstatSync(path, { throwIfNoEntry: false })?.isSymbolicLink() ?? false;
 }
 
-/** The first of the two locations that holds anything, or null. */
-function installedPath(): string | null {
-  for (const path of [CLI_LINK_PATH, DEV_LINK_PATH]) {
-    if (isLink(path) || existsSync(path)) return path;
+/** The first of the two locations that holds any of our links, or null. */
+function installedDir(): string | null {
+  for (const dir of [CLI_LINK_DIR, DEV_LINK_DIR]) {
+    if (linkPaths(dir).some((path) => isLink(path) || existsSync(path))) {
+      return dir;
+    }
   }
   return null;
 }
@@ -53,14 +62,15 @@ async function cliStatusWin32(): Promise<CliStatus> {
 }
 
 async function cliStatusDarwin(): Promise<CliStatus> {
-  const path = installedPath();
-  if (path) {
+  const dir = installedDir();
+  if (dir) {
+    const path = linkPaths(dir).find((candidate) => isLink(candidate) || existsSync(candidate))!;
     return { installed: true, path, managed: isLink(path), available: true };
   }
   return { installed: false, path: null, managed: false, available: app.isPackaged };
 }
 
-/** Where `dapi` stands on this machine, without asking for a password. */
+/** Where `diffusion` (or its `dapi` alias) stands on this machine, without asking for a password. */
 export async function cliStatus(): Promise<CliStatus> {
   if (process.platform === "win32") return cliStatusWin32();
   if (process.platform === "darwin") return cliStatusDarwin();
@@ -81,8 +91,9 @@ const cancelled = (e: unknown): boolean => ((e as Error).message ?? "").includes
 
 async function installCliDarwin(): Promise<CliInstallResult> {
   const wrapper = join(process.resourcesPath, "cli", "bin", "dapi");
+  const links = linkPaths(CLI_LINK_DIR).map((path) => `ln -sf '${wrapper}' '${path}'`).join(" && ");
   try {
-    await elevated(`mkdir -p /usr/local/bin && ln -sf '${wrapper}' '${CLI_LINK_PATH}'`);
+    await elevated(`mkdir -p ${CLI_LINK_DIR} && ${links}`);
     return { status: "installed" };
   } catch (e) {
     return cancelled(e) ? { status: "cancelled" } : { status: "error", error: (e as Error).message };
@@ -126,20 +137,23 @@ async function uninstallCliWin32(): Promise<CliUninstallResult> {
 }
 
 async function uninstallCliDarwin(): Promise<CliUninstallResult> {
-  const path = installedPath();
-  if (!path) return { status: "absent" };
-  if (!isLink(path)) {
-    return { status: "error", error: `${path} is not a link, so it was left alone.` };
+  const dir = installedDir();
+  if (!dir) return { status: "absent" };
+  const present = linkPaths(dir).filter((path) => isLink(path) || existsSync(path));
+  const notLinks = present.filter((path) => !isLink(path));
+  if (notLinks.length > 0) {
+    const is = notLinks.length > 1 ? "are not links" : "is not a link";
+    return { status: "error", error: `${notLinks.join(", ")} ${is}, so nothing was removed.` };
   }
   try {
-    unlinkSync(path);
+    for (const path of present) unlinkSync(path);
     return { status: "removed" };
   } catch (e) {
     const code = (e as NodeJS.ErrnoException).code;
     if (code !== "EACCES" && code !== "EPERM") return { status: "error", error: (e as Error).message };
   }
   try {
-    await elevated(`rm -f '${path}'`);
+    await elevated(`rm -f ${present.map((path) => `'${path}'`).join(" ")}`);
     return { status: "removed" };
   } catch (e) {
     return cancelled(e) ? { status: "cancelled" } : { status: "error", error: (e as Error).message };
@@ -148,7 +162,8 @@ async function uninstallCliDarwin(): Promise<CliUninstallResult> {
 
 
 /**
- * Takes the `dapi` link off PATH, whichever of the two locations holds it.
+ * Takes the `diffusion`/`dapi` links off PATH, whichever of the two
+ * locations holds them.
  */
 export async function uninstallCli(): Promise<CliUninstallResult> {
   if (process.platform === "win32") return uninstallCliWin32();

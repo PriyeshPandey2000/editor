@@ -132,7 +132,7 @@ function docsDir(): string | null {
   return existsSync(dir) ? dir : null;
 }
 
-// The MCP server agents and the dapi CLI talk to. Started once the app is
+// The MCP server agents and the diffusion CLI talk to. Started once the app is
 // ready; the first connection switches the app into headless mode.
 const dapi = new DapiServer({
   version: app.getVersion(),

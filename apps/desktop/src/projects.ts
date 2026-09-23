@@ -449,7 +449,7 @@ const JSX_VERSION = "latest";
 const SOLID_VERSION = "^1.9.10";
 
 /**
- * The dapi surface as npm scripts: the CLI is how a project is inspected and
+ * The diffusion surface as npm scripts: the CLI is how a project is inspected and
  * cut, so its commands belong in the record of the project they act on —
  * `npm run` prints the menu, `npm run <name> -- <args>` runs one. Named after
  * the command rather than its path (`grab`, not `media:grab`): the `media`
@@ -540,7 +540,7 @@ on the canvas.
 
 ## Agents
 
-Everything an agent needs is in the app's MCP server (\`dapi\`): its tools
+Everything an agent needs is in the app's MCP server (\`diffusion\`): its tools
 are the API, its instructions say how to work, and its resources are the
 authoring reference for the installed version. If it is not among your tools,
 add it — the app serves it at \`${MCP_URL}\` while it is running — and start
@@ -551,7 +551,7 @@ a new session.
 | Path | What it is |
 | ---- | ---------- |
 | \`index.tsx\` | The entry. Its default export renders the composition. |
-| \`package.json\` | The project record: \`projectId\` (its identity, kept across renames), \`displayName\` (the name shown in the app), \`main\` (the entry), \`diffusion\` (how each scene is exported), and the dapi commands as scripts. |
+| \`package.json\` | The project record: \`projectId\` (its identity, kept across renames), \`displayName\` (the name shown in the app), \`main\` (the entry), \`diffusion\` (how each scene is exported), and the diffusion commands as scripts. |
 | \`tsconfig.json\` | Types for the composition tags, through \`jsxImportSource\`. |
 | \`assets.yml\` | The asset library: for every asset its library path, where its bytes are, and what it was found to be; for a generation without bytes, where it stands. Written by the app; hand edits are read on the next load. |
 | \`assets/\` | The library's files: put one here and it is taken in while the app watches, and the app writes its own here too — generations under \`assets/generated/\`. Media imported through the app is linked where it lies instead, never copied. |
@@ -602,7 +602,7 @@ export default function Project() {
   survives the file being relinked), an asset id, a URL, or an absolute path.
 - Generated assets are declared rather than fetched: \`src={generate.image({ prompt })}\`,
   and \`generate.video\`, \`generate.voice\`, \`generate.audio\`. They are produced on
-  mount, in dependency order. \`dapi context\` reports where each stands:
+  mount, in dependency order. \`diffusion context\` reports where each stands:
   generating, failed with the reason, or done with the asset path it landed as.
 - Solid is fully available while mounting: \`<For>\`, \`<Show>\`, \`createMemo\`, and
   \`useTicker()\` for values that follow the playhead.
@@ -616,27 +616,27 @@ yourself with \`npx tsc --noEmit\`.
 
 ## Commands
 
-Every dapi command is a script here: \`npm run\` lists them, and
+Every diffusion command is a script here: \`npm run\` lists them, and
 \`npm run <name> -- <args>\` runs one (\`npm run grab -- b-roll/drone.mp4 -c 6\`).
 All of them talk to the running app, except \`fonts\`.
 
 | Script | Command | What it does |
 | ------ | ------- | ------------ |
-| \`open\` | \`dapi open .\` | Launch the app with this project open. |
-| \`context\` | \`dapi context\` | Which project the app has open, where its playhead sits, its fonts, where its generations stand. |
-| \`capture\` | \`dapi capture <id>\` | Render frames of a scene, as an export would, to labelled PNG contact sheets. |
-| \`probe\` | \`dapi media probe <id\\|path>\` | Container and per-track metadata, without decoding. |
-| \`transcribe\` | \`dapi media transcribe <id\\|path>\` | Timed speech transcript, word by word. |
-| \`grab\` | \`dapi media grab <id\\|path>\` | Decode frames of a video to labelled PNG contact sheets. |
-| \`filmstrip\` | \`dapi media filmstrip <id\\|path>\` | Thumbnail grid across a window of a video. |
-| \`waveform\` | \`dapi media waveform <id\\|path>\` | Loudness over time, with the silences marked. |
-| \`listen\` | \`dapi media listen <id\\|path>\` | Ask a multimodal model what is in an audio track. |
-| \`models\` | \`dapi models [type]\` | Generation models and their per-model constraints. |
-| \`voices\` | \`dapi voices\` | Speech voices for \`generate.voice\`. |
-| \`fonts\` | \`dapi fonts\` | Local font families, valid as \`fontFamily\`. |
-| \`logs\` | \`dapi logs\` | Recent console output from the app. |
-| \`screenshot\` | \`dapi screenshot\` | The whole app window as a PNG. |
-| \`report\` | \`dapi report <title>\` | File a bug against the editor, with diagnostics attached. |
+| \`open\` | \`diffusion open .\` | Launch the app with this project open. |
+| \`context\` | \`diffusion context\` | Which project the app has open, where its playhead sits, its fonts, where its generations stand. |
+| \`capture\` | \`diffusion capture <id>\` | Render frames of a scene, as an export would, to labelled PNG contact sheets. |
+| \`probe\` | \`diffusion media probe <id\\|path>\` | Container and per-track metadata, without decoding. |
+| \`transcribe\` | \`diffusion media transcribe <id\\|path>\` | Timed speech transcript, word by word. |
+| \`grab\` | \`diffusion media grab <id\\|path>\` | Decode frames of a video to labelled PNG contact sheets. |
+| \`filmstrip\` | \`diffusion media filmstrip <id\\|path>\` | Thumbnail grid across a window of a video. |
+| \`waveform\` | \`diffusion media waveform <id\\|path>\` | Loudness over time, with the silences marked. |
+| \`listen\` | \`diffusion media listen <id\\|path>\` | Ask a multimodal model what is in an audio track. |
+| \`models\` | \`diffusion models [type]\` | Generation models and their per-model constraints. |
+| \`voices\` | \`diffusion voices\` | Speech voices for \`generate.voice\`. |
+| \`fonts\` | \`diffusion fonts\` | Local font families, valid as \`fontFamily\`. |
+| \`logs\` | \`diffusion logs\` | Recent console output from the app. |
+| \`screenshot\` | \`diffusion screenshot\` | The whole app window as a PNG. |
+| \`report\` | \`diffusion report <title>\` | File a bug against the editor, with diagnostics attached. |
 
 ## Reference
 
@@ -674,7 +674,7 @@ async function ensurePackage(dir: string, name: string, displayName: string, ent
   if (typeof next.displayName !== "string") next.displayName = displayName;
   if (typeof next.main !== "string") next.main = entry;
   // The commands are a menu rather than a record: a project that keeps its own
-  // scripts is left with them, one with none is given the dapi surface.
+  // scripts is left with them, one with none is given the diffusion surface.
   if (typeof next.scripts !== "object" || next.scripts === null) next.scripts = { ...SCRIPTS };
   if (
     next.projectId !== pkg.projectId ||
@@ -729,7 +729,7 @@ async function ensureRecord(dir: string, displayName = basename(dir)): Promise<s
  * .gitignore, which come with a project created from the dashboard (see
  * `scaffold`); a folder opened from anywhere on disk stays the user's. A
  * folder that is already a project comes back untouched. How
- * `dapi open <path>` opens a folder.
+ * `diffusion open <path>` opens a folder.
  */
 export async function initProject(window: BrowserWindow | null, dir: string): Promise<ProjectInfo> {
   if (!isAbsolute(dir)) {

@@ -137,7 +137,7 @@ export type McpApplyResult = {
   failures: { id: AgentId; error: string }[];
 };
 
-// Where the `dapi` command stands. `managed` means what is there is a
+// Where the `diffusion` command stands. `managed` means what is there is a
 // symlink (the app's own, or the dev workflow's Homebrew link), which
 // "Uninstall" can remove; `available` that this build can create the app's
 // link (a dev build cannot: that is `npm run link` in apps/cli).
@@ -148,7 +148,7 @@ export type CliStatus = {
   available: boolean;
 };
 
-// Outcome of linking the bundled dapi CLI into PATH. "cancelled" means the
+// Outcome of linking the bundled diffusion CLI into PATH. "cancelled" means the
 // user dismissed the macOS admin prompt — not an error, not installed.
 export type CliInstallResult =
   | { status: "installed" }
@@ -321,7 +321,7 @@ export type MainRequestMap = {
     response: { url: string } | null;
   };
   // The app's MCP server in the agents' configs (see mcp-install.ts), and
-  // the `dapi` command on PATH (see cli-install.ts). The install/uninstall
+  // the `diffusion` command on PATH (see cli-install.ts). The install/uninstall
   // calls put the macOS admin prompt on screen.
   [MAIN_CHANNELS.MCP_STATUS]: { request: void; response: McpStatus };
   [MAIN_CHANNELS.MCP_APPLY]: { request: McpApplyRequest; response: McpApplyResult };

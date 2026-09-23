@@ -20,7 +20,7 @@ The folder may live anywhere on disk, and does not have to be a project yet. Ope
 
 - a missing folder is created;
 - a folder with no entry file (package.json `main`, or `index.tsx` and friends) gains an `index.tsx` holding an empty stage;
-- a folder with no project record gains one in `package.json` — `projectId`, `displayName`, `main`, and the dapi commands as `scripts` — which is what the app remembers the folder by. A package.json that is already there keeps everything it has and only gains the fields it lacks.
+- a folder with no project record gains one in `package.json` — `projectId`, `displayName`, `main`, and the diffusion commands as `scripts` — which is what the app remembers the folder by. A package.json that is already there keeps everything it has and only gains the fields it lacks.
 
 Nothing else is written — no tsconfig, README, or .gitignore. Those come with a project created from the app's dashboard; a folder opened from anywhere on disk stays the user's. A folder that is already a project is opened untouched, wherever it lives. A JavaScript project (an entry ending in `.js` or `.jsx`) is left entirely alone, record included.
 

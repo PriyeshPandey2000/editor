@@ -6,7 +6,7 @@
 // at a time as the settings page asks: the fixed loopback URL for agents
 // that speak HTTP, the bundled `dapi mcp` proxy for the rest. No PATH
 // symlink and no admin prompt — that is `cli-install.ts`, for people who
-// type `dapi`.
+// type `diffusion` (or its `dapi` alias).
 
 import { app } from "electron";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
