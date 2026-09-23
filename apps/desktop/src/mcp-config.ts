@@ -24,7 +24,7 @@ export type McpServerSpec = { url: string; command: string; args: string[] };
 export const SERVER_NAME = "diffusion";
 
 /** One agent's config entry: what its file format spells a server as. */
-export type ServerEntry = Record<string, string | string[]>;
+export type ServerEntry = Record<string, string | string[] | boolean>;
 
 /** The stable id an agent is addressed by over IPC and in the UI. */
 export type AgentId =
@@ -35,10 +35,11 @@ export type AgentId =
   | "codex"
   | "antigravity"
   | "gemini-cli"
-  | "windsurf";
+  | "windsurf"
+  | "opencode";
 
-/** How a config file spells its server map: JSON under `mcpServers` (or VS Code's `servers`), or Codex's TOML tables. */
-export type ConfigFormat = "mcpServers" | "servers" | "toml";
+/** How a config file spells its server map: JSON under `mcpServers` (or VS Code's `servers`, or OpenCode's `mcp`), or Codex's TOML tables. */
+export type ConfigFormat = "mcpServers" | "servers" | "mcp" | "toml";
 
 /**
  * A path under one of the two per-user roots. `appData` is where desktop apps
@@ -97,6 +98,7 @@ export const AGENT_TARGETS: readonly AgentTarget[] = [
   { id: "antigravity", label: "Antigravity", marker: home(".gemini/antigravity"), config: home(".gemini/config/mcp_config.json"), format: "mcpServers", entry: http("serverUrl") },
   { id: "gemini-cli", label: "Gemini CLI", marker: home(".gemini"), config: home(".gemini/settings.json"), format: "mcpServers", entry: http("httpUrl") },
   { id: "windsurf", label: "Devin (Windsurf)", marker: home(".codeium/windsurf"), config: home(".codeium/windsurf/mcp_config.json"), format: "mcpServers", entry: http("serverUrl") },
+  { id: "opencode", label: "OpenCode", marker: home(".config/opencode"), config: home(".config/opencode/opencode.json"), format: "mcp", entry: http("url", { type: "remote", enabled: true }) },
 ];
 
 export function agentTarget(id: AgentId): AgentTarget {
@@ -229,7 +231,8 @@ function tomlString(value: string): string {
   return `"${value.replaceAll("\\", "\\\\").replaceAll('"', '\\"')}"`;
 }
 
-function tomlValue(value: string | string[]): string {
+function tomlValue(value: string | string[] | boolean): string {
+  if (typeof value === "boolean") return String(value);
   return Array.isArray(value) ? `[${value.map(tomlString).join(", ")}]` : tomlString(value);
 }
 

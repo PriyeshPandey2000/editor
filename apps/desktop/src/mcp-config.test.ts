@@ -29,6 +29,7 @@ describe("per-agent entries", () => {
     expect(agentTarget("antigravity").entry(spec)).toEqual({ serverUrl: spec.url });
     expect(agentTarget("gemini-cli").entry(spec)).toEqual({ httpUrl: spec.url });
     expect(agentTarget("windsurf").entry(spec)).toEqual({ serverUrl: spec.url });
+    expect(agentTarget("opencode").entry(spec)).toEqual({ type: "remote", enabled: true, url: spec.url });
   });
 
   it("gives Claude Desktop the stdio proxy, and nobody else", () => {
@@ -54,6 +55,12 @@ describe("json configs", () => {
     expect(readServer(text, "servers")).toEqual({ url: spec.url });
     // The same file read under the other root key has nothing of ours.
     expect(readServer(text, "mcpServers")).toBeNull();
+  });
+
+  it("uses OpenCode's root key and keeps the boolean flag", () => {
+    const text = upsertServer(null, "mcp", { type: "remote", enabled: true, url: spec.url });
+    expect(JSON.parse(text)).toEqual({ mcp: { diffusion: { type: "remote", enabled: true, url: spec.url } } });
+    expect(readServer(text, "mcp")).toEqual({ url: spec.url });
   });
 
   it("keeps other servers and unrelated keys", () => {

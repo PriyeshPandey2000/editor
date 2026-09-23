@@ -35,6 +35,7 @@ export const AGENT_ICONS: Record<AgentId, string> = {
   antigravity: "agent.google-antigravity",
   "gemini-cli": "agent.google-gemini-cli",
   windsurf: "agent.devin-windsurf",
+  opencode: "agent.opencode",
 };
 
 const [connectedAgents, setConnectedAgents] = createSignal<number | null>(null);
