@@ -7,7 +7,7 @@ entry and [`open`](../reference/tools/open.md) that folder — from a shell:
 
 ```sh
 cp examples/01-basics.tsx ~/Projects/basics/index.tsx
-dapi open ~/Projects/basics
+diffusion open ~/Projects/basics
 ```
 
 | Example | Shows |

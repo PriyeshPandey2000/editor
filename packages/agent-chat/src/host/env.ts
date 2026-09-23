@@ -72,9 +72,11 @@ function loginShellPath(shell: string): Promise<string | null> {
 export function knownDirs(): string[] {
   const home = homedir();
   if (IS_WINDOWS) {
+    const local = process.env.LOCALAPPDATA;
     const dirs = [
       process.env.APPDATA ? join(process.env.APPDATA, "npm") : null,
-      process.env.LOCALAPPDATA ? join(process.env.LOCALAPPDATA, "Programs") : null,
+      local ? join(local, "Programs") : null,
+      local ? join(local, "Programs", "OpenAI", "Codex", "bin") : null,
       join(home, ".local", "bin"),
       join(home, ".claude", "local"),
     ];

@@ -19,6 +19,7 @@ import { createRequire } from "node:module";
 import { existsSync, mkdirSync, openSync, readdirSync, readFileSync, readSync, closeSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { npm } from "../../../scripts/lib/npm.mjs";
 
 const desktopDir = join(dirname(fileURLToPath(import.meta.url)), "..");
 const stageDir = join(desktopDir, "runtime");
@@ -44,10 +45,7 @@ writeFileSync(
   JSON.stringify({ name: "desktop-runtime", private: true, dependencies }, null, 2),
 );
 
-execFileSync("npm", ["install", "--omit=dev", "--no-audit", "--no-fund", "--no-package-lock"], {
-  cwd: stageDir,
-  stdio: "inherit",
-});
+npm(["install", "--omit=dev", "--no-audit", "--no-fund", "--no-package-lock"], { cwd: stageDir });
 
 // Mach-O files inside Resources are not reached by the app-bundle signing
 // pass, and notarization rejects unsigned executables; sign them here.

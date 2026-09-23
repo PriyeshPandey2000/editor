@@ -5,8 +5,8 @@ Decode frames of a video file and write them as PNGs (local render, no credits).
 | | |
 | --- | --- |
 | MCP tool | `media_grab` |
-| CLI | `dapi media grab <path> [options]` |
-| CLI aliases | `dapi media sample` |
+| CLI | `diffusion media grab <path> [options]` |
+| CLI aliases | `diffusion media sample` |
 
 ## Input
 

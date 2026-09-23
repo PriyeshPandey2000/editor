@@ -1,7 +1,7 @@
 /* Three.js owning a <surface>: a glTF helmet spun by the playhead.
  *
  *   cp examples/06-three.tsx ~/Projects/three/index.tsx
- *   dapi open ~/Projects/three
+ *   diffusion open ~/Projects/three
  *
  * `ref={surfaceRef}` assigns the surface's node, whose `element` is its
  * detached canvas; onMount three.js takes it over and renders into it;

@@ -49,7 +49,7 @@ How to confirm a change actually produced what you intended. A clean save does n
 - For motion graphics, overlays and UI-heavy graphics, the `<html>` tag driven by a paused [anime.js](https://animejs.com) timeline
 - Before animating anything, read the [easings reference](../guides/motion/easings.md) and choose easings deliberately — default or linear easing is what makes motion read as a slideshow.
 - Add auto captions last, after everything else is assembled, so they transcribe the finished audio at its final placement.
-- For tasks that don't need an editing UI, keep the app in the background: from a shell, `dapi open -b <dir>` launches it that way. Over MCP the app is already running, and `open` only opens the folder.
+- For tasks that don't need an editing UI, keep the app in the background: from a shell, `diffusion open -b <dir>` launches it that way. Over MCP the app is already running, and `open` only opens the folder.
 - Only render (export) the result when prompted.
 - Start with a fresh project.
 

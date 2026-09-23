@@ -5,7 +5,7 @@ Recent console output from the running app (what the devtools console shows: pag
 | | |
 | --- | --- |
 | MCP tool | `logs` |
-| CLI | `dapi logs [options]` |
+| CLI | `diffusion logs [options]` |
 
 ## Input
 

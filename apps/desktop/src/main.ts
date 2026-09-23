@@ -12,11 +12,12 @@ import { updateElectronApp } from "update-electron-app";
 import { tempPathFor } from "./atomic";
 import { DapiServer } from "./dapi/server";
 import { agentChatEndpoint, deleteProjectChats, startAgentChat, stopAgentChat } from "./agent-chat";
-import { cliStatus, installCli, uninstallCli } from "./cli-install";
+import { cliStatus, installCli, refreshCliShim, uninstallCli } from "./cli-install";
 import { applyMcp, healMcpRegistrations, mcpStatus } from "./mcp-install";
 import { enableHeadless } from "./headless";
 import { trackEvent, trackInstall } from "./analytics";
 import { setupAppMenu } from "./menu";
+import { handleSquirrelEvent } from "./squirrel";
 import { mainBridge } from "./main-manager";
 import { MAIN_CHANNELS } from "./main-channels";
 import {
@@ -54,6 +55,20 @@ const DEV_URL = "http://localhost:5173";
 const AUTH_PROTOCOL = "diffusion";
 const MACOS_CORNER_RADIUS = 18;
 const MACOS_BACKDROP = { blur: 80, red: 0.07, green: 0.07, blue: 0.07, alpha: 0.9 };
+// Window Controls Overlay on Windows: as tall as the renderer's `h-10` drag
+// strip, coloured like the sidebar it sits on (`--sidebar`), with symbols in
+// `--muted-foreground` like the other title bar icons. The dark value is that
+// token flattened onto the sidebar, since the overlay takes opaque colours.
+const WINDOWS_OVERLAY_HEIGHT = 40;
+const WINDOWS_OVERLAY_COLORS = {
+  dark: { color: "#121212", symbolColor: "#a1a1a1" },
+  light: { color: "#f7f7f7", symbolColor: "#737373" },
+};
+
+// A Squirrel.Windows install/update/uninstall launch: housekeeping only, the
+// app quits on its own. Decided first so nothing below starts a service or
+// checks for updates on a launch that is about to end.
+const squirrelLaunch = handleSquirrelEvent();
 
 app.setName("Diffusion Studio");
 app.commandLine.appendSwitch("enable-blink-features", "CanvasDrawElement");
@@ -85,7 +100,12 @@ function applyBackdrop() {
   setNativeBackdrop(mainWindow.getNativeWindowHandle(), blur, red, green, blue, alpha);
 }
 
-if (app.isPackaged && !process.argv.includes("--hidden")) {
+function setColorMode(mode: "dark" | "light") {
+  if (process.platform === "darwin" || !mainWindow || mainWindow.isDestroyed()) return;
+  mainWindow.setTitleBarOverlay({ ...WINDOWS_OVERLAY_COLORS[mode], height: WINDOWS_OVERLAY_HEIGHT });
+}
+
+if (app.isPackaged && !squirrelLaunch && !process.argv.includes("--hidden")) {
   updateElectronApp({ repo: "diffusionstudio/editor" });
 }
 
@@ -112,7 +132,7 @@ function docsDir(): string | null {
   return existsSync(dir) ? dir : null;
 }
 
-// The MCP server agents and the dapi CLI talk to. Started once the app is
+// The MCP server agents and the diffusion CLI talk to. Started once the app is
 // ready; the first connection switches the app into headless mode.
 const dapi = new DapiServer({
   version: app.getVersion(),
@@ -201,19 +221,36 @@ async function setFileInputFiles(selector: string, absolutePath: string) {
 }
 
 function createWindow(show = true) {
-  mainWindow = new BrowserWindow({
+
+  const options: Electron.BrowserWindowConstructorOptions = {
     show: false,
     width: 1200,
     height: 800,
-    titleBarStyle: "hiddenInset",
-    trafficLightPosition: { x: 14, y: 14 },
-    ...(process.platform === "darwin"
-      ? { vibrancy: "sidebar" as const, backgroundColor: "#00000000" }
-      : { backgroundColor: "#1c1c1c" }),
     webPreferences: {
       preload: join(app.getAppPath(), "dist", "preload.js"),
+      backgroundThrottling: false,
     },
-  });
+  }
+
+  if (process.platform === "darwin") {
+    options.titleBarStyle = "hiddenInset" as const;
+    options.trafficLightPosition = { x: 14, y: 14 };
+    options.vibrancy = "sidebar" as const;
+    options.backgroundColor = "#00000000";
+  }
+
+  if (process.platform === "win32") {
+    options.titleBarStyle = "hidden" as const;
+    options.titleBarOverlay = { ...WINDOWS_OVERLAY_COLORS.dark, height: WINDOWS_OVERLAY_HEIGHT };
+    options.autoHideMenuBar = true;
+    options.backgroundColor = WINDOWS_OVERLAY_COLORS.dark.color;
+
+    if (!app.isPackaged) {
+      options.icon = join(app.getAppPath(), "assets", "icon-dev.png");
+    }
+  }
+
+  mainWindow = new BrowserWindow(options);
 
   captureConsole(mainWindow);
 
@@ -261,7 +298,9 @@ if (process.defaultApp && process.argv.length >= 2) {
   app.setAsDefaultProtocolClient(AUTH_PROTOCOL);
 }
 
-if (app.requestSingleInstanceLock()) {
+if (squirrelLaunch) {
+  // Update.exe is at work; handleSquirrelEvent quits the app when it is done.
+} else if (app.requestSingleInstanceLock()) {
   app.on("second-instance", (_event, argv) => {
     const url = findProtocolUrl(argv);
     if (url) deliverDeepLink(url);
@@ -292,6 +331,7 @@ if (app.requestSingleInstanceLock()) {
     takePendingDeepLink(MAIN_CHANNELS.CHECKOUT_CALLBACK),
   );
   mainBridge.handle(MAIN_CHANNELS.WINDOW_IS_FULLSCREEN, () => mainWindow?.isFullScreen() ?? false);
+  mainBridge.handle(MAIN_CHANNELS.WINDOW_SET_COLOR_MODE, ({ mode }) => setColorMode(mode));
   mainBridge.handle(MAIN_CHANNELS.WINDOW_CAPTURE, async () => {
     if (!mainWindow || mainWindow.isDestroyed()) throw new Error("No main window");
     const image = await mainWindow.webContents.capturePage(undefined, { stayHidden: true });
@@ -424,6 +464,7 @@ if (app.requestSingleInstanceLock()) {
         version: app.getVersion(),
       }),
     );
+    refreshCliShim();
     healMcpRegistrations();
     trackInstall();
     createWindow(!isHiddenLaunch(process.argv));

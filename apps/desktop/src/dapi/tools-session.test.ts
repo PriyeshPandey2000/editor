@@ -17,8 +17,8 @@ beforeAll(async () => {
   serveCatalog(session, async (tool, args) => {
     calls.push({ name: tool.name, args });
     switch (tool.name) {
-      case "whoami":
-        return { user: null };
+      case "voices":
+        return { voices: [] };
       case "check":
         throw new Error("No project open — run open first");
       default:
@@ -54,9 +54,9 @@ describe("serveCatalog", () => {
     expect(JSON.stringify(bad.content)).toContain("limit");
     expect(calls.length).toBe(before);
 
-    const result = await client.callTool({ name: "whoami", arguments: {} });
-    expect(result.structuredContent).toEqual({ user: null });
-    expect(calls.at(-1)).toEqual({ name: "whoami", args: {} });
+    const result = await client.callTool({ name: "voices", arguments: {} });
+    expect(result.structuredContent).toEqual({ voices: [] });
+    expect(calls.at(-1)).toEqual({ name: "voices", args: {} });
   });
 
   it("returns a handler's failure as a readable error result, not a protocol error", async () => {

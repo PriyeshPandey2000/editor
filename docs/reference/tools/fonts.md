@@ -1,11 +1,11 @@
 # fonts
 
-List the local fonts available on this machine (macOS only). These family names are valid `fontFamily` values on <text>; each family lists its variants.
+List the local fonts available on this machine. These family names are valid `fontFamily` values on <text>; each family lists its variants.
 
 | | |
 | --- | --- |
 | MCP tool | `fonts` |
-| CLI | `dapi fonts [options]` |
+| CLI | `diffusion fonts [options]` |
 
 ## Input
 
@@ -16,7 +16,7 @@ List the local fonts available on this machine (macOS only). These family names 
 | `style` | `"normal" \| "italic"` | `-s, --style <style>` | filter to variants with the given style, normal or italic |
 | `limit` | `integer` | `-l, --limit <n>` | return at most this many families (default: 50) |
 
-Font families listed here are valid `fontFamily` values on [`<text>`](../jsx/text.md); see [jsx/fonts.md](../jsx/fonts.md) for how a family and variant are named in a composition, and [`context`](./context.md) for the families the open project has actually registered. Runs in the app's main process, so no project needs to be open.
+Font families listed here are valid `fontFamily` values on [`<text>`](../jsx/text.md); see [jsx/fonts.md](../jsx/fonts.md) for how a family and variant are named in a composition, and [`context`](./context.md) for the families the open project has actually registered.
 
 A machine has hundreds of families, so filter by `family` when looking for one. `total` counts every family the filters match; when it is larger than `families.length`, the limit cut the list.
 

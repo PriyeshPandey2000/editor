@@ -3,7 +3,16 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 import { describe, expect, it } from "vitest";
-import { AGENT_TARGETS, agentTarget, needsBinary, readServer, removeServer, upsertServer } from "./mcp-config";
+import {
+  AGENT_TARGETS,
+  agentTarget,
+  needsBinary,
+  readServer,
+  removeServer,
+  runsOurProxy,
+  sameCommand,
+  upsertServer,
+} from "./mcp-config";
 
 const spec = {
   url: "http://127.0.0.1:3274/mcp",
@@ -20,6 +29,7 @@ describe("per-agent entries", () => {
     expect(agentTarget("antigravity").entry(spec)).toEqual({ serverUrl: spec.url });
     expect(agentTarget("gemini-cli").entry(spec)).toEqual({ httpUrl: spec.url });
     expect(agentTarget("windsurf").entry(spec)).toEqual({ serverUrl: spec.url });
+    expect(agentTarget("opencode").entry(spec)).toEqual({ type: "remote", enabled: true, url: spec.url });
   });
 
   it("gives Claude Desktop the stdio proxy, and nobody else", () => {
@@ -47,6 +57,12 @@ describe("json configs", () => {
     expect(readServer(text, "mcpServers")).toBeNull();
   });
 
+  it("uses OpenCode's root key and keeps the boolean flag", () => {
+    const text = upsertServer(null, "mcp", { type: "remote", enabled: true, url: spec.url });
+    expect(JSON.parse(text)).toEqual({ mcp: { diffusion: { type: "remote", enabled: true, url: spec.url } } });
+    expect(readServer(text, "mcp")).toEqual({ url: spec.url });
+  });
+
   it("keeps other servers and unrelated keys", () => {
     const before = JSON.stringify({
       numStartups: 12,
@@ -62,7 +78,7 @@ describe("json configs", () => {
 
   it("replaces a stdio entry with a URL entry, and reads either", () => {
     const before = upsertServer(null, "mcpServers", { command: "/old/dapi", args: ["mcp"] });
-    expect(readServer(before, "mcpServers")).toEqual({ command: "/old/dapi" });
+    expect(readServer(before, "mcpServers")).toEqual({ command: "/old/dapi", args: ["mcp"] });
     const after = upsertServer(before, "mcpServers", { type: "http", url: spec.url });
     expect(readServer(after, "mcpServers")).toEqual({ url: spec.url });
     expect(JSON.parse(after).mcpServers.diffusion.command).toBeUndefined();
@@ -114,7 +130,7 @@ describe("toml configs (codex)", () => {
 
   it("replaces our table in place and leaves the next one alone", () => {
     const before = '[mcp_servers.diffusion]\ncommand = "/old/dapi"\nargs = ["mcp"]\n\n[mcp_servers.other]\ncommand = "x"\n';
-    expect(readServer(before, "toml")).toEqual({ command: "/old/dapi" });
+    expect(readServer(before, "toml")).toEqual({ command: "/old/dapi", args: ["mcp"] });
     const after = upsertServer(before, "toml", { url: spec.url });
     expect(after).toBe('[mcp_servers.diffusion]\nurl = "http://127.0.0.1:3274/mcp"\n[mcp_servers.other]\ncommand = "x"\n');
     expect(readServer(after, "toml")).toEqual({ url: spec.url });
@@ -129,7 +145,7 @@ describe("toml configs (codex)", () => {
     const odd = { command: 'C:\\Apps\\"Diffusion"\\dapi', args: ["mcp"] };
     const text = upsertServer(null, "toml", odd);
     expect(text).toContain('command = "C:\\\\Apps\\\\\\"Diffusion\\"\\\\dapi"');
-    expect(readServer(text, "toml")).toEqual({ command: odd.command });
+    expect(readServer(text, "toml")).toEqual({ command: odd.command, args: ["mcp"] });
   });
 
   it("reads nothing from a config without our table", () => {
@@ -150,5 +166,38 @@ describe("toml configs (codex)", () => {
 
   it("empties a config that held only our table", () => {
     expect(removeServer(upsertServer(null, "toml", { url: spec.url }), "toml")).toBe("");
+  });
+});
+
+describe("stdio entries across platforms", () => {
+  const shim = "C:\\Users\\me\\AppData\\Local\\DiffusionStudio\\bin\\dapi.cmd";
+  const windows = { url: spec.url, command: "cmd", args: ["/c", shim, "mcp"] };
+
+  it("keeps desktop apps' configs under appData and the dotfile agents under home", () => {
+    expect(agentTarget("claude-desktop").config).toEqual({ root: "appData", path: "Claude/claude_desktop_config.json" });
+    expect(agentTarget("vscode").config).toEqual({ root: "appData", path: "Code/User/mcp.json" });
+    expect(AGENT_TARGETS.filter((t) => t.config.root === "appData").map((t) => t.id)).toEqual(["claude-desktop", "vscode"]);
+  });
+
+  it("round-trips the Windows shape, where the shim rides in args", () => {
+    const entry = agentTarget("claude-desktop").entry(windows);
+    expect(entry).toEqual({ command: "cmd", args: ["/c", shim, "mcp"] });
+    const registered = readServer(upsertServer(null, "mcpServers", entry), "mcpServers");
+    expect(registered).toEqual({ command: "cmd", args: ["/c", shim, "mcp"] });
+    expect(sameCommand(registered!, entry)).toBe(true);
+  });
+
+  it("recognises our proxy by its path, as the command or as an argument", () => {
+    expect(runsOurProxy({ command: spec.command, args: ["mcp"] })).toBe(true);
+    expect(runsOurProxy({ command: "/private/var/folders/x/AppTranslocation/y/d/cli/bin/dapi" })).toBe(true);
+    expect(runsOurProxy({ command: "cmd", args: ["/c", shim, "mcp"] })).toBe(true);
+    expect(runsOurProxy({ command: "cmd", args: ["/c", "C:\\tools\\other.cmd"] })).toBe(false);
+    expect(runsOurProxy({ command: "/opt/homebrew/bin/dapi", args: ["mcp"] })).toBe(false);
+  });
+
+  it("sees a moved shim as a different command", () => {
+    const moved = { command: "cmd", args: ["/c", shim.replace("me", "you"), "mcp"] };
+    expect(sameCommand(moved, agentTarget("claude-desktop").entry(windows))).toBe(false);
+    expect(sameCommand({ command: spec.command, args: ["mcp"] }, agentTarget("claude-desktop").entry(spec))).toBe(true);
   });
 });

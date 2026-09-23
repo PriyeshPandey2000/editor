@@ -22,7 +22,6 @@ export type ToolContext = {
   /** What only the app shell can do: navigate, and know who is signed in. */
   app: {
     openProject(dir: string): Promise<ToolResult<"open">>;
-    user(): User | null;
     /** The signed-in user, or a `sign-in-required` error. */
     requireUser(): User;
   };
@@ -31,6 +30,6 @@ export type ToolContext = {
 export type ToolHandler<N extends ToolName> = (args: ToolArgs<N>, ctx: ToolContext) => Promise<ToolResult<N>>;
 
 /** The tools the renderer answers; the rest run in the main process. */
-export type ServedToolName = Exclude<ToolName, "logs" | "fonts" | "report">;
+export type ServedToolName = Exclude<ToolName, "logs" | "report">;
 
 export type Handlers = { readonly [N in ServedToolName]: ToolHandler<N> };

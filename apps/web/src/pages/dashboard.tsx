@@ -21,13 +21,14 @@ import {
   DashboardSidebarItem,
   DashboardSidebarNav,
   DashboardSidebarSection,
+  DashboardSidebarTitleBar,
   DashboardSidebarTopSpacer,
   DashboardSidebarUser,
 } from "@/components/dashboard/sidebar";
 import { Separator } from "@/components/ui/separator";
 import { useFullscreenState } from "@/hooks/use-fullscreen-state";
 import { connectedAgents, fetchMcpStatus } from "@/lib/mcp";
-import { isDesktop, openProjectFolder, pickProjectFolder } from "@/projects";
+import { isDesktop, isWindowsDesktop, openProjectFolder, pickProjectFolder } from "@/projects";
 import { isInputTarget } from "@/utils";
 
 import type { DashboardView } from "@/components/dashboard/types";
@@ -131,8 +132,10 @@ export function DashboardPage() {
         <Show when={!!window.desktop && !isFullscreen()}>
           <div class="absolute inset-x-0 top-0 h-10 z-20" style="-webkit-app-region: drag;" />
         </Show>
-        <Show when={!settingsNavOpen()} fallback={<DashboardSidebarTopSpacer />}>
-          <DashboardSidebarHeader />
+        <Show when={!isWindowsDesktop()} fallback={<DashboardSidebarTitleBar />}>
+          <Show when={!settingsNavOpen()} fallback={<DashboardSidebarTopSpacer />}>
+            <DashboardSidebarHeader />
+          </Show>
         </Show>
         <DashboardSidebarNav
           footer={

@@ -2,7 +2,7 @@
  * titles via <For>, and a music bed under everything.
  *
  *   cp examples/01-basics.tsx ~/Projects/basics/index.tsx
- *   dapi open ~/Projects/basics
+ *   diffusion open ~/Projects/basics
  *
  * Sources are remote URLs so the example mounts anywhere; `src` equally takes
  * local paths ("/Movies/clip.mp4"), library paths ("b-roll/drone.mp4") and

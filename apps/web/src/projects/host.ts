@@ -57,6 +57,8 @@ export function markProjectsChanged(): void {
 }
 
 export const isDesktop = (): boolean => !!window.desktop;
+export const isWindowsDesktop = (): boolean => window.desktop?.platform === "win32";
+export const isMacOSDesktop = (): boolean => window.desktop?.platform === "darwin";
 
 /** Puts `project` on the list (or marks it just opened) and tells the views. */
 async function remember(project: ProjectInfo): Promise<void> {
@@ -216,7 +218,7 @@ export async function resolveProject(ref: string): Promise<ProjectInfo | null> {
  * the folder is created if missing and, when nothing in it can be an entry,
  * given an `index.tsx` holding an empty stage — and nothing else. Put on the
  * list, so it stays reachable by name or id across relaunches. How
- * `dapi open <path>` lands anywhere on disk.
+ * `diffusion open <path>` lands anywhere on disk.
  */
 export async function openProjectFolder(dir: string): Promise<ProjectInfo> {
 	if (!isDesktop()) throw new Error('Opening a project folder requires the desktop app.');

@@ -69,7 +69,7 @@ function assetPath(ref: string): string {
 const program = new Command();
 
 program
-  .name("dapi")
+  .name("diffusion")
   .description(
     `The Diffusion Studio CLI: understand, generate, and edit footage.
 Analyze video/audio/images, generate them with AI, and compose assets.
@@ -217,11 +217,6 @@ program
   .command("voices")
   .description(describe("voices"))
   .action(() => run("voices", {}));
-
-program
-  .command("whoami")
-  .description(describe("whoami"))
-  .action(() => run("whoami", {}));
 
 program
   .command("logs")

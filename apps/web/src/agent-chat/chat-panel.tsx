@@ -137,7 +137,7 @@ export function ChatPanel() {
 
   return (
     <div class="flex flex-1 min-h-0 flex-col">
-      <div class="flex h-12 shrink-0 items-center border-y border-border px-4">
+      <div class="flex h-12 shrink-0 items-center border-y border-border px-4 [[data-platform=win32]_&]:border-t-0">
         <SidebarTabs />
         <HeaderActions
           projectId={project.id()}

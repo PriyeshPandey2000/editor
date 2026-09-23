@@ -2,7 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// `dapi mcp`: the entry point for agents that only run stdio servers (Claude
+// `diffusion mcp`: the entry point for agents that only run stdio servers (Claude
 // Desktop). A message pipe between stdio and the app's HTTP endpoint: each
 // side is an SDK transport, so session handling and SSE framing are theirs,
 // and nothing here looks inside a message. Stdout belongs to the protocol;
@@ -31,14 +31,14 @@ export async function runProxy(): Promise<void> {
   const stdio = new StdioServerTransport();
 
   const fail = (error: Error): void => {
-    console.error(`[dapi mcp] ${error.message}`);
+    console.error(`[diffusion mcp] ${error.message}`);
     process.exit(1);
   };
 
   upstream.onmessage = (message: JSONRPCMessage) => void stdio.send(message).catch(fail);
   stdio.onmessage = (message: JSONRPCMessage) => void upstream.send(message).catch(fail);
-  upstream.onerror = (error) => console.error(`[dapi mcp] ${error.message}`);
-  stdio.onerror = (error) => console.error(`[dapi mcp] ${error.message}`);
+  upstream.onerror = (error) => console.error(`[diffusion mcp] ${error.message}`);
+  stdio.onerror = (error) => console.error(`[diffusion mcp] ${error.message}`);
   // The app went away (quit, or the session was closed): the agent sees EOF.
   upstream.onclose = () => process.exit(0);
   // The agent went away: tell the app, which ends the session.

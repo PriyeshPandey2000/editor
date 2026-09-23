@@ -148,7 +148,7 @@ export function refreshHarnesses(): void {
 export const readyHarnesses = (): HarnessInfo[] => state.harnesses.filter((harness) => harness.status === "ready");
 
 /** Families picked before anything is remembered, best first, across every ready harness. */
-const PREFERRED_MODELS = [/fable/i, /astra/i, /opus/i];
+const PREFERRED_MODELS = [/astra/i, /sol/i, /fable/i, /opus/i];
 
 /**
  * The model the composers send with: the remembered one if its harness is

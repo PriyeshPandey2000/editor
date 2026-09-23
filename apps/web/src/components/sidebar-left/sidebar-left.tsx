@@ -13,12 +13,17 @@ import { Icon } from "../ui/icon";
 import { ProjectMenu } from "./project-menu";
 import { useProject } from "@/context/project";
 import { cx } from "@/lib/cva";
+import { isWindowsDesktop } from "@/projects";
+import { WindowsTitleBar } from "../ui/windows-title-bar";
 
 export function SidebarLeft() {
   return (
     <div class="flex flex-col h-full overflow-hidden">
-      <ElectronHeader />
-      <ProjectHeader />
+      {/* On Windows the title bar carries the menu, the toggles and the name. */}
+      <Show when={!isWindowsDesktop()}>
+        <ElectronHeader />
+        <ProjectHeader />
+      </Show>
       <div classList={{ contents: sidebarTab() === "assets", hidden: sidebarTab() === "chat" }}>
         <Assets />
       </div>
@@ -29,32 +34,72 @@ export function SidebarLeft() {
   );
 }
 
+function LayoutToggles() {
+  const { toggleTimeline, toggleUI } = useLayout();
+
+  return (
+    <div class="flex items-center gap-1 relative z-30" style="-webkit-app-region: no-drag;">
+      <Button variant="ghost" size="icon" class="text-muted-foreground" onClick={toggleTimeline}>
+        <Icon name="sidebar-timeline" />
+      </Button>
+      <Button variant="ghost" size="icon" class="text-muted-foreground" onClick={toggleUI}>
+        <Icon name="sidebar" />
+      </Button>
+    </div>
+  )
+}
+
 export function ElectronHeader() {
   const { isDesktop, isFullscreen } = useEditorApi();
-  const { toggleTimeline, toggleUI } = useLayout();
 
   return (
     <Show when={isDesktop}>
       <div class="h-10 border-b border-border shrink-0 pr-4 pl-1.5 gap-1 relative flex items-center">
         <div class="flex-1 h-full data-[fullscreen=true]:flex-none transition-all duration-100 ease-out" data-fullscreen={isFullscreen()} />
-        <div class="flex items-center gap-1 relative z-30" style="-webkit-app-region: no-drag;">
-          <Button variant="ghost" size="icon" class="text-muted-foreground" onClick={toggleTimeline}>
-            <Icon name="sidebar-timeline" />
-          </Button>
-          <Button variant="ghost" size="icon" class="text-muted-foreground" onClick={toggleUI}>
-            <Icon name="sidebar" />
-          </Button>
-        </div>
+        <LayoutToggles />
       </div>
     </Show>
   )
 }
 
-type ProjectHeaderProps = {
+type EditorTitleBarProps = {
+  leftWidth: number;
+  controlsWidth: number;
+}
+
+/** The editor's Windows title bar: project menu and layout toggles, the project name centered. */
+export function EditorTitleBar(props: EditorTitleBarProps) {
+  return (
+    <WindowsTitleBar
+      leftWidth={props.leftWidth}
+      controlsWidth={props.controlsWidth}
+      class="bg-background"
+      left={
+        <>
+          <div class="flex shrink-0 items-center" style="-webkit-app-region: no-drag;">
+            <ProjectMenu />
+          </div>
+          <span class="min-w-0 flex-1 truncate text-xs text-muted-foreground font-450">Diffusion Studio</span>
+          <LayoutToggles />
+        </>
+      }
+    >
+      <div
+        class="absolute left-1/2 top-1/2 flex max-w-[30%] -translate-x-1/2 -translate-y-1/2"
+        style="-webkit-app-region: no-drag;"
+      >
+        <ProjectNameInput class="ml-0 w-auto min-w-8 max-w-full field-sizing-content text-center" />
+      </div>
+    </WindowsTitleBar>
+  )
+}
+
+type ProjectNameInputProps = {
   class?: string;
 }
 
-export function ProjectHeader(props: ProjectHeaderProps) {
+/** The project name, renamed in place: Enter commits, Escape or blur reverts. */
+function ProjectNameInput(props: ProjectNameInputProps) {
   const project = useProject();
   const [projectNameDraft, setProjectNameDraft] = createSignal<string | null>(null);
 
@@ -97,19 +142,29 @@ export function ProjectHeader(props: ProjectHeaderProps) {
   };
 
   return (
+    <input
+      type="text"
+      value={projectNameDraft() ?? project.name()}
+      onInput={handleProjectNameInput}
+      onFocus={handleFocusNameInput}
+      onBlur={handleBlurNameInput}
+      onKeyDown={handleKeyDownNameInput}
+      placeholder="Project name"
+      class={cx("w-full bg-transparent focus-ring px-1 h-5 ml-1 rounded text-xs text-muted-foreground font-450 outline-none", props.class)}
+    />
+  )
+}
+
+type ProjectHeaderProps = {
+  class?: string;
+}
+
+export function ProjectHeader(props: ProjectHeaderProps) {
+  return (
     <div class={cx("h-12 shrink-0 flex items-center gap-1 pr-4 pl-2.5", props.class)}>
       <ProjectMenu />
       <div class="flex items-center w-full">
-        <input
-          type="text"
-          value={projectNameDraft() ?? project.name()}
-          onInput={handleProjectNameInput}
-          onFocus={handleFocusNameInput}
-          onBlur={handleBlurNameInput}
-          onKeyDown={handleKeyDownNameInput}
-          placeholder="Project name"
-          class="w-full bg-transparent focus-ring px-1 h-5 ml-1 rounded text-xs text-muted-foreground font-450 outline-none"
-        />
+        <ProjectNameInput />
       </div>
     </div>
   )

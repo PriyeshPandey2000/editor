@@ -5,8 +5,8 @@ Report the current app context: the folder new projects are created in (always r
 | | |
 | --- | --- |
 | MCP tool | `context` |
-| CLI | `dapi context` |
-| CLI aliases | `dapi ctx` |
+| CLI | `diffusion context` |
+| CLI aliases | `diffusion ctx` |
 
 ## Input
 

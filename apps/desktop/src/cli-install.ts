@@ -2,23 +2,27 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// The `dapi` command on PATH: a symlink from /usr/local/bin to the wrapper
-// the app ships in its resources. Creating it needs an admin password,
-// which macOS asks for through osascript so the app itself never sees
-// credentials; removing a link asks only when the folder demands it.
 
 import { app } from "electron";
 import { execFile } from "node:child_process";
 import { existsSync, lstatSync, unlinkSync } from "node:fs";
 import { join } from "node:path";
+import { addShimToPath, removeShimFromPath, shimOnPath, shimPath, writeShim } from "./cli-windows";
 
 import type { CliInstallResult, CliStatus, CliUninstallResult } from "./main-channels";
 
-export const CLI_LINK_PATH = "/usr/local/bin/dapi";
+export const CLI_LINK_DIR = "/usr/local/bin";
 
 // The dev workflow links the workspace build into Homebrew's bin instead
-// (`symlink:create` in apps/cli), so that location counts as installed too.
-const DEV_LINK_PATH = "/opt/homebrew/bin/dapi";
+// (`npm run link` in apps/cli), so that location counts as installed too.
+const DEV_LINK_DIR = "/opt/homebrew/bin";
+
+// `diffusion` is what we point to first when reporting status; `dapi` rides
+// alongside it as an alias, and is also what an install from before this
+// pair existed left behind.
+const LINK_NAMES = ["diffusion", "dapi"] as const;
+
+const linkPaths = (dir: string): string[] => LINK_NAMES.map((name) => `${dir}/${name}`);
 
 /**
  * Whether `path` is a symlink — dangling or not, since a link left behind
@@ -29,19 +33,49 @@ function isLink(path: string): boolean {
   return lstatSync(path, { throwIfNoEntry: false })?.isSymbolicLink() ?? false;
 }
 
-/** The first of the two locations that holds anything, or null. */
-function installedPath(): string | null {
-  for (const path of [CLI_LINK_PATH, DEV_LINK_PATH]) {
-    if (isLink(path) || existsSync(path)) return path;
+/** The first of the two locations that holds any of our links, or null. */
+function installedDir(): string | null {
+  for (const dir of [CLI_LINK_DIR, DEV_LINK_DIR]) {
+    if (linkPaths(dir).some((path) => isLink(path) || existsSync(path))) {
+      return dir;
+    }
   }
   return null;
 }
 
-/** Where `dapi` stands on this machine, without asking for a password. */
-export function cliStatus(): CliStatus {
-  const path = installedPath();
-  if (path) return { installed: true, path, managed: isLink(path), available: true };
+/**
+ * Rewrites the Windows shim so it names this executable. Runs on every
+ * packaged launch, because an update moved the app to a new folder; the
+ * agents' MCP entries point at the shim whether or not it is on PATH.
+ */
+export function refreshCliShim(): void {
+  if (process.platform !== "win32" || !app.isPackaged) return;
+  writeShim().catch((e) => console.error("cli shim: could not write", e));
+}
+
+async function cliStatusWin32(): Promise<CliStatus> {
+  const installed = await shimOnPath().catch(() => false);
+  if (installed) {
+    return { installed: true, path: shimPath(), managed: true, available: true };
+  }
   return { installed: false, path: null, managed: false, available: app.isPackaged };
+}
+
+async function cliStatusDarwin(): Promise<CliStatus> {
+  const dir = installedDir();
+  if (dir) {
+    const path = linkPaths(dir).find((candidate) => isLink(candidate) || existsSync(candidate))!;
+    return { installed: true, path, managed: isLink(path), available: true };
+  }
+  return { installed: false, path: null, managed: false, available: app.isPackaged };
+}
+
+/** Where `diffusion` (or its `dapi` alias) stands on this machine, without asking for a password. */
+export async function cliStatus(): Promise<CliStatus> {
+  if (process.platform === "win32") return cliStatusWin32();
+  if (process.platform === "darwin") return cliStatusDarwin();
+
+  return { installed: false, path: null, managed: false, available: false };
 }
 
 // The standard macOS admin prompt, for the one shell line that needs it.
@@ -55,45 +89,88 @@ function elevated(shell: string): Promise<void> {
 /** osascript error -128: the user dismissed the prompt. Not an error, not done. */
 const cancelled = (e: unknown): boolean => ((e as Error).message ?? "").includes("-128");
 
-export async function installCli(): Promise<CliInstallResult> {
-  if (!app.isPackaged) {
-    return {
-      status: "error",
-      error: "Installing the CLI is only available in the packaged app. Use `npm run symlink:create` in development.",
-    };
-  }
+async function installCliDarwin(): Promise<CliInstallResult> {
   const wrapper = join(process.resourcesPath, "cli", "bin", "dapi");
+  const links = linkPaths(CLI_LINK_DIR).map((path) => `ln -sf '${wrapper}' '${path}'`).join(" && ");
   try {
-    await elevated(`mkdir -p /usr/local/bin && ln -sf '${wrapper}' '${CLI_LINK_PATH}'`);
+    await elevated(`mkdir -p ${CLI_LINK_DIR} && ${links}`);
     return { status: "installed" };
   } catch (e) {
     return cancelled(e) ? { status: "cancelled" } : { status: "error", error: (e as Error).message };
   }
 }
 
-/**
- * Takes the `dapi` link off PATH, whichever of the two locations holds it.
- * Only a symlink is touched: a real binary somebody put there is not ours
- * to delete. The plain unlink covers Homebrew's user-owned bin; when the
- * folder refuses (/usr/local/bin is root's), the admin prompt takes over.
- */
-export async function uninstallCli(): Promise<CliUninstallResult> {
-  const path = installedPath();
-  if (!path) return { status: "absent" };
-  if (!isLink(path)) {
-    return { status: "error", error: `${path} is not a link, so it was left alone.` };
+async function installCliWin32(): Promise<CliInstallResult> {
+  try {
+    await writeShim();
+    await addShimToPath();
+    return { status: "installed" };
+  } catch (e) {
+    return { status: "error", error: (e as Error).message };
+  }
+}
+
+export async function installCli(): Promise<CliInstallResult> {
+  if (!app.isPackaged) {
+    return {
+      status: "error",
+      error: `Installing the CLI is only available in the packaged app. Use \`npm run link\` in apps/cli in development.`,
+    };
+  }
+  if (process.platform === "win32") return installCliWin32();
+  if (process.platform === "darwin") return installCliDarwin();
+
+  return {
+    status: "error",
+    error: `Installing the CLI is only available on Windows and macOS.`,
+  };
+}
+
+async function uninstallCliWin32(): Promise<CliUninstallResult> {
+  try {
+    if (!(await shimOnPath())) return { status: "absent" };
+    await removeShimFromPath();
+    return { status: "removed" };
+  } catch (e) {
+    return { status: "error", error: (e as Error).message };
+  }
+}
+
+async function uninstallCliDarwin(): Promise<CliUninstallResult> {
+  const dir = installedDir();
+  if (!dir) return { status: "absent" };
+  const present = linkPaths(dir).filter((path) => isLink(path) || existsSync(path));
+  const notLinks = present.filter((path) => !isLink(path));
+  if (notLinks.length > 0) {
+    const is = notLinks.length > 1 ? "are not links" : "is not a link";
+    return { status: "error", error: `${notLinks.join(", ")} ${is}, so nothing was removed.` };
   }
   try {
-    unlinkSync(path);
+    for (const path of present) unlinkSync(path);
     return { status: "removed" };
   } catch (e) {
     const code = (e as NodeJS.ErrnoException).code;
     if (code !== "EACCES" && code !== "EPERM") return { status: "error", error: (e as Error).message };
   }
   try {
-    await elevated(`rm -f '${path}'`);
+    await elevated(`rm -f ${present.map((path) => `'${path}'`).join(" ")}`);
     return { status: "removed" };
   } catch (e) {
     return cancelled(e) ? { status: "cancelled" } : { status: "error", error: (e as Error).message };
   }
+}
+
+
+/**
+ * Takes the `diffusion`/`dapi` links off PATH, whichever of the two
+ * locations holds them.
+ */
+export async function uninstallCli(): Promise<CliUninstallResult> {
+  if (process.platform === "win32") return uninstallCliWin32();
+  if (process.platform === "darwin") return uninstallCliDarwin();
+
+  return {
+    status: "error",
+    error: `Uninstalling the CLI is only available on Windows and macOS.`,
+  };
 }

@@ -9,7 +9,7 @@ import { check } from "./check";
 import { exportScene } from "./export";
 import { models } from "./models";
 import { voices } from "./voices";
-import { whoami } from "./whoami";
+import { fonts } from "./fonts";
 import { screenshot } from "./screenshot";
 import { mediaProbe } from "./media-probe";
 import { mediaGrab } from "./media-grab";
@@ -29,7 +29,7 @@ export const handlers: Handlers = {
   export: exportScene,
   models,
   voices,
-  whoami,
+  fonts,
   screenshot,
   media_probe: mediaProbe,
   media_grab: mediaGrab,

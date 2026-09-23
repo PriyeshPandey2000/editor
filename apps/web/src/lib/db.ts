@@ -25,7 +25,7 @@ export function generateProjectName(): string {
 
 /**
  * A project the app knows: one it created, one it was asked to open — from
- * the folder picker, or `dapi open <path>` — or one found in the projects
+ * the folder picker, or `diffusion open <path>` — or one found in the projects
  * root when that was chosen. The dashboard lists these and nothing else.
  * Keyed by folder, which is how main addresses a project.
  */

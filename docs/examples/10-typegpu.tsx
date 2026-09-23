@@ -13,7 +13,7 @@
  *   cd ~/Projects/caustics
  *   npm i typegpu @typegpu/noise && npm i -D unplugin-typegpu
  *   echo '{ "plugins": ["unplugin-typegpu/babel"] }' > babel.config.json
- *   dapi open ~/Projects/caustics
+ *   diffusion open ~/Projects/caustics
  *
  * Device lifecycle mirrors 07-webgpu.tsx: setup is async and held so exports
  * wait for the pipeline, a signal wakes the draw effect once it exists, and

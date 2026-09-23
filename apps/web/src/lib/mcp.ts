@@ -3,7 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 // The renderer's view of the agent setup main keeps: which agents carry the
-// app's MCP entry, and whether `dapi` is on PATH. Desktop only — in the
+// app's MCP entry, and whether `diffusion` is on PATH. Desktop only — in the
 // browser there are no configs to write, and every call here says so by
 // resolving to null.
 
@@ -35,6 +35,7 @@ export const AGENT_ICONS: Record<AgentId, string> = {
   antigravity: "agent.google-antigravity",
   "gemini-cli": "agent.google-gemini-cli",
   windsurf: "agent.devin-windsurf",
+  opencode: "agent.opencode",
 };
 
 const [connectedAgents, setConnectedAgents] = createSignal<number | null>(null);

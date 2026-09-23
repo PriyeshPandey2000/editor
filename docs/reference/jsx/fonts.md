@@ -1,6 +1,6 @@
 # Fonts
 
-Both text paths draw with fonts **installed on the machine**. Discover what is available with [`fonts`](../tools/fonts.md) (filter by family, weight, or style); the active project's families are also on [`context`](../tools/context.md) as `fontFamilies`. macOS resolves these families for both the native renderer and the browser, so there is nothing to bundle or load.
+Both text paths draw with fonts **installed on the machine**. Discover what is available with [`fonts`](../tools/fonts.md) (filter by family, weight, or style); the active project's families are also on [`context`](../tools/context.md) as `fontFamilies`.
 
 ## Native `<text>`
 

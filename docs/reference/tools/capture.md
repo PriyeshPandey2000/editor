@@ -5,7 +5,7 @@ Render single frames of a scene to PNGs — each frame is the frame an export of
 | | |
 | --- | --- |
 | MCP tool | `capture` |
-| CLI | `dapi capture <id> [options]` |
+| CLI | `diffusion capture <id> [options]` |
 
 ## Input
 

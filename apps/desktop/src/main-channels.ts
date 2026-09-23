@@ -34,6 +34,7 @@ export const MAIN_CHANNELS = {
   AUTH_GET_PENDING_CALLBACK: "auth:get-pending-callback",
   CHECKOUT_GET_PENDING_CALLBACK: "checkout:get-pending-callback",
   WINDOW_IS_FULLSCREEN: "window:is-fullscreen",
+  WINDOW_SET_COLOR_MODE: "window:set-color-mode",
   WINDOW_CAPTURE: "window:capture",
   FILE_TRANSFER: "file:transfer",
   FILE_WRITE_OPEN: "file:write-open",
@@ -136,10 +137,10 @@ export type McpApplyResult = {
   failures: { id: AgentId; error: string }[];
 };
 
-// Where the `dapi` command stands. `managed` means what is there is a
+// Where the `diffusion` command stands. `managed` means what is there is a
 // symlink (the app's own, or the dev workflow's Homebrew link), which
 // "Uninstall" can remove; `available` that this build can create the app's
-// link (a dev build cannot: that is `npm run symlink:create`).
+// link (a dev build cannot: that is `npm run link` in apps/cli).
 export type CliStatus = {
   installed: boolean;
   path: string | null;
@@ -147,7 +148,7 @@ export type CliStatus = {
   available: boolean;
 };
 
-// Outcome of linking the bundled dapi CLI into PATH. "cancelled" means the
+// Outcome of linking the bundled diffusion CLI into PATH. "cancelled" means the
 // user dismissed the macOS admin prompt — not an error, not installed.
 export type CliInstallResult =
   | { status: "installed" }
@@ -189,6 +190,7 @@ export type MainRequestMap = {
     response: string | null;
   };
   [MAIN_CHANNELS.WINDOW_IS_FULLSCREEN]: { request: void; response: boolean };
+  [MAIN_CHANNELS.WINDOW_SET_COLOR_MODE]: { request: { mode: "light" | "dark" }; response: void };
   [MAIN_CHANNELS.WINDOW_CAPTURE]: { request: void; response: ScreenshotResult };
   [MAIN_CHANNELS.FILE_TRANSFER]: {
     request: { selector: string; absolutePath: string };
@@ -319,7 +321,7 @@ export type MainRequestMap = {
     response: { url: string } | null;
   };
   // The app's MCP server in the agents' configs (see mcp-install.ts), and
-  // the `dapi` command on PATH (see cli-install.ts). The install/uninstall
+  // the `diffusion` command on PATH (see cli-install.ts). The install/uninstall
   // calls put the macOS admin prompt on screen.
   [MAIN_CHANNELS.MCP_STATUS]: { request: void; response: McpStatus };
   [MAIN_CHANNELS.MCP_APPLY]: { request: McpApplyRequest; response: McpApplyResult };
