@@ -456,21 +456,21 @@ const SOLID_VERSION = "^1.9.10";
  * subcommands have no top-level namesakes to collide with.
  */
 const SCRIPTS: Record<string, string> = {
-  open: "dapi open .",
-  context: "dapi context",
-  capture: "dapi capture",
-  probe: "dapi media probe",
-  transcribe: "dapi media transcribe",
-  grab: "dapi media grab",
-  filmstrip: "dapi media filmstrip",
-  waveform: "dapi media waveform",
-  listen: "dapi media listen",
-  models: "dapi models",
-  voices: "dapi voices",
-  fonts: "dapi fonts",
-  logs: "dapi logs",
-  screenshot: "dapi screenshot",
-  report: "dapi report",
+  open: "diffusion open .",
+  context: "diffusion context",
+  capture: "diffusion capture",
+  probe: "diffusion media probe",
+  transcribe: "diffusion media transcribe",
+  grab: "diffusion media grab",
+  filmstrip: "diffusion media filmstrip",
+  waveform: "diffusion media waveform",
+  listen: "diffusion media listen",
+  models: "diffusion models",
+  voices: "diffusion voices",
+  fonts: "diffusion fonts",
+  logs: "diffusion logs",
+  screenshot: "diffusion screenshot",
+  report: "diffusion report",
 };
 
 const packageJson = (name: string, displayName: string): PackageJson => ({

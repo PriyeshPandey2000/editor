@@ -84,14 +84,14 @@ function writeConfig(target: AgentTarget, text: string): void {
 
 /**
  * Why this agent cannot be connected from this build, or null when it can.
- * Only the stdio agents have reasons: a build without the `dapi` binary has
+ * Only the stdio agents have reasons: a build without the `diffusion` binary has
  * nothing for them to run, and a quarantined first launch runs from a
  * translocated read-only mount whose path won't survive the next launch —
  * registering it would dangle.
  */
 function unavailableReason(target: AgentTarget, current: McpServerSpec): string | null {
   if (!needsBinary(target)) return null;
-  if (current.command === "") return "Needs the dapi command line tool, which this build does not include.";
+  if (current.command === "") return "Needs the diffusion command line tool, which this build does not include.";
   if (app.isPackaged && current.command.includes("/AppTranslocation/")) {
     return "Move Diffusion Studio to the Applications folder and relaunch it first.";
   }

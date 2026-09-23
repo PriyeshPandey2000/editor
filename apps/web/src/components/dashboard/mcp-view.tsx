@@ -212,7 +212,7 @@ function DashboardCliSection() {
     try {
       const result = await installCli();
       if (result.status === "installed") {
-        toast("CLI installed", { description: "Run dapi --help in a terminal to get started." });
+        toast("CLI installed", { description: "Run diffusion --help in a terminal to get started." });
       }
       if (result.status === "error") {
         toast.error("Could not install the CLI", { description: result.error });
@@ -247,7 +247,7 @@ function DashboardCliSection() {
       <DashboardInfoActionRow
         layout="inline"
         leadingSize="sm"
-        title="dapi CLI"
+        title="diffusion CLI"
         leading={<Icon name="dapi-cli" class="text-foreground" />}
         description="Diffusion Studio’s command-line tool for accessing its media tools and managing projects."
         action={
