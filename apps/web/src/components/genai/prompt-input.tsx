@@ -11,6 +11,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Icon } from "@/components/ui/icon";
+import { RemoveButton } from "@/components/ui/remove-button";
 import { SearchInput } from "@/components/ui/search-input";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverPortal, PopoverTrigger } from "@/components/ui/popover";
@@ -467,7 +468,7 @@ export function PromptInput(props: PromptInputProps) {
 
   return (
     <div
-      class="absolute w-xl bottom-16 z-10 mx-auto left-1/2 -translate-x-1/2 flex flex-col gap-2 rounded-xl border border-border bg-background p-2"
+      class="absolute w-xl max-w-[calc(100%-2rem)] bottom-16 z-10 mx-auto left-1/2 -translate-x-1/2 flex flex-col gap-2 rounded-xl border border-border bg-background p-2"
       onDragOver={handleDragOver}
       onDragEnter={handleDragEnter}
       onDragLeave={handleDragLeave}
@@ -1070,15 +1071,11 @@ function PromptInputReferenceImageButton(props: PromptInputReferenceImageButtonP
         <AssetThumbnail asset={props.asset} cache={props.cache} class="size-full" size={props.size} />
       </div>
       <Show when={props.onRemove}>
-        <button
-          type="button"
-          class="absolute right-0 top-0 z-10 grid size-8 place-items-center opacity-0 transition-opacity group-hover:opacity-100"
+        <RemoveButton
+          label="Remove reference"
+          class="absolute right-1.5 top-1.5 z-10 opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100"
           onClick={props.onRemove}
-        >
-          <div class="size-5 flex items-center justify-center overflow-hidden rounded-full border border-border bg-background">
-            <Icon name="close-remove-small" class="size-6 min-w-6 min-h-6" />
-          </div>
-        </button>
+        />
       </Show>
     </div>
   );

@@ -2,43 +2,20 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-import { app, dialog, Menu } from "electron";
+import { app, Menu } from "electron";
 import type { MenuItemConstructorOptions } from "electron";
 
-import { CLI_LINK_PATH, installCli } from "./cli-install";
-
-async function installCliFromMenu() {
-  const result = await installCli();
-  if (result.status === "cancelled") return;
-  if (result.status === "installed") {
-    await dialog.showMessageBox({
-      type: "info",
-      message: "The dapi command line tool was installed.",
-      detail: `Linked at ${CLI_LINK_PATH}. Run "dapi --help" in a terminal to get started.`,
-    });
-  } else {
-    await dialog.showMessageBox({
-      type: "error",
-      message: "Could not install the dapi command line tool.",
-      detail: result.error,
-    });
-  }
-}
-
 export function setupAppMenu() {
-  if (process.platform !== "darwin") return;
+  // The app submenu is a macOS convention. Elsewhere the same role menus sit
+  // behind Alt (the window hides the bar) and exist for their accelerators:
+  // reload, devtools, zoom, quit.
+  const template: MenuItemConstructorOptions[] = []
 
-  const template: MenuItemConstructorOptions[] = [
-    {
+  if (process.platform === "darwin") {
+    template.push({
       label: app.name,
       submenu: [
         { role: "about" },
-        { type: "separator" },
-        {
-          label: "Install dapi Command Line Tool…",
-          enabled: app.isPackaged,
-          click: installCliFromMenu,
-        },
         { type: "separator" },
         { role: "services" },
         { type: "separator" },
@@ -48,12 +25,15 @@ export function setupAppMenu() {
         { type: "separator" },
         { role: "quit" },
       ],
-    },
+    });
+  }
+
+  template.push(
     { role: "fileMenu" },
     { role: "editMenu" },
     { role: "viewMenu" },
     { role: "windowMenu" },
-  ];
+  );
 
   Menu.setApplicationMenu(Menu.buildFromTemplate(template));
 }

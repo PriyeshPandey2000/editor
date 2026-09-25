@@ -3,11 +3,11 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 import { Show, createEffect, createMemo, createResource } from 'solid-js';
-import { Navigate, useNavigate } from '@solidjs/router';
+import { Navigate, useLocation, useNavigate } from '@solidjs/router';
 import { EditorPage } from './editor';
 import { LayoutProvider } from "@/context/layout";
 import { PromptInputProvider } from "@/context/prompt-input";
-import { EditorApiProvider } from '@/context/dapi';
+import { EditorApiProvider } from '@/dapi';
 import { ExportProvider } from '@/context/export';
 import { ProjectProvider } from '@/context/project';
 import { projectRoute, useProjectRef } from '@/hooks/use-project-route';
@@ -19,6 +19,7 @@ import { EngineProvider } from '@/engine';
 export function ProjectPage() {
   const ref = useProjectRef();
   const navigate = useNavigate();
+  const location = useLocation();
 
   // The ref the project was found for. Rewriting the URL to the id below
   // changes the ref without changing the project, so the lookup is held on
@@ -41,7 +42,7 @@ export function ProjectPage() {
     const id = project()?.id;
     if (!id) return;
     resolvedId = id;
-    if (id !== ref()) navigate(projectRoute(id), { replace: true });
+    if (id !== ref()) navigate(projectRoute(id), { replace: true, state: location.state });
   });
 
   return (

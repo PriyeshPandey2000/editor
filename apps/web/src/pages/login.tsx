@@ -9,8 +9,8 @@ import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
 import { TextField, TextFieldInput, TextFieldLabel } from '@/components/ui/text-field';
 import { DevAuthCodeInput } from '@/components/dev-auth-code-input';
-import { HeadlessIndicator } from '@/components/headless-indicator';
 import { useAuth } from '@/context/auth';
+import { useFullscreenState } from '@/hooks/use-fullscreen-state';
 
 type OAuthButtonProps = {
   icon: string;
@@ -34,6 +34,7 @@ function OAuthButton(props: OAuthButtonProps) {
 
 export function LoginPage() {
   const auth = useAuth();
+  const isFullscreen = useFullscreenState();
   const [email, setEmail] = createSignal('');
   const [otpSending, setOtpSending] = createSignal(false);
 
@@ -56,8 +57,9 @@ export function LoginPage() {
 
   return (
     <div class="flex flex-col bg-background fixed inset-0 z-999">
-      <HeadlessIndicator />
-
+      <Show when={!!window.desktop && !isFullscreen()}>
+        <div class="absolute inset-x-0 top-0 h-10 z-20" style="-webkit-app-region: drag;" />
+      </Show>
       <Show when={!window.desktop}>
         <div class="flex items-center gap-1 p-4">
           <Icon name="diffusion-logo" class="size-6" />

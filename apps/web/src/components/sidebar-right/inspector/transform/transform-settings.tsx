@@ -46,12 +46,12 @@ type TransformAddons = Partial<Record<TransformAddon, boolean>>;
 
 /**
  * Where a node sits and how it is transformed there. Position, rotation,
- * offset and scale are props (`x`/`y`, `rotation`, `offsetX`/`offsetY`,
- * `scale` or `scaleX`/`scaleY`) written through the editor; anchor, flip,
- * skew and constraints have no JSX spelling and are written to their traits
- * alone, so they do not survive a recompile. The rows below Position are
- * opt-in and which ones are shown is app state, kept per user rather than
- * per node.
+ * offset, scale and constraints are props (`x`/`y`, `rotation`,
+ * `offsetX`/`offsetY`, `scale` or `scaleX`/`scaleY`,
+ * `constrainX`/`constrainY`) written through the editor; anchor, flip and
+ * skew have no JSX spelling and are written to their traits alone, so they do
+ * not survive a recompile. The rows below Position are opt-in and which ones
+ * are shown is app state, kept per user rather than per node.
  */
 export function TransformSettings(props: TransformSettingsProps) {
   const world = useWorld();

@@ -54,3 +54,106 @@ jobs:
           APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         run: npm run publish --workspace=@diffusionstudio/desktop
+
+  # Signed with Azure Artifact Signing; apps/desktop/WINDOWS.md (stage 5) has
+  # the account setup and the secrets and variables this job expects. Runs
+  # after the macOS job so both append their assets to the one draft release
+  # instead of racing to create it. Squirrel's RELEASES file and the nupkg
+  # land next to the setup exe; the updater needs all three.
+  publish-windows:
+    needs: publish-macos
+    runs-on: windows-latest
+    # The environment name is the subject of the OIDC token that Azure's
+    # federated credential for this repository is bound to.
+    environment: release
+    permissions:
+      contents: write
+      id-token: write # OIDC sign-in to Azure, no client secret
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Check versions match tag
+        shell: bash
+        run: |
+          TAG="${GITHUB_REF_NAME#v}"
+          for PKG in package.json apps/desktop/package.json apps/cli/package.json apps/web/package.json; do
+            V="$(node -p "require('./$PKG').version")"
+            if [ "$V" != "$TAG" ]; then
+              echo "Version mismatch in $PKG: $V, tag is $TAG"
+              exit 1
+            fi
+          done
+
+      - run: npm ci
+
+      - name: Provide client env for web build
+        shell: bash
+        run: cp apps/web/.env.example apps/web/.env
+
+      - name: Sign in to Azure
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      # signtool.exe from the newest Windows SDK on the runner (the dlib needs
+      # 10.0.2261.755 or later), the Artifact Signing dlib from NuGet, and a
+      # metadata file naming the account. forge.config.ts reads the three
+      # paths from the environment. Authentication goes through the Azure CLI
+      # session from the step above; every other credential source is
+      # excluded so a misconfiguration fails fast instead of timing out.
+      - name: Set up Artifact Signing
+        shell: pwsh
+        env:
+          ENDPOINT: ${{ vars.ARTIFACT_SIGNING_ENDPOINT }}
+          ACCOUNT: ${{ vars.ARTIFACT_SIGNING_ACCOUNT }}
+          PROFILE: ${{ vars.ARTIFACT_SIGNING_PROFILE }}
+        run: |
+          $ErrorActionPreference = "Stop"
+          foreach ($name in "ENDPOINT", "ACCOUNT", "PROFILE") {
+            if (-not (Get-Item "env:$name").Value) { throw "Repository variable ARTIFACT_SIGNING_$name is not set" }
+          }
+
+          $signtool = Get-ChildItem "${env:ProgramFiles(x86)}\Windows Kits\10\bin\10.0.*\x64\signtool.exe" |
+            Sort-Object { [version]$_.Directory.Parent.Name } | Select-Object -Last 1
+          if (-not $signtool) { throw "signtool.exe not found in the Windows SDK" }
+
+          $dir = Join-Path $env:RUNNER_TEMP "artifact-signing"
+          nuget install Microsoft.ArtifactSigning.Client -ExcludeVersion -OutputDirectory $dir
+          $dlib = Join-Path $dir "Microsoft.ArtifactSigning.Client\bin\x64\Azure.CodeSigning.Dlib.dll"
+          if (-not (Test-Path $dlib)) { throw "Artifact Signing dlib not found at $dlib" }
+
+          $metadata = Join-Path $dir "metadata.json"
+          @{
+            Endpoint = $env:ENDPOINT
+            CodeSigningAccountName = $env:ACCOUNT
+            CertificateProfileName = $env:PROFILE
+            CorrelationId = "$env:GITHUB_REPOSITORY $env:GITHUB_REF_NAME"
+            ExcludeCredentials = @(
+              "EnvironmentCredential",
+              "WorkloadIdentityCredential",
+              "ManagedIdentityCredential",
+              "SharedTokenCacheCredential",
+              "VisualStudioCredential",
+              "VisualStudioCodeCredential",
+              "AzurePowerShellCredential",
+              "AzureDeveloperCliCredential",
+              "InteractiveBrowserCredential"
+            )
+          } | ConvertTo-Json | Set-Content -Path $metadata -Encoding utf8
+
+          "WINDOWS_SIGNTOOL_PATH=$($signtool.FullName)" >> $env:GITHUB_ENV
+          "WINDOWS_SIGN_DLIB=$dlib" >> $env:GITHUB_ENV
+          "WINDOWS_SIGN_METADATA=$metadata" >> $env:GITHUB_ENV
+
+      - name: Build, sign, and publish draft release
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: npm run publish --workspace=@diffusionstudio/desktop

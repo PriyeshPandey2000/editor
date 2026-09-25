@@ -11,6 +11,7 @@ import { execFileSync } from "node:child_process";
 import { readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { npm } from "./lib/npm.mjs";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const PKGS = [
@@ -62,10 +63,7 @@ for (const rel of PKGS) {
   writeFileSync(path, JSON.stringify(pkg, null, 2) + "\n");
 }
 
-execFileSync("npm", ["install", "--package-lock-only", "--no-audit", "--no-fund"], {
-  cwd: root,
-  stdio: "inherit",
-});
+npm(["install", "--package-lock-only", "--no-audit", "--no-fund"], { cwd: root });
 
 git("add", ...PKGS, "package-lock.json");
 git("commit", "-m", tag);
