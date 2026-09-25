@@ -25,9 +25,7 @@ export function InspectorHeader() {
 
   return (
     <div class="h-12 shrink-0 flex items-center px-4">
-      <span class="text-[12px] font-450 text-foreground">
-        Editor
-      </span>
+      <span class="text-[12px] leading-5 font-450 text-foreground">Editor</span>
       <DropdownMenu placement="bottom-end">
         <DropdownMenuTrigger<typeof Button>
           as={(triggerProps) => (

@@ -11,9 +11,15 @@ import {
   SelectItem,
   SelectPortal,
 } from "@/components/ui/select";
-import { horizontalConstraints, verticalConstraints } from "./constants";
+import {
+  horizontalConstraintName,
+  horizontalConstraints,
+  verticalConstraintName,
+  verticalConstraints,
+} from "./constants";
 import { useTrait } from "@diffusionstudio/koota-solid";
 import { Constraint, ConstraintType } from "@diffusionstudio/runtime";
+import { useEditor } from "@/engine/hooks";
 
 import type { Entity } from "koota";
 
@@ -22,33 +28,43 @@ type ConstraintsRowProps = {
 };
 
 /**
- * How the node follows its scene's frame when that frame resizes. `Constraint`
- * has no JSX spelling, so this writes the trait alone; the runtime seeds the
- * cache it resolves against the first time it sees the node with one, so a
- * constraint set here does not move anything until the frame changes.
+ * How the node follows its scene's frame when that frame resizes, written to
+ * the document as `constrainX`/`constrainY`. The runtime seeds the cache it
+ * resolves against the first time it sees the node with a constraint, so one
+ * set here does not move anything until the frame changes.
+ *
+ * Each axis is written on its own, and `MIN` — pinned where the node already
+ * is — spells as the prop's absence, the way every other default does. The
+ * two writes the centre button makes land in one history step, as any two
+ * edits in a burst do.
  */
 export function ConstraintsRow(props: ConstraintsRowProps) {
+  const editor = useEditor();
   const constraint = useTrait(() => props.node, Constraint);
   const horizontal = () => constraint()?.horizontal ?? ConstraintType.MIN;
   const vertical = () => constraint()?.vertical ?? ConstraintType.MIN;
 
-  const assign = (value: Partial<{ horizontal: ConstraintType; vertical: ConstraintType }>) => {
-    props.node.add(Constraint);
-    props.node.set(Constraint, value);
-  };
-
   const assignHorizontal = (value: ConstraintType | null) => {
     if (value == null) return;
-    assign({ horizontal: value });
+    editor.editProperty(
+      props.node,
+      "constrainX",
+      value === ConstraintType.MIN ? false : horizontalConstraintName(value),
+    );
   };
 
   const assignVertical = (value: ConstraintType | null) => {
     if (value == null) return;
-    assign({ vertical: value });
+    editor.editProperty(
+      props.node,
+      "constrainY",
+      value === ConstraintType.MIN ? false : verticalConstraintName(value),
+    );
   };
 
   const assignCenter = () => {
-    assign({ horizontal: ConstraintType.CENTER, vertical: ConstraintType.CENTER });
+    assignHorizontal(ConstraintType.CENTER);
+    assignVertical(ConstraintType.CENTER);
   };
 
   return (

@@ -7,9 +7,16 @@
  * type-safe `track` / `identify` helpers that no-op when Umami is
  * disabled (env vars unset) or has not finished loading yet.
  *
+ * Inside the desktop app the Umami script is inert (its `data-domains` gate
+ * does not match the `file://` origin), so `track` hands events to main,
+ * which posts them to Umami itself.
+ *
  * Pageviews and SPA route changes are auto-tracked by the Umami script
  * via the History API — call `track` only for custom product events.
  */
+
+import { MAIN_CHANNELS } from "@desktop/main-channels";
+import { mainBridge } from "@/lib/ipc";
 
 type UmamiEventData = Record<string, string | number | boolean | undefined>;
 
@@ -60,6 +67,12 @@ function clean(data?: UmamiEventData): UmamiEventData | undefined {
 
 export function track(event: string, data?: UmamiEventData): void {
   const payload = clean(data);
+  if (window.desktop) {
+    mainBridge
+      .call(MAIN_CHANNELS.ANALYTICS_TRACK, { event, data: payload as Record<string, string | number | boolean> | undefined })
+      .catch(() => {});
+    return;
+  }
   if (payload) {
     window.umami?.track(event, payload);
   } else {

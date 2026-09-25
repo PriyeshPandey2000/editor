@@ -23,14 +23,14 @@ import { useGenerateVideo } from "./use-generate-video";
 import { useGenerateVoice } from "./use-generate-voice";
 import { useGenerateAudio } from "./use-generate-audio";
 import { useMediaSelection } from "./selection";
-import { useModifiers } from "./use-modifiers";
+import { useTransforms } from "./use-transforms";
 
-import type { ModifierName } from "./use-modifiers";
+import type { TransformType } from "@diffusionstudio/jsx";
 
 export function PromptInputActions() {
   const { isGenerated, totalCredits, firstConfig } = useGenerationRecords();
   const { imageNodes, videoNodes } = useMediaSelection();
-  const { isOn, toggle } = useModifiers();
+  const { isOn, toggle } = useTransforms();
 
   const { generate: generateImage } = useGenerateImage();
   const { generate: generateVideo } = useGenerateVideo();
@@ -121,13 +121,13 @@ export function PromptInputActions() {
               </Show>
               <DropdownMenuGroup>
                 <Show when={hasImageSelection() || hasVideoSelection()}>
-                  <ModifierItem name="upscale" icon="arrow-scale" label="Upscale" isOn={isOn} toggle={toggle} />
+                  <TransformItem name="upscale" icon="arrow-scale" label="Upscale" isOn={isOn} toggle={toggle} />
                 </Show>
                 <Show when={hasImageSelection()}>
-                  <ModifierItem name="removeBackground" icon="ai-generate" label="Remove background" isOn={isOn} toggle={toggle} />
+                  <TransformItem name="removeBackground" icon="ai-generate" label="Remove background" isOn={isOn} toggle={toggle} />
                 </Show>
                 <Show when={hasVideoSelection()}>
-                  <ModifierItem name="addAudio" icon="audio-on" label="Add audio" isOn={isOn} toggle={toggle} />
+                  <TransformItem name="addAudio" icon="audio-on" label="Add audio" isOn={isOn} toggle={toggle} />
                 </Show>
               </DropdownMenuGroup>
             </DropdownMenuContent>
@@ -138,16 +138,16 @@ export function PromptInputActions() {
   );
 }
 
-type ModifierItemProps = {
-  name: ModifierName;
+type TransformItemProps = {
+  name: TransformType;
   icon: string;
   label: string;
-  isOn(name: ModifierName): boolean;
-  toggle(name: ModifierName): void;
+  isOn(name: TransformType): boolean;
+  toggle(name: TransformType): void;
 };
 
-/** A modifier as a menu row: a check when the selection is asking for it. */
-function ModifierItem(props: ModifierItemProps) {
+/** A transform as a menu row: a check when the selection is asking for it. */
+function TransformItem(props: TransformItemProps) {
   return (
     <DropdownMenuItem onSelect={() => props.toggle(props.name)}>
       <Icon name={props.icon} class="mr-2 text-foreground" />

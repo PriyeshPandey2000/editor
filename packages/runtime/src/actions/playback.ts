@@ -74,29 +74,73 @@ export function setPlayhead(world: World, scene: Entity, frame: number): void {
 }
 
 /**
- * Starts or stops `scene` at 1x. The audio context is gated until it has seen
- * a gesture and a play is one, so it is resumed here rather than at every
- * call site that can start playback.
+ * Moves the playhead off the end it is parked against, in the direction play
+ * is about to take: parked there it would stop on the first advance, so a
+ * finished scene plays again from the top of its window and one sitting at
+ * the top runs backwards from its end.
  */
+function rewindIfParked(world: World, scene: Entity, direction: 1 | -1): void {
+	const computed = store(world, Computed);
+	const eid = scene.id();
+	const workarea = scene.has(Workarea) ? scene.get(Workarea) : undefined;
+	const start = workarea?.start ?? 0;
+	const end = workarea?.end ?? computed.duration[eid] ?? 0;
+	if (end <= 0) return;
+
+	const frame = computed.localTime[eid] ?? 0;
+
+	if (direction === 1 && frame >= end) setPlayhead(world, scene, start);
+	if (direction === -1 && frame <= start) setPlayhead(world, scene, end);
+}
+
+/**
+ * The audio context is gated until it has seen a gesture, and starting
+ * playback is one, so it is resumed wherever play begins rather than at every
+ * call site that can start it.
+ */
+function resumeAudioContext(world: World): void {
+	const context = world.get(AudioEngine)?.context;
+	if (context instanceof AudioContext) void context.resume();
+}
+
+/** Starts or stops `scene` at 1x — what the play toggle and space do. */
 export function togglePlayback(world: World, scene: Entity): void {
 	const playback = scene.get(Playback);
 	if (!playback) return;
 
-	// Starting parked at the end would stop on the first advance, so a
-	// finished scene plays again from the top (of its workarea, if any).
-	if (!playback.playing) {
-		const computed = store(world, Computed);
-		const eid = scene.id();
-		const workarea = scene.has(Workarea) ? scene.get(Workarea) : undefined;
-		const end = workarea?.end ?? computed.duration[eid] ?? 0;
-
-		if (end > 0 && (computed.localTime[eid] ?? 0) >= end) {
-			setPlayhead(world, scene, workarea?.start ?? 0);
-		}
-	}
+	if (!playback.playing) rewindIfParked(world, scene, 1);
 
 	scene.set(Playback, { playing: !playback.playing, speed: 1 });
+	resumeAudioContext(world);
+}
 
-	const context = world.get(AudioEngine)?.context;
-	if (context instanceof AudioContext) void context.resume();
+/** Stops `scene` wherever it is, at whatever speed it was going — K. */
+export function stopPlayback(_world: World, scene: Entity): void {
+	if (!scene.has(Playback)) return;
+
+	scene.set(Playback, { playing: false, speed: 1 });
+}
+
+/** The rungs J and L climb, as multiples of real time. */
+export const SHUTTLE_SPEEDS: readonly number[] = [1, 2, 4, 8, 16];
+
+/**
+ * Shuttles `scene` in `direction` — L forwards, J back.
+ */
+export function shuttlePlayback(world: World, scene: Entity, direction: 1 | -1): void {
+	const playback = scene.get(Playback);
+	if (!playback) return;
+
+	const speed = playback.playing ? playback.speed : 0;
+
+	// A speed off the ladder (indexOf -1) starts the climb over at its first
+	// rung, which is also where a stop or a turnaround starts.
+	const rung = Math.sign(speed) === direction
+		? SHUTTLE_SPEEDS[Math.min(SHUTTLE_SPEEDS.indexOf(Math.abs(speed)) + 1, SHUTTLE_SPEEDS.length - 1)]!
+		: SHUTTLE_SPEEDS[0]!;
+
+	rewindIfParked(world, scene, direction);
+
+	scene.set(Playback, { playing: true, speed: direction * rung });
+	resumeAudioContext(world);
 }

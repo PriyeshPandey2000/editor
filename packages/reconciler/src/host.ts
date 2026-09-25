@@ -41,5 +41,6 @@ export interface ProjectDocument<N = unknown> {
   getNextSibling(node: N): N | undefined;
   tick?(): ProjectTick;
   hold?(work: Promise<unknown>): void;
+  resolution?(): number;
   applyRef?(node: N, ref: (target: unknown) => void): void;
 }

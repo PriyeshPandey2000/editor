@@ -4,15 +4,20 @@
 
 import { app, BrowserWindow, nativeImage, session, shell } from "electron";
 import { dirname, join } from "node:path";
-import { mkdir, open, unlink } from "node:fs/promises";
+import { existsSync } from "node:fs";
+import { mkdir, open, rename, unlink } from "node:fs/promises";
 import { randomUUID } from "node:crypto";
 import type { FileHandle } from "node:fs/promises";
 import { updateElectronApp } from "update-electron-app";
-import { startCliServer, stopCliServer, isHeadless } from "./cli-server";
-import { installCli, isCliInstalled } from "./cli-install";
-import { healSkillsLinks, installSkills, isSkillsInstalled } from "./skills-install";
-import { trackInstall } from "./analytics";
+import { tempPathFor } from "./atomic";
+import { DapiServer } from "./dapi/server";
+import { agentChatEndpoint, deleteProjectChats, startAgentChat, stopAgentChat } from "./agent-chat";
+import { cliStatus, installCli, refreshCliShim, uninstallCli } from "./cli-install";
+import { applyMcp, healMcpRegistrations, mcpStatus } from "./mcp-install";
+import { enableHeadless } from "./headless";
+import { trackEvent, trackInstall } from "./analytics";
 import { setupAppMenu } from "./menu";
+import { handleSquirrelEvent } from "./squirrel";
 import { mainBridge } from "./main-manager";
 import { MAIN_CHANNELS } from "./main-channels";
 import {
@@ -23,14 +28,16 @@ import {
   duplicateProject,
   getProject,
   initProject,
-  listProjects,
+  pickFolder,
   pickRoot,
   renameProject,
   resolveProject,
+  scanProjects,
   unwatchAll,
   listEntries,
   realPathEntry,
-  markSelfWriteAbsolute,
+  noteContent,
+  noteRenamed,
   readConfig,
   readManifest,
   removeEntry,
@@ -42,12 +49,26 @@ import {
   writeProject,
 } from "./projects";
 import type { DeepLinkChannel } from "./main-channels";
-import type { LogEntry } from "@diffusionstudio/cli/protocol";
+import type { LogEntry } from "@diffusionstudio/dapi";
 
 const DEV_URL = "http://localhost:5173";
 const AUTH_PROTOCOL = "diffusion";
 const MACOS_CORNER_RADIUS = 18;
 const MACOS_BACKDROP = { blur: 80, red: 0.07, green: 0.07, blue: 0.07, alpha: 0.9 };
+// Window Controls Overlay on Windows: as tall as the renderer's `h-10` drag
+// strip, coloured like the sidebar it sits on (`--sidebar`), with symbols in
+// `--muted-foreground` like the other title bar icons. The dark value is that
+// token flattened onto the sidebar, since the overlay takes opaque colours.
+const WINDOWS_OVERLAY_HEIGHT = 40;
+const WINDOWS_OVERLAY_COLORS = {
+  dark: { color: "#121212", symbolColor: "#a1a1a1" },
+  light: { color: "#f7f7f7", symbolColor: "#737373" },
+};
+
+// A Squirrel.Windows install/update/uninstall launch: housekeeping only, the
+// app quits on its own. Decided first so nothing below starts a service or
+// checks for updates on a launch that is about to end.
+const squirrelLaunch = handleSquirrelEvent();
 
 app.setName("Diffusion Studio");
 app.commandLine.appendSwitch("enable-blink-features", "CanvasDrawElement");
@@ -79,11 +100,16 @@ function applyBackdrop() {
   setNativeBackdrop(mainWindow.getNativeWindowHandle(), blur, red, green, blue, alpha);
 }
 
-if (app.isPackaged && !process.argv.includes("--hidden")) {
+function setColorMode(mode: "dark" | "light") {
+  if (process.platform === "darwin" || !mainWindow || mainWindow.isDestroyed()) return;
+  mainWindow.setTitleBarOverlay({ ...WINDOWS_OVERLAY_COLORS[mode], height: WINDOWS_OVERLAY_HEIGHT });
+}
+
+if (app.isPackaged && !squirrelLaunch && !process.argv.includes("--hidden")) {
   updateElectronApp({ repo: "diffusionstudio/editor" });
 }
 
-const openWrites = new Map<string, { handle: FileHandle; path: string }>();
+const openWrites = new Map<string, { handle: FileHandle; path: string; temp: string; reserved: boolean }>();
 
 let mainWindow: BrowserWindow | null = null;
 
@@ -96,6 +122,24 @@ const pendingDeepLinks = new Map<DeepLinkChannel, string>();
 // (page logs, worker logs, uncaught errors) without touching the web bundle.
 const LOG_BUFFER_MAX = 2000;
 const logBuffer: LogEntry[] = [];
+
+// The docs the MCP instructions point agents at: staged into the bundle by
+// scripts/stage-docs.mjs (Contents/Resources/docs) when packaged; the repo's
+// own `docs/` in development, so edits show up without a staging step. Null
+// when neither exists.
+function docsDir(): string | null {
+  const dir = app.isPackaged ? join(process.resourcesPath, "docs") : join(app.getAppPath(), "..", "..", "docs");
+  return existsSync(dir) ? dir : null;
+}
+
+// The MCP server agents and the diffusion CLI talk to. Started once the app is
+// ready; the first connection switches the app into headless mode.
+const dapi = new DapiServer({
+  version: app.getVersion(),
+  logs: () => logBuffer,
+  docsDir: docsDir(),
+  onFirstConnection: enableHeadless,
+});
 
 function pushLog(level: LogEntry["level"], message: string, source: string) {
   logBuffer.push({ ts: Date.now(), level, message, source });
@@ -177,19 +221,36 @@ async function setFileInputFiles(selector: string, absolutePath: string) {
 }
 
 function createWindow(show = true) {
-  mainWindow = new BrowserWindow({
+
+  const options: Electron.BrowserWindowConstructorOptions = {
     show: false,
     width: 1200,
     height: 800,
-    titleBarStyle: "hiddenInset",
-    trafficLightPosition: { x: 14, y: 14 },
-    ...(process.platform === "darwin"
-      ? { vibrancy: "sidebar" as const, backgroundColor: "#00000000" }
-      : { backgroundColor: "#1c1c1c" }),
     webPreferences: {
       preload: join(app.getAppPath(), "dist", "preload.js"),
+      backgroundThrottling: false,
     },
-  });
+  }
+
+  if (process.platform === "darwin") {
+    options.titleBarStyle = "hiddenInset" as const;
+    options.trafficLightPosition = { x: 14, y: 14 };
+    options.vibrancy = "sidebar" as const;
+    options.backgroundColor = "#00000000";
+  }
+
+  if (process.platform === "win32") {
+    options.titleBarStyle = "hidden" as const;
+    options.titleBarOverlay = { ...WINDOWS_OVERLAY_COLORS.dark, height: WINDOWS_OVERLAY_HEIGHT };
+    options.autoHideMenuBar = true;
+    options.backgroundColor = WINDOWS_OVERLAY_COLORS.dark.color;
+
+    if (!app.isPackaged) {
+      options.icon = join(app.getAppPath(), "assets", "icon-dev.png");
+    }
+  }
+
+  mainWindow = new BrowserWindow(options);
 
   captureConsole(mainWindow);
 
@@ -237,7 +298,9 @@ if (process.defaultApp && process.argv.length >= 2) {
   app.setAsDefaultProtocolClient(AUTH_PROTOCOL);
 }
 
-if (app.requestSingleInstanceLock()) {
+if (squirrelLaunch) {
+  // Update.exe is at work; handleSquirrelEvent quits the app when it is done.
+} else if (app.requestSingleInstanceLock()) {
   app.on("second-instance", (_event, argv) => {
     const url = findProtocolUrl(argv);
     if (url) deliverDeepLink(url);
@@ -260,10 +323,7 @@ if (app.requestSingleInstanceLock()) {
 
   mainBridge.handle(MAIN_CHANNELS.APP_OPEN_EXTERNAL, ({ url }) => shell.openExternal(url));
   mainBridge.handle(MAIN_CHANNELS.APP_SHOW_IN_FOLDER, ({ path }) => shell.showItemInFolder(path));
-  mainBridge.handle(MAIN_CHANNELS.CLI_IS_INSTALLED, () => isCliInstalled());
-  mainBridge.handle(MAIN_CHANNELS.CLI_INSTALL, () => installCli());
-  mainBridge.handle(MAIN_CHANNELS.SKILLS_IS_INSTALLED, () => isSkillsInstalled());
-  mainBridge.handle(MAIN_CHANNELS.SKILLS_INSTALL, () => installSkills());
+  mainBridge.handle(MAIN_CHANNELS.ANALYTICS_TRACK, ({ event, data }) => trackEvent(event, data));
   mainBridge.handle(MAIN_CHANNELS.AUTH_GET_PENDING_CALLBACK, () =>
     takePendingDeepLink(MAIN_CHANNELS.AUTH_CALLBACK),
   );
@@ -271,26 +331,35 @@ if (app.requestSingleInstanceLock()) {
     takePendingDeepLink(MAIN_CHANNELS.CHECKOUT_CALLBACK),
   );
   mainBridge.handle(MAIN_CHANNELS.WINDOW_IS_FULLSCREEN, () => mainWindow?.isFullScreen() ?? false);
+  mainBridge.handle(MAIN_CHANNELS.WINDOW_SET_COLOR_MODE, ({ mode }) => setColorMode(mode));
   mainBridge.handle(MAIN_CHANNELS.WINDOW_CAPTURE, async () => {
     if (!mainWindow || mainWindow.isDestroyed()) throw new Error("No main window");
     const image = await mainWindow.webContents.capturePage(undefined, { stayHidden: true });
     const { width, height } = image.getSize();
-    return { base64: image.toPNG().toString("base64"), width, height };
+    const png = image.toPNG();
+    // A plain Uint8Array over the PNG, so the renderer sees bytes and not a Buffer.
+    return { png: new Uint8Array(png.buffer, png.byteOffset, png.byteLength), width, height };
   });
-  mainBridge.handle(MAIN_CHANNELS.HEADLESS_GET_MODE, () => isHeadless());
   mainBridge.handle(MAIN_CHANNELS.LOGS_GET, () => logBuffer);
+  mainBridge.handle(MAIN_CHANNELS.AGENT_CHAT_ENDPOINT, () => agentChatEndpoint());
+  mainBridge.handle(MAIN_CHANNELS.MCP_STATUS, () => mcpStatus());
+  mainBridge.handle(MAIN_CHANNELS.MCP_APPLY, (request) => applyMcp(request));
+  mainBridge.handle(MAIN_CHANNELS.CLI_STATUS, () => cliStatus());
+  mainBridge.handle(MAIN_CHANNELS.CLI_INSTALL, () => installCli());
+  mainBridge.handle(MAIN_CHANNELS.CLI_UNINSTALL, () => uninstallCli());
   mainBridge.handle(MAIN_CHANNELS.PROJECTS_PICK_ROOT, () => pickRoot(mainWindow));
+  mainBridge.handle(MAIN_CHANNELS.PROJECTS_PICK_FOLDER, () => pickFolder(mainWindow));
   mainBridge.handle(MAIN_CHANNELS.PROJECTS_DEFAULT_ROOT, () => defaultRoot(mainWindow));
-  mainBridge.handle(MAIN_CHANNELS.PROJECTS_LIST, ({ root }) => listProjects(root));
+  mainBridge.handle(MAIN_CHANNELS.PROJECTS_SCAN, ({ root }) => scanProjects(root));
   mainBridge.handle(MAIN_CHANNELS.PROJECTS_GET, ({ dir }) => getProject(dir));
   mainBridge.handle(MAIN_CHANNELS.PROJECTS_INIT, ({ dir }) => initProject(mainWindow, dir));
-  mainBridge.handle(MAIN_CHANNELS.PROJECTS_RESOLVE, ({ root, ref }) => resolveProject(root, ref));
+  mainBridge.handle(MAIN_CHANNELS.PROJECTS_RESOLVE, ({ dir }) => resolveProject(dir));
   mainBridge.handle(MAIN_CHANNELS.PROJECTS_CREATE, ({ root, displayName }) =>
     createProject(root, displayName),
   );
   mainBridge.handle(MAIN_CHANNELS.PROJECTS_RENAME, ({ dir, displayName }) => renameProject(dir, displayName));
   mainBridge.handle(MAIN_CHANNELS.PROJECTS_DUPLICATE, ({ dir }) => duplicateProject(dir));
-  mainBridge.handle(MAIN_CHANNELS.PROJECTS_DELETE, ({ dir }) => deleteProject(dir));
+  mainBridge.handle(MAIN_CHANNELS.PROJECTS_DELETE, ({ dir }) => deleteProject(dir).then(deleteProjectChats));
   mainBridge.handle(MAIN_CHANNELS.PROJECTS_COMPILE, ({ dir }) => compileProject(dir));
   mainBridge.handle(MAIN_CHANNELS.PROJECTS_WRITE, ({ dir, edits }) => writeProject(dir, edits));
   mainBridge.handle(MAIN_CHANNELS.PROJECTS_WATCH, ({ dir }, event) =>
@@ -311,17 +380,29 @@ if (app.requestSingleInstanceLock()) {
 
   mainBridge.handle(MAIN_CHANNELS.FILE_WRITE_OPEN, async ({ path, exclusive }) => {
     await mkdir(dirname(path), { recursive: true });
-    markSelfWriteAbsolute(path);
-    const handle = await open(path, exclusive ? "wx" : "w");
+
+    // `exclusive` means the name must be free, so it is taken now rather than
+    // at the rename below — the empty file that reserves it is renamed over
+    // when the write finishes, and removed when it is abandoned.
+    if (exclusive) {
+      noteContent(path, "");
+      await (await open(path, "wx")).close();
+    }
+
+    // The bytes go to a temp file beside the destination and are renamed into
+    // place once they are whole. Nothing ever sees half an asset — not the
+    // watcher, not a scan of the library, not an import — so there is no
+    // window anyone has to be kept out of.
+    const temp = tempPathFor(path);
+    const handle = await open(temp, "wx");
     const id = randomUUID();
-    openWrites.set(id, { handle, path });
+    openWrites.set(id, { handle, path, temp, reserved: exclusive === true });
     return { id };
   });
 
   mainBridge.handle(MAIN_CHANNELS.FILE_WRITE_CHUNK, async ({ id, data, position }) => {
     const entry = openWrites.get(id);
     if (!entry) throw new Error(`No open file for write id ${id}`);
-    markSelfWriteAbsolute(entry.path);
     await entry.handle.write(data, 0, data.byteLength, position);
   });
 
@@ -329,11 +410,21 @@ if (app.requestSingleInstanceLock()) {
     const entry = openWrites.get(id);
     if (!entry) return;
     openWrites.delete(id);
-    markSelfWriteAbsolute(entry.path);
-    await entry.handle.close();
+    try {
+      await entry.handle.close();
+      // Claimed before the rename, which is the first and only moment the
+      // destination changes (see `noteRenamed`).
+      await noteRenamed(entry.temp, entry.path);
+      await rename(entry.temp, entry.path);
+    } catch (error) {
+      await unlink(entry.temp).catch(() => { });
+      throw error;
+    }
   });
 
-  // Abort: close the fd and delete the partial file (cancel / error cleanup).
+  // Abort: close the fd and drop the temp file (cancel / error cleanup). The
+  // destination is left alone — an abandoned write never reached it — bar the
+  // name an `exclusive` open reserved, which is given back.
   mainBridge.handle(MAIN_CHANNELS.FILE_WRITE_ABORT, async ({ id }) => {
     const entry = openWrites.get(id);
     if (!entry) return;
@@ -341,7 +432,11 @@ if (app.requestSingleInstanceLock()) {
     try {
       await entry.handle.close();
     } finally {
-      await unlink(entry.path).catch(() => { });
+      await unlink(entry.temp).catch(() => { });
+      if (entry.reserved) {
+        noteContent(entry.path, null);
+        await unlink(entry.path).catch(() => { });
+      }
     }
   });
 
@@ -359,15 +454,26 @@ if (app.requestSingleInstanceLock()) {
     const url = findProtocolUrl(process.argv);
     if (url) deliverDeepLink(url);
 
-    startCliServer();
-    healSkillsLinks();
+    dapi.start();
+    // The chat's sessions get the MCP server by URL; `?client=chat` keeps the
+    // app from switching into remote-controlled mode for them (see dapi/http).
+    dapi.mcpUrl().then((url) =>
+      startAgentChat({
+        dataDir: join(app.getPath("userData"), "agent-chat"),
+        mcpUrl: url ? `${url}?client=chat` : null,
+        version: app.getVersion(),
+      }),
+    );
+    refreshCliShim();
+    healMcpRegistrations();
     trackInstall();
     createWindow(!isHiddenLaunch(process.argv));
   });
 
   app.on("before-quit", () => {
     unwatchAll();
-    stopCliServer();
+    stopAgentChat();
+    dapi.stop();
   });
 
   app.on("window-all-closed", () => {

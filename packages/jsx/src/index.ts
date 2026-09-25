@@ -12,9 +12,14 @@
 
 export {
   generate,
+  transform,
   AssetRef,
   isAssetRef,
   getAssetSpec,
+  getAssetInputs,
+  mapAssetInputs,
+  isTransformSpec,
+  isTransformType,
   serializeAssetRef,
   isSerializedAssetRef,
 } from "./generate";
@@ -22,8 +27,12 @@ export type {
   AspectRatio,
   AssetInput,
   AssetSpecInput,
-  FlatAssetSpec,
+  GenerateSpec,
+  TransformSpec,
+  TransformType,
+  SerializedAssetInput,
   SerializedAssetRef,
+  SerializedAssetSpec,
   GenerateAudioOptions,
   GenerateImageOptions,
   GenerateVideoOptions,
@@ -43,7 +52,7 @@ export {
   parseSource,
 } from "./source";
 export type { CompositionTag, PropValue } from "./source";
-export { useTicker } from "./hooks";
+export { useResolution, useTicker } from "./hooks";
 export type { Ticker } from "./hooks";
 export { INSPECT_TAG, INSPECT_TYPES, __inspect } from "./inspect";
 export type { InspectDeclaration, InspectType, InspectValue } from "./inspect";
@@ -64,6 +73,7 @@ export type {
   Fit,
   GradientPaintProps,
   GroupProps,
+  HorizontalConstraint,
   HtmlPaintProps,
   HtmlProps,
   ImageProps,
@@ -90,5 +100,6 @@ export type {
   Time,
   TransitionSpec,
   TransitionType,
+  VerticalConstraint,
   VideoProps,
 } from "./types";

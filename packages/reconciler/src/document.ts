@@ -3,7 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 
-import { Active, AdjustmentLayer, Animation, AnimationPhase, AnimationType, appendChild, AssetId, Audio, Background, bindAsset, BlendMode, BlendModeType, Blur, Caption, CaptionAlign, CAPTION_PRESET_FILLS, CAPTION_PRESET_STYLES, CaptionType, Chars, ClipHeight, ClipsContent, Computed, CornerRadius, createEntity, DEFAULT_BACKGROUND, Color, ColorStop, Delay, Effect, EffectType, Expanded, FontStyle, FramePromises, FrameRate, Generating, GenerationRequest, getActiveEntity, Loop, LoadRequest, Geometry, GeometryType, getEntityTree, getParentEntity, getParentNode, Hidden, Host, IsMask, isText, ItemIndex, KeepAspectRatio, Keyframe, KeyframeTrack, MixedCornerRadius, Muted, Name, Offset, Opacity, Paint, PaintType, parseColor, PendingSource, PendingSync, Playback, PlaybackRate, Position, removeChild, RenderSurface, resizeEntity, Scale, ScaleMode, ScaleModeType, secondsToFrames, getAsset, getEntityChildren, Group, Sequential, Shader, Size, Stage, Root, Rotation, Scene, Selected, Shadow, Source, SourceError, SourceFrameRate, SourceModifiers, hasModifier, setCameraMatrix, setTimelineView, Stroke, StrokeCap, StrokeJoin, StrokeStyle, SyncRequest, TextAlign, TextBaseline, TextCase, TextRange, TextStyle, TranscriptionRequest, Transition, TransitionType, Trim, UniformScale, Volume, Workarea } from '@diffusionstudio/runtime';
+import { Active, AdjustmentLayer, Animation, AnimationPhase, AnimationType, appendChild, AssetId, Audio, Background, bindAsset, BlendMode, BlendModeType, Blur, Caption, CaptionAlign, CAPTION_PRESET_FILLS, CAPTION_PRESET_STYLES, CaptionType, Chars, ClipHeight, ClipsContent, Computed, Constraint, ConstraintCache, ConstraintType, CornerRadius, createEntity, DEFAULT_BACKGROUND, Color, ColorStop, Delay, Effect, EffectType, Expanded, FontStyle, FramePromises, FrameRate, Generating, GenerationRequest, getActiveEntity, Loop, LoadRequest, Geometry, GeometryType, getEntityTree, getParentEntity, getParentNode, Hidden, Host, IsMask, isText, ItemIndex, KeepAspectRatio, Keyframe, KeyframeTrack, MixedCornerRadius, Mode, Muted, Name, Offset, Opacity, Paint, PaintType, parseColor, PendingSource, PendingSync, Playback, PlaybackRate, Position, removeChild, RenderSurface, resizeEntity, Scale, ScaleMode, ScaleModeType, secondsToFrames, getAsset, getEntityChildren, Group, Sequential, Shader, Size, Stage, Root, Rotation, Scene, Selected, Shadow, Source, SourceFrameRate, setCameraMatrix, setPlayhead, setTimelineView, Stroke, StrokeCap, StrokeJoin, StrokeStyle, SyncRequest, TextAlign, TextBaseline, TextCase, TextRange, TextStyle, TranscriptionRequest, Transition, TransitionType, Trim, UniformScale, Volume, Workarea } from '@diffusionstudio/runtime';
 import { LOOP_ATTR, parseTime, SOURCE_ATTR } from '@diffusionstudio/jsx';
 import { createSignal } from 'solid-js';
 import { SVGElements } from 'solid-js/web';
@@ -25,15 +25,6 @@ const UNAUTHORED_PROPS: ReadonlySet<string> = new Set([SOURCE_ATTR, LOOP_ATTR, '
  * misses a picture.
  */
 const HOLD_TIMEOUT_MS = 30_000;
-
-/** What an element with no `SourceModifiers` trait is asking for: nothing. */
-const NO_MODIFIERS = { removeBackground: false, upscale: 1, addAudio: false };
-
-/** `upscale` as a factor; anything that is not one above 1 is natural size. */
-function upscaleFactor(value: unknown): number {
-	const factor = typeof value === 'number' ? value : Number(value);
-	return Number.isFinite(factor) && factor > 1 ? factor : 1;
-}
 
 export interface AuthoredElement {
 	/** The camelCase tag the project used. */
@@ -157,6 +148,27 @@ export const BLEND_MODES: Record<string, BlendModeType> = {
 	saturation: BlendModeType.SATURATION,
 	color: BlendModeType.COLOR,
 	luminosity: BlendModeType.LUMINOSITY,
+};
+
+/**
+ * The `constrainX` values as the runtime's anchors: which edge of the scene's
+ * frame the element is pinned to, or how it follows the frame instead.
+ */
+export const HORIZONTAL_CONSTRAINTS: Record<string, ConstraintType> = {
+	left: ConstraintType.MIN,
+	right: ConstraintType.MAX,
+	center: ConstraintType.CENTER,
+	stretch: ConstraintType.STRETCH,
+	scale: ConstraintType.SCALE,
+};
+
+/** The same for `constrainY`, whose near and far edges are top and bottom. */
+export const VERTICAL_CONSTRAINTS: Record<string, ConstraintType> = {
+	top: ConstraintType.MIN,
+	bottom: ConstraintType.MAX,
+	center: ConstraintType.CENTER,
+	stretch: ConstraintType.STRETCH,
+	scale: ConstraintType.SCALE,
 };
 
 /**
@@ -386,6 +398,7 @@ export class RuntimeDocument implements ProjectDocument<SceneNode> {
 		};
 		root.add(Host);
 		root.set(Host, this.stage);
+		this.resolutionSignal[1](this.readResolution());
 	}
 
 	/**
@@ -842,6 +855,14 @@ export class RuntimeDocument implements ProjectDocument<SceneNode> {
 				}
 				return;
 			}
+			case 'playhead': {
+				if (!entity.has(Scene)) return;
+				const seconds = toSeconds(value);
+				if (seconds !== undefined) {
+					setPlayhead(this.world, entity, this.toFrames(seconds));
+				}
+				return;
+			}
 			case 'x':
 			case 'y': {
 				if (entity.has(Sequential)) return;
@@ -880,6 +901,28 @@ export class RuntimeDocument implements ProjectDocument<SceneNode> {
 				if (entity.has(Sequential)) return;
 				entity.add(Scale);
 				entity.set(Scale, { [name === 'scaleX' ? 'x' : 'y']: toNumber(value) ?? 1 });
+				return;
+			}
+			case 'constrainX':
+			case 'constrainY': {
+				const { entity, props } = node;
+				// A sequence is not a spatial construct; it mirrors its parent's frame.
+				if (entity.has(Sequential)) return;
+
+				const horizontal = typeof props.constrainX === 'string' ? HORIZONTAL_CONSTRAINTS[props.constrainX] : undefined;
+				const vertical = typeof props.constrainY === 'string' ? VERTICAL_CONSTRAINTS[props.constrainY] : undefined;
+
+				if (horizontal === undefined && vertical === undefined) {
+					entity.remove(Constraint);
+					entity.remove(ConstraintCache);
+					return;
+				}
+
+				entity.add(Constraint);
+				entity.set(Constraint, {
+					horizontal: horizontal ?? ConstraintType.MIN,
+					vertical: vertical ?? ConstraintType.MIN,
+				});
 				return;
 			}
 			case 'cornerRadius': {
@@ -1155,18 +1198,6 @@ export class RuntimeDocument implements ProjectDocument<SceneNode> {
 				entity.set(LoadRequest, { value });
 				return;
 			}
-			case 'error': {
-				const message = typeof value === 'string' && value !== '' ? value : undefined;
-
-				if (message === undefined) {
-					entity.remove(SourceError);
-					return;
-				}
-
-				entity.add(SourceError);
-				entity.set(SourceError, { value: message, generated: true });
-				return;
-			}
 			case 'objectFit': {
 				const mode = typeof value === 'string' ? SCALE_MODES[value] : undefined;
 				if (mode === undefined) {
@@ -1334,47 +1365,6 @@ export class RuntimeDocument implements ProjectDocument<SceneNode> {
 						? CAPTION_ALIGNS[value]
 						: undefined,
 				});
-				return;
-			}
-			case 'removeBackground':
-			case 'addAudio':
-			case 'upscale': {
-				const current = entity.get(SourceModifiers) ?? NO_MODIFIERS;
-				const next = {
-					...current,
-					[name]: name === 'upscale' ? upscaleFactor(value) : value === true,
-				};
-
-				if (
-					next.removeBackground === current.removeBackground
-					&& next.upscale === current.upscale
-					&& next.addAudio === current.addAudio
-				) return;
-
-				if (hasModifier(next)) {
-					entity.add(SourceModifiers);
-					entity.set(SourceModifiers, next);
-				} else {
-					entity.remove(SourceModifiers);
-				}
-
-				if (entity.has(LoadRequest) || entity.has(GenerationRequest)) return;
-
-				const src = node.props.src;
-				if (src === undefined || src === null || src === '') return;
-
-				// A resolution running for the old modifiers must not bind late.
-				entity.remove(PendingSource, Generating);
-
-				if (typeof src === 'string') {
-					entity.add(LoadRequest);
-					entity.set(LoadRequest, { value: src });
-					return;
-				}
-
-				entity.add(GenerationRequest);
-				entity.set(GenerationRequest, { ref: src as AssetRef });
-
 				return;
 			}
 			case 'seed': {
@@ -1684,6 +1674,25 @@ export class RuntimeDocument implements ProjectDocument<SceneNode> {
 		return this.ticker[0]();
 	}
 
+	// The rasterization density behind `useResolution`: device pixels per
+	// composition pixel, camera zoom excluded — a constant 1 in the live
+	// editor, the export scale offline. Read into a signal alongside
+	// the ticker, so an encoder that learns its scale only after the mount
+	// still propagates it before the first frame is sampled.
+	private readonly resolutionSignal = createSignal(1);
+
+	public resolution(): number {
+		return this.resolutionSignal[0]();
+	}
+
+	// The value the resolution signal is fed with: the surface's pixel ratio
+	// only while exporting — a realtime world always reports 1, so a project
+	// never sees the display's pixel ratio.
+	private readResolution(): number {
+		if (this.world.get(Mode)?.value === 'realtime') return 1;
+		return this.world.get(RenderSurface)?.resolution ?? 1;
+	}
+
 	/**
 	 * The barrier behind `useTicker().hold`: a project's own async work, put
 	 * where the frames in flight wait for it — the same list the decoders push
@@ -1729,6 +1738,7 @@ export class RuntimeDocument implements ProjectDocument<SceneNode> {
 		const time = computed?.localTimeInSeconds ?? 0;
 		const delta = this.lastTickTime === null ? 0 : time - this.lastTickTime;
 		this.lastTickTime = time;
+		this.resolutionSignal[1](this.readResolution());
 		this.ticker[1]({
 			time,
 			frame: computed?.localTime ?? 0,

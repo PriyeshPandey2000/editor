@@ -7,11 +7,14 @@ import { join } from "node:path";
 import { access, writeFile } from "node:fs/promises";
 
 /**
- * Install tracking, proxied by the first launch of a packaged build. The
- * renderer's Umami script never fires inside Electron (its `data-domains`
- * gate does not match the `file://` origin), so main posts one event
- * directly to Umami's send API and drops a marker file in `userData` to
- * never send it again. Offline first launches retry on the next launch.
+ * Desktop analytics. The renderer's Umami script never fires inside Electron
+ * (its `data-domains` gate does not match the `file://` origin), so main
+ * posts events directly to Umami's send API: the renderer's product events
+ * arrive over `ANALYTICS_TRACK`, and the install event is sent from here.
+ *
+ * Install tracking is proxied by the first launch of a packaged build: one
+ * event, then a marker file in `userData` to never send it again. Offline
+ * first launches retry on the next launch.
  */
 
 const UMAMI_ENDPOINT = "https://cloud.umami.is/api/send";
@@ -32,6 +35,36 @@ function userAgent(): string {
   return `Mozilla/5.0 (${platform}) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36`;
 }
 
+export type AnalyticsEventData = Record<string, string | number | boolean>;
+
+/** Post one event to Umami. Resolves to whether Umami accepted it; never throws. */
+async function sendEvent(name: string, url: string, data: AnalyticsEventData): Promise<boolean> {
+  try {
+    const response = await fetch(UMAMI_ENDPOINT, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "User-Agent": userAgent() },
+      body: JSON.stringify({
+        type: "event",
+        payload: { website: UMAMI_WEBSITE_ID, hostname: HOSTNAME, url, name, data },
+      }),
+    });
+    return response.ok;
+  } catch {
+    // Offline or Umami unreachable.
+    return false;
+  }
+}
+
+/** A product event from the renderer. Dev builds stay out of the numbers. */
+export async function trackEvent(name: string, data: AnalyticsEventData = {}): Promise<void> {
+  if (!app.isPackaged) return;
+  await sendEvent(name, "/desktop", {
+    ...data,
+    platform: process.platform,
+    version: app.getVersion(),
+  });
+}
+
 export async function trackInstall(): Promise<void> {
   if (!app.isPackaged) return;
 
@@ -43,29 +76,11 @@ export async function trackInstall(): Promise<void> {
     // No marker yet — this is the first (tracked) launch.
   }
 
-  try {
-    const response = await fetch(UMAMI_ENDPOINT, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "User-Agent": userAgent() },
-      body: JSON.stringify({
-        type: "event",
-        payload: {
-          website: UMAMI_WEBSITE_ID,
-          hostname: HOSTNAME,
-          url: "/desktop/install",
-          name: "desktop_install",
-          data: {
-            platform: process.platform,
-            arch: process.arch,
-            version: app.getVersion(),
-          },
-        },
-      }),
-    });
-    if (response.ok) {
-      await writeFile(marker, new Date().toISOString());
-    }
-  } catch {
-    // Offline or Umami unreachable — retried on the next launch.
-  }
+  const sent = await sendEvent("desktop_install", "/desktop/install", {
+    platform: process.platform,
+    arch: process.arch,
+    version: app.getVersion(),
+  });
+  // Not sent — retried on the next launch.
+  if (sent) await writeFile(marker, new Date().toISOString()).catch(() => {});
 }
