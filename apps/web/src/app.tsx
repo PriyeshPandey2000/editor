@@ -10,14 +10,16 @@ import { AppContextMenu } from "@/components/app-context-menu";
 
 import { AuthProvider, useAuth } from '@/context/auth';
 import { PersistRoute } from '@/lib/persist-route';
-import { EditorApi } from '@/context/dapi';
+import { useColorMode } from "@kobalte/core";
+import { mainBridge } from "@/lib/ipc";
+import { MAIN_CHANNELS } from "@desktop/main-channels";
+import { EditorApi } from '@/dapi';
 import { UpgradeDialog } from '@/components/upgrade-dialog';
 import { PurchaseSuccess } from '@/components/purchase-success';
 import { ScreenTooSmall } from '@/components/screen-too-small';
 import { UnsupportedBrowser } from '@/components/unsupported-browser';
 import { ProjectPage } from '@/pages/project';
 import { LoginPage } from '@/pages/login';
-import { OnboardingPage, onboardingCompleted } from '@/pages/onboarding';
 import { AuthCallbackPage } from '@/pages/auth-callback';
 import { NotFoundPage } from '@/pages/not-found';
 import { DashboardPage } from '@/pages/dashboard';
@@ -27,13 +29,8 @@ function AuthGate(props: { children: JSX.Element }) {
 
   return (
     <Show when={!auth.isLoading()}>
-      <Show when={auth.isAuthenticated() || auth.headless()}>
-        <Show
-          when={onboardingCompleted() || auth.headless()}
-          fallback={<OnboardingPage />}
-        >
-          {props.children}
-        </Show>
+      <Show when={auth.isAuthenticated()}>
+        {props.children}
       </Show>
       <Show when={!auth.isAuthenticated()}>
         <LoginPage />
@@ -48,6 +45,18 @@ function BootSplash() {
   createEffect(() => {
     if (auth.isLoading()) return;
     document.getElementById('boot-splash')?.remove();
+  });
+
+  return null;
+}
+
+function TitleBarColorMode() {
+  const { colorMode } = useColorMode();
+
+  createEffect(() => {
+    if (window.desktop?.platform === "win32") {
+      mainBridge.call(MAIN_CHANNELS.WINDOW_SET_COLOR_MODE, { mode: colorMode() });
+    };
   });
 
   return null;
@@ -83,6 +92,7 @@ function App() {
           <Toaster />
           <EnvironmentOverlays />
           <PersistRoute />
+          <TitleBarColorMode />
         </ColorModeProvider>
       )}
     >

@@ -21,7 +21,7 @@ import { useGenerateVoice } from "./use-generate-voice";
 import { useGenerateAudio } from "./use-generate-audio";
 import { useAutoCaptions } from "./use-auto-captions";
 import { useMediaSelection } from "./selection";
-import { useModifiers } from "./use-modifiers";
+import { useTransforms } from "./use-transforms";
 import { createDefaultConfig } from "./prompt-input";
 import { toast } from "somoto";
 
@@ -33,7 +33,7 @@ interface ActionBarProps {
 
 export function ActionBar(props: ActionBarProps) {
   const { imageNodes, videoNodes } = useMediaSelection();
-  const { isOn, toggle } = useModifiers();
+  const { isOn, toggle } = useTransforms();
 
   const { generate: generateImage } = useGenerateImage();
   const { generate: generateVideo } = useGenerateVideo();

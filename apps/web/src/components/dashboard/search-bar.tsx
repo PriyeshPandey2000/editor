@@ -22,8 +22,8 @@ type DashboardSearchPanelProps = {
 
 export function DashboardSearchBar(props: DashboardSearchBarProps) {
   return (
-    <div class="flex h-12 shrink-0 items-center border-b border-border px-4">
-      <TextField class="relative flex h-7 w-full items-center gap-0">
+    <div class="flex h-12 shrink-0 items-center border-b border-border pl-4 pr-[calc(1rem+var(--titlebar-controls-width))] [[data-platform=win32]_&]:h-10 [[data-platform=win32]_&]:[-webkit-app-region:drag]">
+      <TextField class="relative flex h-7 w-full items-center gap-0 [-webkit-app-region:no-drag]">
         <div class="grid size-7 place-items-center overflow-clip text-muted-foreground">
           <Icon name="search" class="size-6" />
         </div>

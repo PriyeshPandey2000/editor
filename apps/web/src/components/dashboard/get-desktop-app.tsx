@@ -11,7 +11,7 @@ import {
   ContextMenuPortal,
   ContextMenuTrigger,
 } from "@/components/ui/context-menu";
-import { downloadDesktopApp } from "@/lib/desktop-app";
+import { desktopAppDownloadLabel, downloadDesktopApp } from "@/lib/desktop-app";
 import { createStoredSignal } from "@/lib/store";
 import { track } from "@/lib/analytics";
 import { store } from "@/init";
@@ -46,13 +46,13 @@ export function DashboardGetDesktopApp() {
             <div class="flex min-w-0 flex-1 flex-col gap-0.5">
               <p class="text-xs font-450 leading-4 text-foreground">Get desktop app</p>
               <p class="text-xxs leading-3.5 text-muted-foreground">
-                The Mac app lets Claude Code, Codex, and any coding agents work with your footage
-                and project.
+                The desktop app lets Claude Code, Codex, and any coding agents work with your
+                footage and project.
               </p>
             </div>
           </div>
           <Button variant="secondary" onClick={() => downloadDesktopApp("dashboard_footer")}>
-            Download for macOS
+            {desktopAppDownloadLabel()}
           </Button>
         </ContextMenuTrigger>
         <ContextMenuPortal>

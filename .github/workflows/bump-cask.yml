@@ -19,8 +19,14 @@ jobs:
           if [ -z "$TAG" ]; then
             TAG=$(curl -sf https://api.github.com/repos/diffusionstudio/editor/releases/latest | jq -r .tag_name)
           fi
+          # Draft releases carry a placeholder tag (untagged-<hash>); never write that into the cask.
+          if ! echo "$TAG" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+$'; then
+            echo "Refusing to bump cask: '$TAG' is not a vX.Y.Z tag" >&2
+            exit 1
+          fi
           VERSION="${TAG#v}"
-          curl -sfL -o app.dmg "https://github.com/diffusionstudio/editor/releases/download/${TAG}/Diffusion-Studio-arm64.dmg"
+          # The release event can fire before the DMG upload finishes; 404s are retried too.
+          curl -sfL --retry 10 --retry-delay 30 --retry-all-errors -o app.dmg "https://github.com/diffusionstudio/editor/releases/download/${TAG}/Diffusion-Studio-arm64.dmg"
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "sha256=$(shasum -a 256 app.dmg | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
 

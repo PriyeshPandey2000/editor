@@ -30,7 +30,6 @@ type AuthContextValue = {
   session: Accessor<Session | null>;
   user: Accessor<User | null>;
   isAuthenticated: Accessor<boolean>;
-  headless: Accessor<boolean>;
   isLoading: Accessor<boolean>;
   accessLevel: Accessor<number>;
   remainingCredits: Accessor<number>;
@@ -67,22 +66,6 @@ const USER_DATA_QUERY = "lifetime_credit_balance,monthly_credit_balance,monthly_
 export function AuthProvider(props: { children: JSX.Element }) {
   const [session, setSession] = createSignal<Session | null>(null);
   const [isLoading, setIsLoading] = createSignal(true);
-  const [headless, setHeadless] = createSignal(false);
-
-  onMount(() => {
-    if (!window.desktop) return;
-
-    mainBridge
-      .call(MAIN_CHANNELS.HEADLESS_GET_MODE, undefined)
-      .then(setHeadless)
-
-    const unsubscribe = mainBridge.handle(
-      MAIN_CHANNELS.HEADLESS_MODE,
-      ({ active }) => setHeadless(active)
-    );
-    onCleanup(unsubscribe);
-  });
-
   onMount(() => {
     if (!supabase) {
       setIsLoading(false);
@@ -311,7 +294,6 @@ export function AuthProvider(props: { children: JSX.Element }) {
     hasStripeCustomer,
     user: () => session()?.user ?? null,
     isAuthenticated: () => !!session(),
-    headless,
     isLoading,
     accessLevel,
     remainingCredits,

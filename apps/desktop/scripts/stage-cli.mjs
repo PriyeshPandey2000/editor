@@ -4,12 +4,19 @@
 
 // Stages the dapi CLI into apps/desktop/cli so electron-forge can ship it as
 // an app resource (Contents/Resources/cli). The staged layout:
-//   cli/dapi.js        bundled CLI (built by apps/cli)
-//   cli/node_modules   deps the bundle keeps external (esbuild, babel)
-//   cli/bin/dapi       shell wrapper, the file that gets linked into PATH
+//   cli/dapi.js        bundled CLI (built by apps/cli), self-contained
+//   cli/bin/dapi       macOS shell wrapper: what Claude Desktop runs as
+//                      `dapi mcp` (registered by mcp-install.ts) and the file
+//                      that gets linked into PATH
+//   cli/bin/dapi.cmd   Windows wrapper, relative to the install folder. PATH
+//                      and the agents get a shim outside the install folder
+//                      instead (src/cli-windows.ts), since Squirrel moves the
+//                      app on every update; this one is for running the CLI
+//                      straight out of an install.
+// Each host stages its own wrapper; `--all` stages both, so a macOS host can
+// produce a Windows tree for inspection.
 
-import { execFileSync } from "node:child_process";
-import { chmodSync, cpSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, cpSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -17,40 +24,16 @@ const desktopDir = join(dirname(fileURLToPath(import.meta.url)), "..");
 const cliDir = join(desktopDir, "..", "cli");
 const stageDir = join(desktopDir, "cli");
 
-// Must match the --external list in the apps/cli build script, minus ws's
-// optional native addons (bufferutil, utf-8-validate): those are external
-// only so the bundle doesn't choke on them, and ws falls back to its JS
-// implementations when they are absent.
-const EXTERNALS = ["esbuild", "@babel/core", "@babel/preset-typescript", "babel-preset-solid"];
-
-const cliPkg = JSON.parse(readFileSync(join(cliDir, "package.json"), "utf8"));
-
 rmSync(stageDir, { recursive: true, force: true });
 mkdirSync(join(stageDir, "bin"), { recursive: true });
 
 cpSync(join(cliDir, "dist", "index.js"), join(stageDir, "dapi.js"));
 
-writeFileSync(
-  join(stageDir, "package.json"),
-  JSON.stringify(
-    {
-      name: "dapi-runtime",
-      private: true,
-      dependencies: Object.fromEntries(EXTERNALS.map((name) => [name, cliPkg.dependencies[name]])),
-    },
-    null,
-    2,
-  ),
-);
-
-execFileSync("npm", ["install", "--omit=dev", "--no-audit", "--no-fund", "--no-package-lock"], {
-  cwd: stageDir,
-  stdio: "inherit",
-});
-
 // The wrapper runs the CLI bundle on the app's own Electron binary in Node
 // mode, so users need no separate Node install. It resolves symlinks first
 // because both Homebrew and the in-app installer link it into PATH.
+const all = process.argv.includes("--all");
+
 const wrapper = `#!/bin/sh
 SELF="$0"
 while [ -L "$SELF" ]; do
@@ -64,27 +47,23 @@ DIR="$(cd "$(dirname "$SELF")" && pwd)"
 export DIFFUSION_APP_PATH="$(cd "$DIR/../../../.." && pwd)"
 ELECTRON_RUN_AS_NODE=1 exec "$DIR/../../../MacOS/Diffusion Studio" "$DIR/../dapi.js" "$@"
 `;
-writeFileSync(join(stageDir, "bin", "dapi"), wrapper);
-chmodSync(join(stageDir, "bin", "dapi"), 0o755);
 
-// Mach-O files inside Resources are not reached by the app-bundle signing
-// pass, and notarization rejects unsigned executables; sign them here.
-if (process.platform === "darwin" && !process.env.SKIP_SIGN) {
-  const identities = execFileSync("security", ["find-identity", "-v", "-p", "codesigning"], {
-    encoding: "utf8",
-  });
-  const identity = identities.match(/"(Developer ID Application: [^"]+)"/)?.[1];
-  if (identity) {
-    const esbuildDir = join(stageDir, "node_modules", "@esbuild");
-    for (const pkg of readdirSync(esbuildDir)) {
-      const bin = join(esbuildDir, pkg, "bin", "esbuild");
-      execFileSync("codesign", ["--force", "--options", "runtime", "--timestamp", "--sign", identity, bin], {
-        stdio: "inherit",
-      });
-    }
-  } else {
-    console.warn("stage-cli: no Developer ID identity found, leaving esbuild binary unsigned");
-  }
+if (all || process.platform !== "win32") {
+  writeFileSync(join(stageDir, "bin", "dapi"), wrapper);
+  chmodSync(join(stageDir, "bin", "dapi"), 0o755);
+}
+
+// Staged at <install>\resources\cli\bin, three folders below the executable.
+const cmdWrapper = [
+  "@echo off",
+  "setlocal",
+  'set "ELECTRON_RUN_AS_NODE=1"',
+  '"%~dp0..\\..\\..\\Diffusion Studio.exe" "%~dp0..\\dapi.js" %*',
+  "",
+].join("\r\n");
+
+if (all || process.platform === "win32") {
+  writeFileSync(join(stageDir, "bin", "dapi.cmd"), cmdWrapper);
 }
 
 console.log(`stage-cli: staged dapi at ${stageDir}`);

@@ -6,6 +6,7 @@ import { basename, dirname } from "@diffusionstudio/assets";
 import { usePromptInput } from "@/context/prompt-input";
 import { createDefaultConfig } from "@/components/genai/prompt-input";
 import { createEffect, createMemo, createSignal, For, onCleanup, onMount, Show } from "solid-js";
+import { SidebarTabs } from "@/agent-chat";
 import { Button } from "../ui/button";
 import { Icon } from "../ui/icon";
 import {
@@ -27,6 +28,7 @@ import {
   BreadcrumbsSeparator,
 } from "../ui/breadcrumbs";
 import { LazyAssetItem } from "./asset-item";
+import { PartialAssetItem } from "./partial-asset-item";
 import { FolderItem, handleFolderDrop, isAssetOrFolderDrag, ASSET_DRAG_TYPE, FOLDER_DRAG_TYPE } from "./folder-item";
 import { useLibrary } from "@/engine/library";
 import { useAssetSelection } from "@/engine/hooks";
@@ -56,6 +58,7 @@ export function Assets() {
   const [currentFolder, setCurrentFolder] = createSignal("");
 
   const allAssets = createMemo(() => library()?.list().filter((asset) => asset.type !== "SCRIPT") ?? []);
+  const allPartials = createMemo(() => library()?.partials() ?? []);
   const allFolders = createMemo(() => [...(library()?.folders() ?? [])].sort());
 
   const activeFilterLabel = () => {
@@ -64,17 +67,17 @@ export function Assets() {
     return ASSET_FILTER_OPTIONS.find((option) => option.value === value)?.label ?? null;
   };
 
-  const filteredAssets = createMemo(() => {
+  /** Whether an entry is in view: of the filtered type, matching the search, or in the open folder. */
+  const isShown = (entry: { type: string; path: string }): boolean => {
     const q = query().trim().toLowerCase();
     const selectedFilter = assetFilter();
-    const folder = currentFolder();
+    if (selectedFilter !== "ALL" && entry.type !== selectedFilter) return false;
+    if (q) return basename(entry.path).toLowerCase().includes(q);
+    return dirname(entry.path) === currentFolder();
+  };
 
-    return allAssets().filter((asset) => {
-      if (selectedFilter !== "ALL" && asset.type !== selectedFilter) return false;
-      if (q) return basename(asset.path).toLowerCase().includes(q);
-      return dirname(asset.path) === folder;
-    });
-  });
+  const filteredAssets = createMemo(() => allAssets().filter(isShown));
+  const filteredPartials = createMemo(() => allPartials().filter(isShown));
 
   const visibleFolders = createMemo(() => {
     const q = query().trim().toLowerCase();
@@ -84,8 +87,7 @@ export function Assets() {
     return library()?.childrenOf(currentFolder()).folders ?? [];
   });
 
-  const panelTitle = createMemo(() => (currentFolder() ? basename(currentFolder()) : "Assets"));
-  const itemCount = createMemo(() => visibleFolders().length + filteredAssets().length);
+  const itemCount = createMemo(() => visibleFolders().length + filteredPartials().length + filteredAssets().length);
 
   // Deep paths collapse like the breadcrumbs docs example:
   // All assets / … / parent / current, with the hidden folders in a dropdown.
@@ -222,11 +224,11 @@ export function Assets() {
 
     if (event.key === "Backspace" || event.key === "Delete") {
       const selected = selectedAssetId();
-      const asset = selected ? library()?.get(selected) : undefined;
-      if (asset) {
+      const entry = selected ? (library()?.get(selected) ?? library()?.getPartial(selected)) : undefined;
+      if (entry) {
         event.preventDefault();
         event.stopPropagation();
-        void library()?.remove([asset]);
+        void library()?.remove([entry]);
         return;
       }
 
@@ -259,9 +261,9 @@ export function Assets() {
   };
 
   const hasAssets = () => allAssets().length > 0;
-  const hasContent = () => hasAssets() || allFolders().length > 0;
+  const hasContent = () => hasAssets() || allPartials().length > 0 || allFolders().length > 0;
   const isFiltering = () => query().trim().length > 0 || assetFilter() !== "ALL";
-  const isEmptyView = () => visibleFolders().length === 0 && filteredAssets().length === 0;
+  const isEmptyView = () => visibleFolders().length === 0 && filteredPartials().length === 0 && filteredAssets().length === 0;
 
   const handleCreateFolder = () => withLibrary((lib) => {
     const parent = currentFolder();
@@ -308,22 +310,9 @@ export function Assets() {
       ref={root}
       onKeyDown={handleKeyDown}
     >
-      <div class="h-12 shrink-0 flex items-center gap-2 px-4 border-y border-border">
-        <div class="flex-1 min-w-0 flex items-center gap-0.5 text-[12px] leading-5 font-strong text-foreground">
-          <Show when={currentFolder() !== ""}>
-            <Button
-              size="icon"
-              variant="ghost"
-              aria-label="Go to parent folder"
-              onClick={handleGoToParent}
-            >
-              <Icon name="chevron-left" class="text-muted-foreground" />
-            </Button>
-          </Show>
-          <span class="truncate">
-            {panelTitle()}
-            <span class="ml-1 text-muted-foreground">({itemCount()})</span>
-          </span>
+      <div class="h-12 shrink-0 flex items-center gap-2 px-4 border-y border-border [[data-platform=win32]_&]:border-t-0">
+        <div class="flex-1 min-w-0 flex items-center">
+          <SidebarTabs />
         </div>
         <div class="flex items-center gap-1 shrink-0">
           <Show when={hasAssets()}>
@@ -464,7 +453,7 @@ export function Assets() {
               type="text"
               value={query()}
               onInput={(e) => setQuery(e.currentTarget.value)}
-              placeholder="Search"
+              placeholder={`Search in ${itemCount()} ${itemCount() === 1 ? "item" : "items"}`}
               class="w-full h-7 rounded-md bg-input pl-8 pr-0 text-xs text-foreground placeholder:text-muted-foreground outline-none focus-ring"
             />
           </div>
@@ -522,7 +511,7 @@ export function Assets() {
               No matching assets
             </div>
           </Show>
-          <Show when={visibleFolders().length > 0 || filteredAssets().length > 0}>
+          <Show when={!isEmptyView()}>
             <div class="grid grid-cols-2 gap-x-2 gap-y-4">
               <For each={visibleFolders()}>
                 {(folder) => (
@@ -532,6 +521,15 @@ export function Assets() {
                     onRenameStart={() => setRenamingFolder(folder)}
                     onRenameEnd={() => setRenamingFolder(null)}
                     onOpen={() => openFolder(folder)}
+                  />
+                )}
+              </For>
+              <For each={filteredPartials()}>
+                {(partial) => (
+                  <PartialAssetItem
+                    partial={partial}
+                    selected={selectedAssetId() === partial.id}
+                    onSelect={() => handleSelectAsset(partial.id)}
                   />
                 )}
               </For>

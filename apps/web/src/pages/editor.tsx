@@ -2,13 +2,14 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-import { Show, createMemo, createSignal } from "solid-js";
+import { Show, createMemo, createSignal, onMount } from "solid-js";
 import { Canvas } from "@/components/canvas";
+import { leftSidebarWidth } from "@/agent-chat";
 import { Timeline, Layers } from "@/components/timeline";
 import { Soundboard, Inspector } from "@/components/sidebar-right";
-import { FloatingProjectHeader, SidebarLeft } from "@/components/sidebar-left";
+import { EditorTitleBar, FloatingProjectHeader, SidebarLeft } from "@/components/sidebar-left";
 import { useLayout, MIN_TIMELINE_HEIGHT } from "@/context/layout";
-import { useEditorApi } from "@/context/dapi";
+import { useEditorApi } from "@/dapi";
 import { RULER_HEIGHT } from "@/engine/timeline";
 import { createEffect, onCleanup, untrack } from 'solid-js';
 import { toast } from 'somoto';
@@ -23,7 +24,7 @@ import { attachProjectConfig, isProjectConfigFile } from '@/engine/project-confi
 import { loadProjectBundle, rememberProjectBundle } from '@/lib/db';
 import { isCacheFile } from '@diffusionstudio/assets';
 import { createEditWriter } from '@/projects/edits';
-import { compileProject, watchProject } from '@/projects/host';
+import { compileProject, isWindowsDesktop, refreshProject, watchProject } from '@/projects/host';
 import { captureProjectCover } from '@/projects/cover';
 import { useProject } from "@/context/project";
 import { useEngineContext } from "@/engine";
@@ -32,6 +33,7 @@ import type { Mount } from '@diffusionstudio/reconciler';
 import type { EditWriter } from '@/projects/edits';
 
 const MIN_CANVAS_HEIGHT = 200;
+const INSPECTOR_WIDTH = 264;
 
 export function EditorPage() {
   const { uiVisible, timelineMinimized, timelineHeight, setTimelineHeight } = useLayout();
@@ -155,30 +157,45 @@ export function EditorPage() {
 
     load();
   
-    const unwatch = watchProject(dir, (path) => {
-      if (isCacheFile(path)) return;
-      if (isLibraryFile(path)) {
-        library.load();
-      } else {
-        // package.json is the config and the record (`main`, `displayName`)
-        // in one, so a hand edit to it reloads both; the app's own config
-        // writes never reach here (main keeps them from the watcher).
-        if (isProjectConfigFile(path)) {
-          config.load();
-          void project.refresh();
-        }
-        load();
+    // A burst arrives as the whole set of files it touched, so a checkout that
+    // rewrites the library and the sources at once reloads both — reading only
+    // the last path of a burst would answer for one of them and drop the rest.
+    const unwatch = watchProject(dir, (paths) => {
+      const changed = paths.filter((path) => !isCacheFile(path));
+      if (changed.some(isLibraryFile)) library.load();
+
+      const source = changed.filter((path) => !isLibraryFile(path));
+      if (!source.length) return;
+      // package.json is the config and the record (`main`, `displayName`)
+      // in one, so a hand edit to it reloads both; the app's own config
+      // writes never reach here (main keeps them from the watcher).
+      if (source.some(isProjectConfigFile)) {
+        config.load();
+        project.refresh();
       }
+      load();
     });
 
     onCleanup(() => {
       disposed = true;
       captureProjectCover(dir, engine.snapshot());
+      refreshProject(dir);
       unwatch();
       unmount();
       config.dispose();
       library.dispose();
     });
+  });
+
+  // The left column follows the sidebar's tab (264 px on Assets, 340 px on
+  // Chat) and animates between the two — except on load, where the stored
+  // tab is read before first paint and the transition only comes on after
+  // the first frame. Toggling `uiVisible` changes the track count, which
+  // Chromium does not interpolate, so that still snaps as before.
+  const [animateColumns, setAnimateColumns] = createSignal(false);
+  onMount(() => {
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    requestAnimationFrame(() => requestAnimationFrame(() => setAnimateColumns(true)));
   });
 
   const timelineStyles = createMemo(() => {
@@ -187,7 +204,9 @@ export function EditorPage() {
     const height = timelineMinimized() ? RULER_HEIGHT : timelineHeight();
 
     return {
+      'grid-template-columns': `${leftSidebarWidth()}px 1px 1fr 1px ${INSPECTOR_WIDTH}px`,
       'grid-template-rows': `1fr 1px ${height}px`,
+      ...(animateColumns() ? { transition: 'grid-template-columns 200ms ease-out' } : {}),
     };
   });
 
@@ -220,15 +239,15 @@ export function EditorPage() {
 
   return (
     <div
-      class="bg-sidebar h-screen w-full overflow-hidden grid"
+      class="bg-sidebar h-screen w-full overflow-hidden grid pt-(--titlebar-height)"
       classList={{
-        'grid-cols-[264px_1px_1fr_1px_264px]': uiVisible(),
         'grid-cols-[1fr]': !uiVisible(),
         'grid-rows-[1fr]': !uiVisible(),
       }}
       style={timelineStyles()}
     >
-      <Show when={isDesktop && !isFullscreen()}>
+      <EditorTitleBar leftWidth={leftSidebarWidth() + 1} controlsWidth={INSPECTOR_WIDTH + 1} />
+      <Show when={isDesktop && !isWindowsDesktop() && !isFullscreen()}>
         <div class="fixed top-0 left-0 right-0 h-10 z-20" style="-webkit-app-region: drag;" />
       </Show>
       <Show when={uiVisible()}>
@@ -268,7 +287,8 @@ export function EditorPage() {
           <Soundboard />
         </Show>
       </Show>
-      <Show when={!uiVisible()}>
+      {/* The Windows title bar stays up with the UI hidden and offers the same. */}
+      <Show when={!uiVisible() && !isWindowsDesktop()}>
         <FloatingProjectHeader />
       </Show>
     </div>
